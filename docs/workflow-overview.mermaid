@@ -1,0 +1,71 @@
+flowchart LR
+
+  subgraph S1["① DECIDE — free, under 3 minutes"]
+    direction TB
+    A["Screen 1 — Landing<br/><small>one question, one call to action</small>"] --> B["Screen 2 — Wizard<br/><small>5 scoring questions<br/>+ 4 the maths needs</small>"]
+    B --> C["Screen 3 — Proposed package<br/><small>RP1…RP5 from a weighted score<br/><b>the value moment, still free</b></small>"]
+  end
+
+  subgraph S2["② COMMIT"]
+    direction TB
+    D["Screen 4 — Self-serve or consultant<br/><small>consultant = +$30 per report</small>"] --> E["Pay — Paddle<br/><small>Merchant of Record, handles VAT</small>"]
+  end
+
+  subgraph S3["③ INGEST — load → parse → validate → persist"]
+    direction TB
+    F["① Screen 5 — Load documents<br/><small>CSV / XLSX now, API later<br/><b>every batch tagged ledger or bank</b></small>"] --> G["② Parse<br/><small>charset · delimiter · header row<br/>number and date locale</small>"]
+    G --> H{"Mapping<br/>confident?"}
+    H -- yes --> I["Auto-map<br/><small>20-row preview</small>"]
+    H -- no --> J["Confirm columns<br/><small>saved as an import profile</small>"]
+    I --> V["③ Validate<br/><small>correctness per row<br/><b>opening + movements = closing</b></small>"]
+    J --> V
+    V --> W{"Valid?"}
+    W -- "errors" --> X["Reject the batch<br/><small>nothing is persisted<br/>error list by original line no.</small>"]
+    W -- "ok / warnings" --> K["④ Persist + dedup<br/><small>one row per payment or posting<br/>D1 file · D2 in-batch · D3 cross-batch<br/>D4 ledger↔bank · internal transfers</small>"]
+    X -. "fix and re-upload" .-> F
+  end
+
+  subgraph S4["④ CLASSIFY"]
+    direction TB
+    L["⑤ Classification engine<br/><small>L0 vendor · L0.5 account code · L1 org rules<br/>L2 seed · L3 fuzzy · L4 model</small>"] --> M{"Confidence<br/>≥ 0.80?"}
+    M -- yes --> P["Classified"]
+    M -- no --> N["Screen 6a — Review queue<br/><small>volume: by amount, by vendor</small>"]
+    N --> O["Screen 6b — Chat<br/><small>the ambiguous residue</small>"]
+    O -- "3 questions,<br/>under 80% filled" --> Q["Offer a consultant<br/><small>Wizard-of-Oz request queue</small>"]
+    N --> P
+    O --> P
+    Q --> P
+    P -. "approval writes vendor memory" .-> L
+  end
+
+  subgraph S5["⑤ SEE IT"]
+    direction TB
+    R["Readiness check<br/><small>ready · partial · blocked<br/>each report names its gaps</small>"] --> S["Screen 7 — Dashboard<br/><small>tables · Sankey · deviation highlighting<br/>drill-down to the transaction</small>"]
+    S --> T["Export XLSX / PDF"]
+  end
+
+  subgraph S6["⑥ EVERY MONTH — where retention lives"]
+    direction TB
+    U["Next period → repeat from ③<br/><small>import profile matches, no mapping screen<br/>vendors repeat, so L0 catches them<br/><b>target: under 3 minutes of user effort</b></small>"]
+  end
+
+  C ==> D
+  E ==> F
+  K ==> L
+  P ==> R
+  T ==> U
+
+  classDef free  fill:#eaf0f8,stroke:#4a6fa5,stroke-width:1.5px,color:#1c2b3a
+  classDef pay   fill:#f6ece9,stroke:#a05a4a,stroke-width:1.5px,color:#3a1f1c
+  classDef work  fill:#e7f2ec,stroke:#3f7d62,stroke-width:1.5px,color:#14301f
+  classDef gate  fill:#f8f0e4,stroke:#a5804a,stroke-width:1.5px,color:#3a2d1c
+  classDef stop  fill:#f7e6e6,stroke:#a04a4a,stroke-width:1.5px,color:#3a1c1c
+  classDef out   fill:#f2ecf6,stroke:#7a5a95,stroke-width:1.5px,color:#2c1c3a
+  classDef phase fill:#fbfbfc,stroke:#c9c9d1,stroke-width:1px,color:#3f3f46
+  class A,B,C free
+  class D,E,Q pay
+  class F,G,I,J,V,K,L,N,O,P,U work
+  class H,M,W gate
+  class X stop
+  class R,S,T out
+  class S1,S2,S3,S4,S5,S6 phase

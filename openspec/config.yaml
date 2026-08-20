@@ -1,0 +1,130 @@
+schema: spec-driven
+
+context: |
+  Product: Vekst — a SaaS platform for SME owners. A wizard decides which management
+  reports the business needs, the system classifies the customer's financial data, and
+  the dashboard shows the reports as tables and charts with deviation highlighting.
+  Two blocks: a public marketing site and an authenticated dashboard.
+
+  Product shape follows the "Palm v0.3" founder specification. Technical shape follows
+  docs/ARCHITECTURE.md and docs/IMPLEMENTATION_PLAN.md (v2, 2026-08-15).
+
+  Market: SMBs in Europe plus Belarus, Ukraine and Kazakhstan. TWO developers.
+  Track A owns ingest (/core/ingest, /core/dedup); Track B owns meaning
+  (/core/classify, /core/report). The seam is the transactions table. One migration
+  owner per week.
+  Milestones:
+  - Demo, 2026-10-01: pilot customers upload their own files and read their own
+    Management P&L, with drill-down. Column mapping may still be seeded by hand.
+  - Product, 2026-10-23: fully self-serve. Invoicing by hand.
+  - Commercial, 2026-11-27: wizard, chat, consultant queue, Paddle, dunning, three more
+    reports, deviation highlighting, PDF, German, marketing site, Python classifier split.
+  - Intelligence, 2027-Q1: the L4 model layer, connectors, mobile.
+
+  THE INGEST PIPELINE (fixed): load documents -> PARSE (charset, delimiter, header row,
+  number and date locale) -> VALIDATE -> PERSIST -> CLASSIFY -> REPORT.
+  VALIDATE is blocking and atomic: a failed file persists NOTHING. Correctness checks are
+  per row (date plausible, amount parses to minor units, valid ISO currency, debit and
+  credit mutually exclusive, no U+FFFD replacement characters, description present,
+  account resolves) and can never be overridden. Completeness checks are per file and the
+  critical one is opening balance + sum(movements) = closing balance with zero tolerance;
+  also declared row count, continuous period coverage, one currency per account, no
+  duplicate bank references. A completeness failure may be overridden by an approver with
+  a written reason, which is then shown on every report from that batch. The error report
+  is keyed by line number in the ORIGINAL file, never by parsed row index.
+
+  THE CANONICAL GRAIN (fixed): the transactions table holds ONE ROW PER PAYMENT OR
+  POSTING. A bank payment is one row with document_ref null. A ledger document with five
+  postings is five rows sharing one document_ref, posting_no 1..5. Never one row per
+  document with line items in JSONB.
+
+  User flow (7 screens): landing -> wizard (5 scoring questions + 4 the maths needs) ->
+  proposed report package RP1..RP5 -> choose self-serve or consultant, then pay ->
+  unified data ingest -> review queue for volume plus chat for the residue, with
+  escalation to a consultant -> dashboard with reports, drill-down and export.
+
+  THE MVP IS THE MANAGEMENT P&L AND NOTHING ELSE. Sales, OPEX and Cash Flow are
+  Commercial. Do not propose another report before the P&L path is finished.
+
+  ARCHITECTURE:
+  - core (Go 1.23+): chi for HTTP, connect-go for the browser API, pgx/v5, sqlc, goose,
+    River for jobs. Owns all state: auth, tenancy, ingest, parsing, dedup, transactions,
+    classification, review queue, report computation, export, billing, dunning.
+  - The classification engine lives in /core/classify behind a Classifier INTERFACE with
+    exactly the shapes the proto carries. It is extracted into a Python service at the
+    Commercial milestone. Until then, write it as if it already ran in another process:
+    one entry point Classify(ctx, ClassifyBatchRequest) -> ClassifyBatchResponse; the
+    request carries taxonomy, vendor memory, rules, account-code maps, transactions and
+    threshold; NO database handle, NO clock, NO globals; same request always gives the
+    same response; fixture tests with no database. Violating any of these makes the port
+    stop being mechanical.
+  - The classifier never gets database credentials, in either form. Tenant isolation must
+    stay single-mechanism (Postgres RLS), and the engine must stay reproducible.
+  - Browser <-> core: ConnectRPC (a browser cannot speak native gRPC).
+    core <-> classifier (from Commercial): native gRPC. One buf workspace in /proto.
+    buf lint and buf breaking run in CI.
+  - Frontend: React 19 + Vite + TypeScript + Tailwind v4, TanStack Query and Router,
+    ECharts. Marketing site: Astro static, separate bundle.
+    Design reference: https://ui.unlumen.com/
+  - Monorepo: /proto /core /classifier /web /site /deploy /docs. GitHub Actions.
+  - Payments: Paddle (Merchant of Record). NOT Stripe — Stripe does not support a
+    business located in Ukraine or Kazakhstan.
+  - i18n: en and ru in M1, de in M2. Backend returns error codes, never sentences.
+
+  Hard invariants — every artifact must respect these:
+  - Money is int64 minor units plus an ISO-4217 code, in BOTH languages. Never float,
+    never a raw pandas numeric column, never a JS number on the wire. Multi-currency
+    stores the original amount, the FX rate, the rate date and the base-currency amount.
+  - Tenancy is organizations -> entities -> accounts. org_id on every tenant table,
+    entity_id on entity-scoped tables. M1 creates exactly one entity per organisation,
+    but the column is never null — a holding customer must need no migration.
+  - Row Level Security on every tenant table plus FORCE ROW LEVEL SECURITY. Two DB
+    roles: vekst_migrator owns the schema, vekst_app owns nothing and has no BYPASSRLS.
+    Tenant context is SET LOCAL app.org_id inside the request transaction.
+  - Classifications are append-only. A correction inserts a new row and supersedes the
+    old one. Every row carries engine_layer, ruleset_version and engine_version. A report
+    pins taxonomy_version + ruleset_version + engine_version so it reproduces exactly.
+  - Classification layers: L0 org vendor memory, L0.5 regulated chart-of-accounts lookup
+    (ledger rows only, never bank rows), L1 org rules, L2 industry seed rules, L3 fuzzy
+    match via Postgres pg_trgm, L4 embeddings + LLM. Demo ships L0, L0.5, L1, L2;
+    Product adds L3; Intelligence adds L4. Below the 0.80 threshold goes to the review
+    queue. A machine never posts without a human.
+  - Every import batch is tagged source_kind = ledger or bank. A report line is computed
+    from ONE source kind. Mixing them without a confirmed D4 match double-counts, and
+    such a line is blocked, not guessed. The basis label (cash-basis or accrual) is
+    derived from source_kind, never chosen by hand.
+  - Deduplication has four levels: D1 file hash, D2 in-batch rows, D3 cross-batch rows,
+    D4 ledger-to-bank match proposals (propose a link, never delete). Internal transfers
+    (opposite signs, equal amount, +/-3 days, different accounts) are detected and
+    excluded from every P&L line.
+  - CIS source files are often Windows-1251 with ';' separators, ',' decimal marks and
+    DD.MM.YYYY dates. Parsers must detect charset, delimiter and number locale.
+
+rules:
+  proposal:
+    - Keep the proposal under 400 words.
+    - Always include a "Non-goals" section that names what this change does NOT do.
+    - Name the capability spec this change adds to or modifies, and its milestone.
+    - If the change touches more than two capabilities, say so and propose a split.
+  design:
+    - State the data model change first, as SQL DDL, before any API design.
+    - List every new Postgres table with its org_id column and its RLS policy.
+    - Show the proto service and message definitions for any new RPC, and say whether it
+      is a browser-facing Connect RPC or an internal core-to-classifier gRPC call.
+    - Include a "Rejected alternatives" section with at least one entry and its reason.
+    - Call out any change that touches money, currency, tenant isolation, source_kind,
+      or the classifier contract.
+  tasks:
+    - Break tasks into chunks of at most 2 hours.
+    - Order tasks: migration, sqlc queries, proto, Go service, Python service, tests,
+      React, i18n keys.
+    - Every task that adds a tenant table must have a paired cross-tenant isolation test.
+    - Every task that adds a money field must have a paired non-base-currency test, and
+      a test that fails if the field is a float.
+    - Every task that changes the classifier contract must run buf breaking.
+    - The last task of every change is "update the capability spec and run the full suite".
+  spec:
+    - Write requirements as "The system SHALL ...".
+    - Every requirement needs at least one scenario in WHEN / THEN form.
+    - Include a negative scenario (a denied permission, a rejected file, a duplicate row,
+      a blocked mixed-source report line).
