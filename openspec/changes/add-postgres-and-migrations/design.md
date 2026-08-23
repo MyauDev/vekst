@@ -182,7 +182,7 @@ same guard runs over the classifier's generated types. `ARCHITECTURE.md` §6 ask
 explicitly because pandas makes float the default path — and the guard is added now, before
 the first money column, because that is the only moment it costs nothing to satisfy.
 
-### D6 — Liveness and readiness split
+### D6 — Liveness and readiness split, and the schema-version gate
 
 0.1 put both Kubernetes probes on `/healthz`, which was correct when `core` had no
 dependencies. Now it has one.
@@ -197,6 +197,12 @@ pod, turning a recoverable outage into a crash loop that makes recovery slower.
 
 `HealthService/Check` is unchanged and stays database-free — it remains the unauthenticated
 RPC, and 0.1's rule that it reads no tenant data still holds.
+
+**Readiness also gates on the schema version.** The binary carries the migration version it
+requires and compares it against `goose_db_version` at startup; if the database is behind,
+`/readyz` fails and names both versions. Without this, a deploy that races its migration
+serves queries against a schema that does not have the columns the code expects — which in a
+reporting product means wrong numbers rather than an error.
 
 ### D7 — sqlc, and what generates what
 
@@ -220,8 +226,11 @@ probe's — because a generator with no input proves nothing.
 
 ## Migration Plan
 
-- Forward: `goose up` as `vekst_migrator`, run as a Kubernetes Job in the `local` overlay
-  before `core` starts, gated by an init container or a Tilt resource dependency.
+- Forward: `goose up` as `vekst_migrator`, run as a Kubernetes Job **in `k8s/base`**, not in
+  an overlay. Every environment migrates, so a Job that lived only in `local` would force the
+  deployment overlay to reinvent it — exactly the divergence 0.1's manifest requirement
+  forbids. The overlay supplies the Job's credentials and image tag and nothing else.
+  Ordering is a Tilt resource dependency locally and Job completion elsewhere.
 - Backward: every migration has a tested `-- +goose Down`. CI applies up, down, and up again
   against a scratch database on each PR — the cheapest way to discover that a down migration
   was never written.
@@ -236,6 +245,7 @@ probe's — because a generator with no input proves nothing.
 | --- | --- | --- | --- |
 | Q1 | Can the hosted Postgres create roles from a migration, or must `vekst_migrator` and `vekst_app` be provisioned out-of-band? Managed providers usually restrict this | The deployment overlay | Migration 001 is written to be idempotent and skippable. The hosted answer depends on 0.1's Q1/Q6, still open |
 | Q2 | Where do database credentials come from in the hosted environment? | The deployment overlay | Kubernetes Secrets in `local`. Anything stronger is a decision for the provisioning change |
+| Q5 | How does `core` learn the schema version it requires? | The readiness check that refuses to serve against an older schema | A constant compiled into the binary and compared against `goose_db_version` on startup. Cheap, and it turns "new code, old schema" from a silent wrong answer into a pod that will not go Ready |
 | Q3 | Does `vekst_app` need `TRUNCATE`? | Test fixtures | No. Tests truncate as `vekst_migrator`. Granting it to `vekst_app` widens the blast radius of a bug for a convenience only tests want |
 | Q4 | Which currencies ship in the exponent table? | 2.5 and the report layer | ISO-4217 in full, checked in as data. It is small, and a missing currency is a runtime failure on a customer's file |
 

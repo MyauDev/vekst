@@ -1,0 +1,23 @@
+# The web container runs the Vite dev server locally, and Vite proxies /rpc to
+# core so that hitting the pod directly on 5173 behaves the same as going
+# through the Ingress.
+#
+# Without this the proxy falls back to localhost:8080, which inside the web pod
+# is the web container itself -- ECONNREFUSED on every RPC. It only bites on the
+# port-forwarded 5173 path, because a browser going through the Ingress never
+# touches Vite: the Ingress routes /rpc straight to core.
+#
+# Dev-only: a deployment serves web as static files with no dev server and no
+# proxy, so this belongs in the overlay rather than the base.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          env:
+            - name: VEKST_CORE_URL
+              value: "http://core:8080"

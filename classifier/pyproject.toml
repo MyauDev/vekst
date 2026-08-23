@@ -1,0 +1,77 @@
+[project]
+name = "vekst-classifier"
+version = "0.1.0"
+description = "Vekst classification service. Stateless, no database, gRPC only."
+requires-python = ">=3.14,<3.15"
+
+# ARCHITECTURE.md A-4 / design D2: this service never receives database
+# credentials, in either form. No database driver and no ORM may appear here.
+# A test in tests/test_no_database.py asserts it.
+dependencies = [
+    "grpcio>=1.83.0",
+    "grpcio-health-checking>=1.83.0",
+    "protobuf>=7.36.0",
+]
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.83.0",
+    "mypy>=1.14",
+    "mypy-protobuf>=3.6",
+    "pytest>=8.3",
+    "ruff>=0.9",
+    "types-grpcio>=1.83.0.20260730",
+    "types-grpcio-health-checking>=1.0.0.20260518",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# Installed non-editable. The editable install writes a .pth that this
+# interpreter does not honour, which fails as a ModuleNotFoundError at run time
+# while pytest -- which sets its own pythonpath -- keeps passing. A dev loop
+# that works in tests and breaks in the service is worse than no dev loop.
+# Tilt live_update syncs sources into the container, so nothing here depends on
+# editable installs anyway.
+package = true
+
+[tool.hatch.build.targets.wheel]
+# `src/vekst` is generated from /proto and committed. One source root, so the
+# package is importable without PYTHONPATH gymnastics, and the wheel carries the
+# generated code so the container needs no codegen toolchain.
+packages = ["src/vekst_classifier", "src/vekst"]
+
+[tool.ruff]
+src = ["src"]
+extend-exclude = ["src/vekst"]   # generated code is not ours to lint
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Method names on a servicer are fixed by the proto contract, not by us.
+"src/vekst_classifier/service.py" = ["N802"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+packages = ["vekst_classifier"]
+exclude = ["^src/vekst/"]        # but its .pyi stubs are still used for checking
+
+[[tool.mypy.overrides]]
+# grpcio's generated _pb2_grpc registration helpers are untyped, and the stub
+# packages do not cover them. Narrow to the two calls rather than relaxing
+# strict mode for the whole service.
+module = ["vekst.internal.v1.*", "grpc_health.*"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+# grpc_health ships no stubs for its dynamically built HealthStub.
+module = ["grpc_health.*"]
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Go
+/bin/
+*.test
+*.out
+
+# Node
+node_modules/
+/web/dist/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment
+.env
+.env.*
+!.env.example
+/deploy/k8s/**/*.secret.yaml
+.tilt/
+tilt_modules/
+
+# NOTE: generated code is deliberately NOT ignored.
+# /core/gen, /web/src/gen and /classifier/gen are committed and drift-checked in CI.
+# See design D4. Never add them here.

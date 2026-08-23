@@ -178,9 +178,13 @@ package vekst.internal.v1;
 
 option go_package = "github.com/MyauDev/vekst/core/gen/vekst/internal/v1;vektinternalv1";
 
-// Classifier is internal. It is never exposed through the Ingress, and it never
-// receives database credentials — see ARCHITECTURE.md A-4.
-service Classifier {
+// ClassifierService is internal. It is never exposed through the Ingress, and
+// it never receives database credentials — see ARCHITECTURE.md A-4.
+//
+// Named with the "Service" suffix, unlike ARCHITECTURE.md §3.2's `Classifier`:
+// buf's STANDARD lint set requires it, HealthService already carries it, and
+// renaming after the first client exists costs a breaking change. Amend §3.2.
+service ClassifierService {
   rpc Version(VersionRequest) returns (VersionResponse);
   // rpc ClassifyBatch(...) — change 3.2 owns the request and response shapes.
 }
@@ -200,16 +204,37 @@ exist until changes 3.1 and 3.2. Declaring it now would freeze guesses into a co
 
 ### D4 — Generated code is committed, and CI checks it has not drifted
 
-`buf generate` writes Go stubs to `/core/gen`, TypeScript stubs to `/web/src/gen`, and
-Python stubs to `/classifier/gen`, all three committed. `vekst/v1` generates Go and
-TypeScript; `vekst/internal/v1` generates Go and Python. No package generates a language it
-does not speak.
+`make gen` writes Go stubs to `/core/gen`, TypeScript stubs to `/web/src/gen`, and Python
+stubs to `/classifier/src/vekst`, all three committed. `vekst/v1` generates Go and TypeScript;
+`vekst/internal/v1` generates Go and Python. No package generates a language it does not
+speak, and no package generates an RPC style it does not use — Connect is emitted only for
+the browser contract, native gRPC only for the internal one.
+
+**Every generator is local. None is a buf remote plugin.** The BSR rate-limits anonymous
+use, and it did so during this change's own implementation: `make gen` failed with
+`resource_exhausted` partway through. A codegen step that fails for reasons unrelated to the
+change under review is worse than useless in a required CI job, because the first thing it
+teaches everyone is to re-run it until it passes.
+
+| Language | Generator | Pinned in |
+| --- | --- | --- |
+| Go messages, Connect, gRPC | `protoc-gen-go`, `protoc-gen-connect-go`, `protoc-gen-go-grpc` | `go.mod` `tool` directives |
+| TypeScript | `@bufbuild/protoc-gen-es` | `web/package-lock.json` |
+| Python | `grpc_tools.protoc` | `classifier/uv.lock` |
+
+Python is the exception to "buf drives everything": `grpc_tools.protoc` **is** protoc, not a
+protoc plugin, so it cannot be driven from a `buf.gen` template and runs from the `Makefile`
+instead. Its output lands under `classifier/src/` rather than a sibling `gen/` directory, so
+the package has one source root — a second root has to be bolted on with `PYTHONPATH` or an
+editable-install path file, and that wiring breaks in exactly the places it is hardest to
+debug. `.gitattributes` marks the tree generated. `/proto` remains the single source of truth, and `buf lint` and `buf breaking` still
+own the contract.
 
 - Rationale: `go build`, `tsc`, `mypy` and every editor work with no codegen step; the
   wire-format diff is visible in review, which is what makes the `buf breaking` rule
   meaningful to a human reader. This matters more with two boundaries than it did with one.
-- Python stubs are generated with `grpcio-tools` via a buf plugin, and `mypy-protobuf` so
-  the Python service is type-checked against the same contract.
+- Python stubs are generated with `grpc_tools.protoc`, including `--pyi_out`, so
+  `mypy --strict` checks the service against the same contract.
 - Cost: merge conflicts in generated files. Mitigated by a CI job that runs `buf generate`
   and fails if `git diff --exit-code` is non-empty — resolution is always "regenerate".
 
@@ -309,7 +334,7 @@ package and one Go module, and half the repo is not JavaScript at all.
 /core/gen/                  generated, committed
 /classifier/src/vekst_classifier/  Track B — grpcio server, health, version
 /classifier/tests/          Track B — pytest, no network, no database
-/classifier/gen/            generated, committed
+/classifier/src/vekst/     generated, committed
 /web/src/gen/               generated, committed
 /deploy/Tiltfile            dev orchestration                shared, both review
 /deploy/docker/             Dockerfile.core, Dockerfile.web
@@ -326,11 +351,14 @@ cannot quietly become an API.
 `/classifier` belongs to Track B in full, which keeps the plan's "do not both edit the same
 file" rule intact across the new language boundary.
 
-A `CODEOWNERS` file maps those directories to the two developers, and marks `/proto`,
-`/deploy/k8s/base`, `/core/internal/db` and anything touching money as requiring both
-reviewers — the plan's
-coordination rules, expressed as something GitHub enforces rather than something people
-remember.
+A `CODEOWNERS` file maps those directories to the two developers, and marks `/proto` and
+`/deploy/k8s/base` as requiring both reviewers — the plan's coordination rules, expressed as
+something GitHub enforces rather than something people remember.
+
+The plan also wants both reviewers on the database layer and on anything touching money.
+Neither path exists yet, and **GitHub silently ignores a `CODEOWNERS` entry for a path that
+does not exist** — a rule that looks enforced while doing nothing. Those entries belong to
+change 0.2, alongside the directories they protect.
 
 ### D9 — Versions are pinned, not floated
 
@@ -340,7 +368,7 @@ remember.
 | Node | **24**, the Active LTS line | `.nvmrc`, `packageManager`, `package-lock.json` |
 | Python | **3.14** (Q7, decided) | `/classifier/.python-version`, `pyproject.toml`, `uv.lock` |
 | Kubernetes | the k3s image tag k3d creates (Q5, decided) | the `make dev` target |
-| buf plugins | exact versions, by tag | `buf.gen.yaml` |
+| Code generators | exact versions, all local | `go.mod` `tool` block, `web/package-lock.json`, `classifier/uv.lock` |
 | React, Tailwind, Vite | exact versions, never ranges | `package-lock.json` |
 | Container base images | digests, never `latest` | the three Dockerfiles |
 
@@ -358,7 +386,7 @@ from the thing you deploy to, which is the entire benefit D5 was bought for.
 | --- | --- |
 | **`buf breaking` has no baseline on the first merge** — comparing against `main` when `main` has no proto fails or errors | Configure the job to compare against `main` and treat "no such file" as a pass. Verify it goes red on a deliberate breaking change before trusting it |
 | Tailwind v4 + React 19 + Vite version churn; v4 moved configuration into CSS | No `tailwind.config.js`; CSS-first `@import "tailwindcss"` + `@theme`. 0.1 proves the pipeline compiles only — the token layer is change 5.1's job |
-| buf remote plugins make CI depend on network availability of `buf.build` | Pin plugin versions. If it becomes flaky, switch to local `protoc-gen-*` binaries installed via `go tool` — a one-file change to `buf.gen.yaml` |
+| ~~buf remote plugins make CI depend on `buf.build`~~ **This fired during implementation**: the BSR returned `resource_exhausted` and `make gen` failed | Resolved, not mitigated. Every generator is now local and pinned by the language's own lockfile, so codegen and the drift gate have no network dependency at all. See D4 |
 | Committed generated code produces merge conflicts | The drift check makes resolution mechanical: regenerate, commit. Never hand-edit `/gen` |
 | **Python 3.14 wheels for `grpcio` and `grpcio-tools` may lag on linux/arm64** — building either from source is hours, not minutes | Verify wheel availability as the first Python task (7.1), before anything depends on the version. Falling back to Python 3.13 costs one line in `.python-version` on day one and a migration later |
 | Two runtimes, two dependency managers and two test pipelines from day one — the cost `ARCHITECTURE.md` §2.2 defers to Commercial | Accepted deliberately; see D2. Contain it by keeping `/classifier` owned entirely by Track B, and by keeping the contract minimal (`Version` only) until 3.2 |

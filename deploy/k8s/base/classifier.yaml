@@ -1,0 +1,57 @@
+# ARCHITECTURE.md A-4 and design D6: this workload receives no database
+# credentials and is reachable only from inside the cluster. It has no Ingress
+# rule and must never acquire one -- a spec scenario asserts the absence.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: classifier
+  labels: { app.kubernetes.io/name: classifier, app.kubernetes.io/part-of: vekst }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: classifier }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: classifier }
+    spec:
+      containers:
+        - name: classifier
+          image: vekst/classifier
+          ports:
+            - { name: grpc, containerPort: 9090 }
+          env:
+            - name: VEKST_CLASSIFIER_ADDR
+              value: "[::]:9090"
+          # Kubernetes probes the standard gRPC health protocol natively, so the
+          # service needs no HTTP server at all -- design D2.
+          #
+          # timeoutSeconds is 3, not the 1-second default. A restarting process
+          # cannot answer within a second, and the default killed the container
+          # every time Tilt live-updated it: the container came back from the
+          # image, the synced code was gone, and the edit silently did nothing.
+          # The same aggressiveness would turn a slow GC pause into a restart in
+          # a deployment, so this is not a development-only concession.
+          livenessProbe:
+            grpc: { port: 9090 }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            grpc: { port: 9090, service: "vekst.internal.v1.ClassifierService" }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: classifier
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: classifier }
+  ports:
+    - { name: grpc, port: 9090, targetPort: grpc }

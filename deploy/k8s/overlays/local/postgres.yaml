@@ -1,0 +1,48 @@
+# Development database. It lives in this overlay and NEVER in the base, so no
+# deployment overlay can inherit a database with no rehearsed backup and restore
+# procedure -- design D1. Change 0.2 migrates it; today nothing connects to it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels: { app.kubernetes.io/name: postgres }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: postgres }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+          env:
+            - { name: POSTGRES_DB, value: vekst }
+            - { name: POSTGRES_USER, value: vekst }
+            # Development only. A real environment takes this from a Secret,
+            # which is the provisioning change's job.
+            - { name: POSTGRES_PASSWORD, value: vekst }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "vekst", "-d", "vekst"] }
+            periodSeconds: 5
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        # emptyDir: `make down` deletes the cluster, and the environment must be
+        # reproducible from manifests alone.
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: postgres }
+  ports:
+    - { name: postgres, port: 5432, targetPort: postgres }

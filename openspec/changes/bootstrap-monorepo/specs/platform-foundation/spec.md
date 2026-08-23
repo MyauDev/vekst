@@ -9,10 +9,11 @@ SHALL contain a hand-written definition of one.
 
 #### Scenario: A value travels the full chain
 
-- **WHEN** a developer runs `make dev` and opens the web application in a browser
+- **WHEN** a developer runs `make dev`, all workloads are Ready, and the web application is
+  opened in a browser
 - **THEN** the page issues a `vekst.v1.HealthService/Check` call to `core` through the
   cluster Ingress
-- **AND** `core` issues a `vekst.internal.v1.Classifier/Version` call over gRPC
+- **AND** `core` issues a `vekst.internal.v1.ClassifierService/Version` call over gRPC
 - **AND** the page renders `version`, `built_at` and a non-empty `classifier_version`
 - **AND** every message on both hops is typed by code generated from `/proto`
 
@@ -24,15 +25,21 @@ SHALL contain a hand-written definition of one.
 
 ### Requirement: Generated code is committed and never drifts
 
-The system SHALL commit `buf` output to `/core/gen`, `/web/src/gen` and `/classifier/gen`,
-and CI SHALL fail when the committed output does not match what `buf generate` produces
-from `/proto`. `vekst/v1` SHALL generate Go and TypeScript; `vekst/internal/v1` SHALL
-generate Go and Python.
+The system SHALL commit generated code to `/core/gen`, `/web/src/gen` and
+`/classifier/src/vekst`, and CI SHALL fail when the committed output does not match what the
+generators produce from `/proto`. `vekst/v1` SHALL generate Go and TypeScript;
+`vekst/internal/v1` SHALL generate Go and Python. Every generator SHALL be local and pinned
+by its language's lockfile, so that regeneration never depends on a network service.
 
 #### Scenario: Regenerating produces no diff
 
-- **WHEN** CI runs `buf generate` on a pull request
+- **WHEN** CI runs `make gen` on a pull request
 - **THEN** `git diff --exit-code` reports no change
+
+#### Scenario: Regeneration needs no network service
+
+- **WHEN** `make gen` runs with no access to a code-generation registry
+- **THEN** it completes successfully from locally pinned generators
 
 #### Scenario: A proto change without regeneration is rejected
 
@@ -123,12 +130,12 @@ deliberately.
 ### Requirement: The classifier is a separate service that answers over gRPC
 
 The system SHALL run the classification service as a Python process separate from `core`,
-implementing `vekst.internal.v1.Classifier/Version` and the standard gRPC health-checking
+implementing `vekst.internal.v1.ClassifierService/Version` and the standard gRPC health-checking
 protocol. `core` SHALL reach it only by its in-cluster Service address.
 
 #### Scenario: The classifier reports its version
 
-- **WHEN** `core` calls `Classifier/Version` on the running service
+- **WHEN** `core` calls `ClassifierService/Version` on the running service
 - **THEN** the response carries a non-empty `engine_version` and an RFC 3339 `built_at`
 
 #### Scenario: Kubernetes probes the classifier over gRPC
@@ -174,7 +181,7 @@ no route from the public host. Only `core` SHALL address it.
 
 #### Scenario: A browser cannot call the classifier
 
-- **WHEN** a request for a `vekst.internal.v1.Classifier` method is sent to the public
+- **WHEN** a request for a `vekst.internal.v1.ClassifierService` method is sent to the public
   ingress host on any path
 - **THEN** it does not reach the classifier
 
@@ -326,9 +333,10 @@ and SHALL require review from both owners for any change under `/proto` or
 ### Requirement: Project documentation describes the code as built
 
 The system SHALL carry a `README.md` and a `CLAUDE.md` at the repository root, both written
-after the implementation exists and both describing the repository as it actually is rather
-than as it was planned. `CLAUDE.md` SHALL state the build and test commands, the directory
-layout with its track ownership, and the invariants that later changes must not violate.
+after the implementation exists. Everything either document says about commands, paths and
+structure SHALL describe the repository as it actually is. `CLAUDE.md` SHALL additionally
+state the invariants that later changes must not violate — these are deliberately ahead of
+the code, because their purpose is to constrain work that has not been written yet.
 
 #### Scenario: The README gets a developer running
 
@@ -338,7 +346,7 @@ layout with its track ownership, and the invariants that later changes must not 
   walking skeleton in a browser
 - **AND** no step required to get there is missing from the document
 
-#### Scenario: CLAUDE.md records the invariants
+#### Scenario: CLAUDE.md records the invariants ahead of the code
 
 - **WHEN** `CLAUDE.md` is inspected
 - **THEN** it names the money representation, tenancy and RLS rules, the append-only
@@ -346,12 +354,15 @@ layout with its track ownership, and the invariants that later changes must not 
   classifier never holds database credentials, and the rule that generated code is never
   hand-edited
 - **AND** each rule is stated as a constraint, not as background
+- **AND** the section is marked as constraints on future work, so that naming a rule for
+  code this change does not contain is not mistaken for a description of it
 
-#### Scenario: The documentation does not describe code that was never written
+#### Scenario: The descriptive parts match the merged implementation
 
 - **WHEN** `README.md` and `CLAUDE.md` are compared against the merged implementation
 - **THEN** every command they name runs successfully
 - **AND** every directory they describe exists
+- **AND** no command or path is named that this change did not create
 
 ### Requirement: Environment-only build artefacts are not tracked
 

@@ -1,0 +1,72 @@
+# -*- mode: Python -*-
+# Vekst local development. Run `make dev` from the repo root, not tilt directly:
+# the make target creates the k3d cluster with a pinned k3s version first.
+
+load('ext://restart_process', 'docker_build_with_restart')
+
+allow_k8s_contexts('k3d-vekst')
+
+k8s_yaml(kustomize('k8s/overlays/local'))
+
+# --- core (Go) -------------------------------------------------------------
+# live_update syncs sources and rebuilds inside the container. Without this a
+# one-line change costs a full image build and rollout, and the team routes
+# around the whole setup -- which is the failure mode design D5 warns about.
+docker_build_with_restart(
+    'vekst/core',
+    context='..',
+    dockerfile='docker/Dockerfile.core',
+    target='dev',          # alpine: the restart wrapper needs a shell
+    entrypoint=['/vekst-core'],
+    build_args={'VERSION': 'dev', 'BUILT_AT': 'dev'},
+    only=['go.mod', 'go.sum', 'core'],
+    live_update=[
+        sync('../core', '/src/core'),
+        run('go build -o /vekst-core ./core/cmd/vekst-core', trigger=['../core']),
+    ],
+)
+
+# --- classifier (Python) ---------------------------------------------------
+# Pure Python: sync the sources and restart the gRPC server. No image rebuild.
+docker_build_with_restart(
+    'vekst/classifier',
+    context='..',
+    dockerfile='docker/Dockerfile.classifier',
+    entrypoint=['python', '-m', 'vekst_classifier.server'],
+    only=['classifier'],
+    live_update=[
+        # Dependency changes must rebuild the image, not sync into a stale venv.
+        fall_back_on(['../classifier/pyproject.toml', '../classifier/uv.lock']),
+        sync('../classifier/src', '/app/.venv/lib/python3.14/site-packages'),
+        # Restart explicitly rather than relying on the extension to append it.
+        # Verified by hand inside the container: writing this file makes entr(1)
+        # replace the python process. The extension's own restart step was not
+        # firing after a sync, so the file landed and the server kept serving
+        # the previous code -- which looks exactly like "my edit did nothing".
+        # One line here is much cheaper than that confusion.
+        run('echo restart > /tmp/.restart-proc'),
+    ],
+)
+
+# --- web (Vite) ------------------------------------------------------------
+# Vite's HMR applies the change itself, so no restart and no reload.
+docker_build(
+    'vekst/web',
+    context='..',
+    dockerfile='docker/Dockerfile.web',
+    target='dev',
+    only=['web'],
+    live_update=[
+        fall_back_on(['../web/package.json', '../web/package-lock.json']),
+        sync('../web/src', '/app/src'),
+        sync('../web/index.html', '/app/index.html'),
+    ],
+)
+
+# --- readability -----------------------------------------------------------
+k8s_resource('core',       labels=['app'],  port_forwards=['8080:8080'])
+k8s_resource('classifier', labels=['app'],  port_forwards=['9090:9090'])
+k8s_resource('web',        labels=['app'],  port_forwards=['5173:5173'])
+k8s_resource('postgres',   labels=['data'])
+
+print('Vekst: http://vekst.localhost:8081  (core /rpc, web /)')

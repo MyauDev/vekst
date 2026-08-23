@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+#
+# classifier: Python. Installed from uv.lock, so the image resolves exactly what
+# a developer resolved. No build toolchain in the final layer.
+#
+# ARCHITECTURE.md A-4: this image contains no database driver, and the container
+# receives no database credentials. A test asserts both.
+#
+# uv is installed into the pinned Python image rather than pulled as its own
+# base image -- astral-sh/uv publishes no python3.14 tag, and one fewer base
+# image is one fewer thing to track.
+
+FROM python:3.14-slim-bookworm@sha256:23c59390fc717bf09f9336908199a0ae75d9c4264bf296123f94ad772fea3b52 AS build
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=0 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/app/.venv
+RUN pip install --no-cache-dir uv==0.11.1
+
+# Dependencies first: a source-only change reuses this layer.
+COPY classifier/pyproject.toml classifier/uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --no-dev
+
+COPY classifier/src ./src
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-editable --no-dev
+
+FROM python:3.14-slim-bookworm@sha256:23c59390fc717bf09f9336908199a0ae75d9c4264bf296123f94ad772fea3b52
+WORKDIR /app
+COPY --from=build /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# No bytecode caching, and no cached bytecode carried in from the build stage.
+#
+# Tilt's live_update preserves the host file's mtime, which is older than the
+# .pyc Python wrote on its last in-container import. Python's timestamp check
+# then judges the stale .pyc still valid and keeps serving the old code -- the
+# file on disk is correct, the process disagrees, and nothing looks broken.
+# Verified: a synced buildinfo.py read "PYLIVE" while the process reported
+# "dev", with the .pyc 12 seconds newer than its own source.
+#
+# Startup costs a few milliseconds of recompilation. A service that starts once
+# per pod does not care; a developer chasing a phantom edit does.
+ENV PYTHONDONTWRITEBYTECODE=1
+RUN find /app/.venv -name __pycache__ -type d -prune -exec rm -rf {} +
+
+ARG VERSION=dev
+ARG BUILT_AT=dev
+ENV VEKST_VERSION=${VERSION} VEKST_BUILT_AT=${BUILT_AT}
+
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin vekst \
+    && chown -R vekst:vekst /app/.venv
+USER vekst
+EXPOSE 9090
+ENTRYPOINT ["python", "-m", "vekst_classifier.server"]

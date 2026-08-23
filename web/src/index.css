@@ -1,0 +1,3 @@
+/* Tailwind v4 is CSS-first: no tailwind.config.js.
+   The design token layer is change 5.1's work, not this one. */
+@import "tailwindcss";

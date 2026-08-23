@@ -1,0 +1,26 @@
+# One host, path routing. /rpc goes to core, everything else to web, so the
+# document and the RPC share an origin and no CORS header is ever required --
+# design D6. Defined here in the base so every environment inherits identical
+# routing; an overlay changes only the host.
+#
+# There is deliberately no rule for the classifier. It is internal.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vekst
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /rpc
+            pathType: Prefix
+            backend:
+              service:
+                name: core
+                port: { name: http }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port: { name: http }

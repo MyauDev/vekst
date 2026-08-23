@@ -23,7 +23,7 @@ Milestone: **Demo (2026-10-01)**. Capability: **`platform-foundation`**.
 - `/deploy`: Kustomize base, a `local` overlay, and a `Tiltfile` building three images into
   a local k3d cluster with live reload. Development Postgres runs in-cluster, empty.
 - One GitHub Actions workflow: `buf lint`/`breaking`, codegen drift, Go, Python, web,
-  `gitleaks`, manifest validation.
+  `gitleaks`, manifest validation, image builds.
 - Hygiene: `.gitignore`, `.editorconfig`, `CODEOWNERS`, `README`, `CLAUDE.md`.
 
 ## Capabilities

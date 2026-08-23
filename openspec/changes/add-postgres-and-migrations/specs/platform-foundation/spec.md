@@ -25,6 +25,19 @@ request.
 - **THEN** the round-trip job fails
 - **AND** the pull request cannot be merged
 
+#### Scenario: Migrations complete before core serves traffic
+
+- **WHEN** the environment is started from nothing
+- **THEN** the migration Job runs to completion before any `core` pod becomes Ready
+- **AND** no request is served against an unmigrated database
+
+#### Scenario: A binary newer than the schema refuses to serve
+
+- **WHEN** `core` starts against a database whose applied migration version is below the
+  version the binary requires
+- **THEN** `/readyz` fails and the pod does not become Ready
+- **AND** the reason names the applied version and the required version
+
 ### Requirement: Two database roles with distinct powers
 
 The system SHALL define exactly two database roles. `vekst_migrator` SHALL own the schema and
@@ -97,24 +110,32 @@ it concerns were committed.
 - **THEN** River schedules a retry with backoff
 - **AND** the job is not discarded on its first failure
 
-### Requirement: Job handlers establish their own tenant context
+### Requirement: Background workers reach the database only through the entry point
 
-The system SHALL require every River worker to obtain its tenant context from its job
-arguments through the single transaction entry point, never from ambient state. River's own
-tables carry no tenant column and no row-level security, so a worker that does not set
-context explicitly runs unfiltered.
+The system SHALL require every River worker to access the database through the single
+transaction entry point, never against the pool directly. River's own tables carry no tenant
+column and no row-level security, so a worker is the one place where a missing tenant filter
+has no request to make its absence visible. The rule that a worker takes its tenant
+identifier from its job arguments SHALL be recorded where workers are written; enforcing it
+requires the tenant context that change 1.1 introduces.
 
 #### Scenario: A worker runs inside the transaction entry point
 
 - **WHEN** any registered worker is inspected
 - **THEN** its database access occurs through the single transaction entry point
-- **AND** its tenant identifier is read from the job's arguments
 
 #### Scenario: A worker that skips the entry point is rejected
 
 - **WHEN** a pull request adds a worker that queries the pool directly
 - **THEN** the transaction entry-point check fails
 - **AND** the pull request cannot be merged
+
+#### Scenario: The tenant rule is recorded for the change that enforces it
+
+- **WHEN** the worker package is inspected
+- **THEN** it documents that a handler takes its tenant identifier from job arguments and
+  never from ambient state
+- **AND** it names change 1.1 as the change that adds the enforcing context
 
 ### Requirement: Infrastructure tables are allowlisted explicitly
 
@@ -141,11 +162,16 @@ minor units together with an uppercase ISO-4217 currency code, in the proto cont
 and in Python. It SHALL NOT represent a monetary amount as a floating-point number in any
 language, and SHALL NOT expose one to TypeScript as a JavaScript number.
 
-#### Scenario: A monetary amount survives the wire
+#### Scenario: The generated types carry money safely in all three languages
 
-- **WHEN** an amount of 12.34 EUR crosses the browser API
-- **THEN** it is carried as minor units 1234 with currency code `EUR`
-- **AND** the TypeScript type of the minor-units field is `string`, not `number`
+- **WHEN** the types generated from the money contract are inspected
+- **THEN** the minor-units field is a 64-bit integer in Go and in Python
+- **AND** its TypeScript type is `string`, not `number`
+- **AND** an amount of 12.34 EUR is representable as minor units 1234 with currency code
+  `EUR`
+
+Note: no RPC carries a monetary amount in this change. The end-to-end assertion that an
+amount survives a real browser round trip belongs to the first change that returns one.
 
 #### Scenario: Currencies with non-standard exponents are handled
 
@@ -190,24 +216,151 @@ database pool answers. `/healthz` SHALL remain dependency-free. Kubernetes SHALL
 - **THEN** `/readyz` succeeds and the pod returns to Ready
 - **AND** no pod was restarted during the outage
 
-### Requirement: Generated query code is committed and never drifts
+## MODIFIED Requirements
 
-The system SHALL generate typed query code with `sqlc` into the committed generated-code
-tree, and CI SHALL fail when the committed output does not match what `sqlc` produces from
-the checked-in SQL.
+### Requirement: Generated code is committed and never drifts
+
+The system SHALL commit generated code to `/core/gen`, `/web/src/gen` and
+`/classifier/src/vekst`, and `sqlc` output to `/core/gen/db`. CI SHALL fail when any committed
+output does not match what the generators produce from the checked-in sources. `vekst/v1`
+SHALL generate Go and TypeScript; `vekst/internal/v1` SHALL generate Go and Python; `sqlc`
+SHALL generate Go from the checked-in SQL. Every generator SHALL be local and pinned by its
+language's lockfile.
 
 #### Scenario: Regenerating produces no diff
 
-- **WHEN** CI runs the generators on a pull request
-- **THEN** `git diff --exit-code` reports no change across both the `buf` and `sqlc` outputs
+- **WHEN** CI runs `make gen` on a pull request
+- **THEN** `git diff --exit-code` reports no change across any generated directory
+
+#### Scenario: A proto change without regeneration is rejected
+
+- **WHEN** a pull request modifies a file under `/proto` without committing the regenerated
+  stubs
+- **THEN** the codegen job fails
+- **AND** the pull request cannot be merged
 
 #### Scenario: A query change without regeneration is rejected
 
-- **WHEN** a pull request modifies a `.sql` query without committing regenerated code
-- **THEN** the drift job fails
+- **WHEN** a pull request modifies a checked-in `.sql` query without committing the
+  regenerated Go
+- **THEN** the codegen job fails
 - **AND** the pull request cannot be merged
 
-## MODIFIED Requirements
+### Requirement: CI gates every pull request
+
+The system SHALL run one GitHub Actions workflow on every pull request, with parallel jobs
+including at minimum `buf lint`, `buf breaking`, codegen drift, `go vet`, `go test`,
+`govulncheck`, `ruff`, `mypy`, `pytest`, `tsc`, `vitest`, `gitleaks`, manifest validation,
+container image builds, the migration round trip, and the database role assertions. A later
+change adding a job SHALL NOT require this requirement to be restated. A failing job SHALL
+block merge.
+
+#### Scenario: A green pull request is mergeable
+
+- **WHEN** every job in the workflow succeeds
+- **THEN** the pull request is mergeable
+
+#### Scenario: Failing Go tests block merge
+
+- **WHEN** a pull request introduces a failing Go test or a `go vet` diagnostic
+- **THEN** the workflow fails
+- **AND** the pull request cannot be merged
+
+#### Scenario: Failing Python checks block merge
+
+- **WHEN** a pull request introduces a `ruff` violation, a `mypy` error or a failing
+  `pytest` case under `/classifier`
+- **THEN** the workflow fails
+- **AND** the pull request cannot be merged
+
+#### Scenario: A committed secret is rejected
+
+- **WHEN** a pull request adds a file containing a credential that `gitleaks` recognises
+- **THEN** the `gitleaks` job fails
+- **AND** the pull request cannot be merged
+
+#### Scenario: A migration that cannot be rolled back blocks merge
+
+- **WHEN** a pull request adds a migration whose down step fails or is missing
+- **THEN** the migration round-trip job fails
+- **AND** the pull request cannot be merged
+
+#### Scenario: A role that can bypass row-level security blocks merge
+
+- **WHEN** a pull request changes migrations such that `vekst_app` gains `BYPASSRLS` or
+  superuser
+- **THEN** the role assertion job fails
+- **AND** the pull request cannot be merged
+
+### Requirement: One command starts the development environment in local Kubernetes
+
+The system SHALL provide a documented single command that creates a local Kubernetes
+cluster if none exists, deploys `core`, `classifier`, `web` and a development Postgres 16
+into it via Tilt, applies migrations before `core` serves, and exposes `core` and `web`
+through an Ingress. The README SHALL state the module path, the required tool versions and
+the available make targets.
+
+#### Scenario: A new developer starts the stack
+
+- **WHEN** a developer with Go, Node, buf, Docker, k3d, Tilt and kubectl installed clones
+  the repository and runs `make dev`
+- **THEN** a local cluster is created if one is not already running
+- **AND** Tilt builds all three images and applies the `local` overlay
+- **AND** the migration Job completes, then the `core`, `classifier`, `web` and Postgres
+  workloads all reach the Ready state
+- **AND** the walking-skeleton page loads through the Ingress with no further configuration
+
+#### Scenario: An unreachable cluster reports what to do
+
+- **WHEN** `make dev` runs and the Docker daemon is not running or the cluster cannot be
+  reached
+- **THEN** the command fails with a message naming the required tool and the make target
+  that fixes it
+- **AND** it does not surface a raw `kubectl` connection-refused error as its only output
+
+#### Scenario: Tearing down leaves nothing behind
+
+- **WHEN** a developer runs `make down`
+- **THEN** the Tilt session ends and the local cluster and its volumes are removed
+- **AND** a subsequent `make dev` reproduces the environment, including its schema, from the
+  manifests and migrations alone
+
+### Requirement: The same manifests describe local and deployed environments
+
+The system SHALL define the Kubernetes manifests as a Kustomize base with per-environment
+overlays. An overlay SHALL differ from the base only in configuration — image tags, replica
+counts, resource limits, ingress host, credentials, and endpoints of external dependencies —
+and SHALL NOT introduce a workload that changes what the application is. Because every
+environment must migrate its schema, the migration Job SHALL live in the base.
+
+#### Scenario: The local overlay builds
+
+- **WHEN** `kustomize build deploy/k8s/overlays/local` is run
+- **THEN** it succeeds
+- **AND** the output contains a Deployment and Service for each of `core`, `classifier` and
+  `web`, one Ingress, and one migration Job
+
+#### Scenario: An invalid manifest is rejected
+
+- **WHEN** a pull request introduces a manifest that fails schema validation or a
+  `kustomize build` error
+- **THEN** the manifest validation job fails
+- **AND** the pull request cannot be merged
+
+#### Scenario: The development database cannot be inherited by a deployment
+
+- **WHEN** the Kustomize base is inspected
+- **THEN** it contains no Postgres workload
+- **AND** the in-cluster Postgres exists only in the `local` overlay, so no deployment
+  overlay can inherit a database that has no backup and restore procedure
+
+#### Scenario: Migrating is not reinvented per environment
+
+- **WHEN** the Kustomize base is inspected
+- **THEN** it contains the migration Job
+- **AND** an overlay supplies only its credentials and image tag, never its own copy of the
+  Job
+
 
 ### Requirement: The health service is unauthenticated and stateless
 
