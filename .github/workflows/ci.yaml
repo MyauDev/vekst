@@ -148,6 +148,44 @@ jobs:
       - name: scan working tree
         run: gitleaks dir --redact --no-banner .
 
+  # --- static analysis -----------------------------------------------------
+  sonarqube:
+    name: SonarQube
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Shallow clones weaken blame data, which SonarQube uses to decide
+          # what counts as new code.
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with: { go-version: "${{ env.GO_VERSION }}", cache: true }
+      - uses: actions/setup-node@v6
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: web/package-lock.json }
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-cache: true, python-version: "${{ env.PYTHON_VERSION }}" }
+
+      # Coverage is produced here rather than reused from the language jobs: a
+      # scan without it reports every line as untested, and a quality gate built
+      # on that number is worse than no gate.
+      - name: go coverage
+        run: go test -coverprofile=coverage.out -covermode=atomic ./core/...
+      - name: python coverage
+        working-directory: classifier
+        run: |
+          uv sync --locked
+          uv run pytest -q --cov=vekst_classifier --cov-report=xml:coverage.xml
+      - name: web coverage
+        working-directory: web
+        run: |
+          npm ci
+          npx vitest run --coverage
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   # --- images --------------------------------------------------------------
   images:
     name: build images

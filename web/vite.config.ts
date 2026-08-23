@@ -21,5 +21,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    coverage: {
+      provider: "v8",
+      // lcov is what SonarQube reads; text keeps the terminal useful.
+      reporter: ["text", "lcov"],
+      // Generated clients are not ours to cover.
+      exclude: ["src/gen/**", "**/*.config.ts", "**/*.test.tsx"],
+    },
   },
 });

@@ -19,6 +19,7 @@ dev = [
     "mypy>=1.14",
     "mypy-protobuf>=3.6",
     "pytest>=8.3",
+    "pytest-cov>=7.1.0",
     "ruff>=0.9",
     "types-grpcio>=1.83.0.20260730",
     "types-grpcio-health-checking>=1.0.0.20260518",
