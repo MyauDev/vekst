@@ -7,7 +7,7 @@ context: |
   Two blocks: a public marketing site and an authenticated dashboard.
 
   Product shape follows the "Palm v0.3" founder specification. Technical shape follows
-  docs/ARCHITECTURE.md and docs/IMPLEMENTATION_PLAN.md (v2, 2026-08-15).
+  docs/ARCHITECTURE.md and docs/IMPLEMENTATION_PLAN.md (v4, 2026-08-20).
 
   Market: SMBs in Europe plus Belarus, Ukraine and Kazakhstan. TWO developers.
   Track A owns ingest (/core/ingest, /core/dedup); Track B owns meaning
@@ -116,14 +116,14 @@ rules:
       or the classifier contract.
   tasks:
     - Break tasks into chunks of at most 2 hours.
-    - Order tasks: migration, sqlc queries, proto, Go service, Python service, tests,
-      React, i18n keys.
+    - "Order tasks: migration, sqlc queries, proto, Go service, Python service, tests,
+      React, i18n keys."
     - Every task that adds a tenant table must have a paired cross-tenant isolation test.
     - Every task that adds a money field must have a paired non-base-currency test, and
       a test that fails if the field is a float.
     - Every task that changes the classifier contract must run buf breaking.
     - The last task of every change is "update the capability spec and run the full suite".
-  spec:
+  specs:
     - Write requirements as "The system SHALL ...".
     - Every requirement needs at least one scenario in WHEN / THEN form.
     - Include a negative scenario (a denied permission, a rejected file, a duplicate row,
