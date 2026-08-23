@@ -118,6 +118,6 @@ plan §2.1, now covering two contracts rather than one. From §3 the tracks spli
 - [x] 9.2 **After the code exists**, write `CLAUDE.md` describing the repository as built, not as planned: build and test commands, the directory layout with track ownership, and the invariants later changes must not violate — `int64` minor units for money, forced RLS on every tenant table, append-only classifications, one row per payment or posting, the classifier never holding database credentials, and `/gen` never hand-edited (B)
 - [ ] 9.3 Record which CI jobs must be required status checks on `main` (B)
 - [x] 9.4 Verify 9.1 and 9.2 against reality: every command they name runs, every directory they describe exists (both)
-- [ ] 9.5 Carry the resolved decisions into the plan: add River to change 0.2's scope in `IMPLEMENTATION_PLAN.md` §3, amend `ARCHITECTURE.md` A-1/A-2 and §5's `extract-classifier-service-python` to match design D2, and rename §3.2's `service Classifier` to `ClassifierService` to match the shipped contract (both)
+- [x] 9.5 Carry the resolved decisions into the plan: add River to change 0.2's scope in `IMPLEMENTATION_PLAN.md` §3, amend `ARCHITECTURE.md` A-1/A-2 and §5's `extract-classifier-service-python` to match design D2, and rename §3.2's `service Classifier` to `ClassifierService` to match the shipped contract (both)
 - [ ] 9.6 Raise what is still open with the founder: where the hosted Demo runs (D-6 names no host), which change provisions it, and where production Postgres lives (both)
 - [ ] 9.7 Update the capability spec and run the full suite

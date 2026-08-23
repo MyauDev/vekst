@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -137,4 +138,68 @@ func TestServesWithNoDatabase(t *testing.T) {
 			t.Errorf("status = %v, want STATUS_SERVING", resp.Msg.GetStatus())
 		}
 	})
+}
+
+// Run must serve until its context is cancelled, then drain and return without
+// error. A shutdown that reports failure would make every rolling deploy look
+// like an incident.
+func TestRunServesThenShutsDownCleanly(t *testing.T) {
+	cfg := config.Config{Addr: "127.0.0.1:0", ShutdownTimeout: 2 * time.Second}
+	srv := New(cfg, discard(), classify.Unavailable{})
+
+	// Bind an ephemeral port ourselves so the test never collides with a
+	// developer's running stack.
+	ln, err := net.Listen("tcp", cfg.Addr)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	srv.http.Addr = ln.Addr().String()
+	_ = ln.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.Run(ctx) }()
+
+	// Wait for the listener to accept.
+	deadline := time.Now().Add(3 * time.Second)
+	var up bool
+	for time.Now().Before(deadline) {
+		if c, err := net.DialTimeout("tcp", srv.http.Addr, 100*time.Millisecond); err == nil {
+			_ = c.Close()
+			up = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !up {
+		cancel()
+		t.Fatalf("server never accepted a connection on %s", srv.http.Addr)
+	}
+
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Run returned %v, want nil after a graceful shutdown", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after its context was cancelled")
+	}
+}
+
+// A port already in use must surface as an error, not a silent no-op.
+func TestRunReportsListenFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	cfg := config.Config{Addr: ln.Addr().String(), ShutdownTimeout: time.Second}
+	srv := New(cfg, discard(), classify.Unavailable{})
+
+	if err := srv.Run(context.Background()); err == nil {
+		t.Error("Run returned nil when the port was already bound")
+	}
 }

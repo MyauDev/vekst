@@ -73,6 +73,16 @@ disallow_untyped_calls = false
 module = ["grpc_health.*"]
 disallow_untyped_calls = false
 
+[tool.coverage.report]
+# main() is a composition root: it reads the environment, builds the server and
+# installs signal handlers. There is no branching worth asserting that
+# build_server() does not already cover, and exercising it means spawning a
+# process -- which the cluster smoke test already does end to end.
+exclude_also = [
+    "def main\\(",
+    "if __name__ == .__main__.:",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

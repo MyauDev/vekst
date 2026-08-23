@@ -26,7 +26,14 @@ export default defineConfig({
       // lcov is what SonarQube reads; text keeps the terminal useful.
       reporter: ["text", "lcov"],
       // Generated clients are not ours to cover.
-      exclude: ["src/gen/**", "**/*.config.ts", "**/*.test.tsx"],
+      exclude: [
+        "src/gen/**",
+        "**/*.config.ts",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        // Composition root: createRoot and render, no logic to assert.
+        "src/main.tsx",
+      ],
     },
   },
 });

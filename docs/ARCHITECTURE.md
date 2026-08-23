@@ -10,8 +10,8 @@ Decision owner: you (technical). Product shape: the Palm spec (see `SPEC-RECONCI
 
 | # | Decision | Owner |
 | --- | --- | --- |
-| A-1 | Two backend services eventually: `core` in Go, `classifier` in Python. **The split ships in the Commercial milestone, not now** | You |
-| A-2 | Until then the engine lives in `core` behind a `Classifier` **interface** with exactly the shapes the future proto will carry | You, 08-15 |
+| A-1 | Two backend services: `core` in Go, `classifier` in Python. ~~The split ships in the Commercial milestone~~ — **superseded 2026-08-23: the split shipped in change 0.1.** See 2.0 | You |
+| A-2 | `core/classify` holds the `Classifier` **interface** with exactly the shapes the proto carries. Its implementation is a gRPC client, not the engine | You, 08-15; revised 08-23 |
 | A-3 | Browser talks to `core` over ConnectRPC. `core` will talk to `classifier` over native gRPC | Me, from A-1 |
 | A-4 | **The classifier has no database access**, in either form. It is a pure function over its inputs | Me — see 3.3 |
 | A-5 | Deduplication is its own module and its own capability spec | You |
@@ -22,6 +22,22 @@ Decision owner: you (technical). Product shape: the Palm spec (see `SPEC-RECONCI
 ---
 
 ## 2. Why the split waits, and what that changes
+
+> **Superseded, 2026-08-23.** Section 2 argued for deferring the Python split to
+> the Commercial milestone. The founder reversed that: the classifier shipped as
+> a separate Python service in change 0.1. The reasoning below is kept because it
+> still records what the deferral would have bought and what the split costs —
+> §2.2's list of costs is now a description of the present, not a forecast.
+>
+> What actually changed: Track B writes engine layers L0–L2 in Python rather than
+> Go, two runtimes and two lint/test pipelines exist from day one, and §2.3's five
+> rules stopped being a discipline that can be violated by accident — a separate
+> process cannot reach a database handle it was never given.
+>
+> `IMPLEMENTATION_PLAN.md` §5's `extract-classifier-service-python` (3 days,
+> Commercial) is therefore obsolete. See
+> `openspec/changes/archive/*-bootstrap-monorepo/design.md` D2 for the decision
+> record, including the cost accepted.
 
 ### 2.1 The reasoning
 
@@ -105,7 +121,10 @@ to Postgres or to object storage, it is `core`.
 One thing: given transactions and the tenant's classification context, return proposals.
 
 ```protobuf
-service Classifier {
+// Named ClassifierService, not Classifier: buf's STANDARD lint set requires the
+// suffix, and HealthService already carries it. Renamed in change 0.1, before
+// any client existed, because renaming afterwards is a breaking change.
+service ClassifierService {
   rpc ClassifyBatch(ClassifyBatchRequest) returns (ClassifyBatchResponse);
   rpc Version(VersionRequest) returns (VersionResponse);
 }
@@ -432,8 +451,13 @@ Unchanged from v1, and now enforced across a language boundary:
 
 CI (GitHub Actions), one workflow with parallel jobs:
 
-`buf lint` · `buf breaking` · `go vet` + `go test` + `govulncheck` · `vitest` + `tsc` ·
-`gitleaks` · build images. The Python jobs (`ruff`, `pytest`, `mypy`) join at Commercial.
+`buf lint` · `buf breaking` · codegen drift · `go vet` + `go test` + `govulncheck` ·
+`ruff` + `mypy` + `pytest` · `vitest` + `tsc` · `gitleaks` · manifest validation ·
+SonarQube · build images.
+
+The Python jobs joined in change 0.1 rather than at Commercial, because the
+classifier service exists from day one (A-1). `gitleaks` runs as the MIT CLI, not
+the Action wrapper, which is licensed for organisation-owned repositories.
 
 ---
 
