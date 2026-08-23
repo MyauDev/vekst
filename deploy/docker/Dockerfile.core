@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+#
+# core: Go. Multi-stage, so the runtime layer carries no toolchain.
+# Base images are pinned by digest (design D9) -- a tag moves, a digest does not.
+
+FROM golang:1.26-alpine@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468 AS build
+WORKDIR /src
+
+# Dependencies first, so a source-only change reuses this layer.
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+COPY core ./core
+
+ARG VERSION=dev
+ARG BUILT_AT=dev
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build \
+      -ldflags "-s -w \
+        -X github.com/MyauDev/vekst/core/internal/buildinfo.version=${VERSION} \
+        -X github.com/MyauDev/vekst/core/internal/buildinfo.builtAt=${BUILT_AT}" \
+      -o /out/vekst-core ./core/cmd/vekst-core
+
+# Production: distroless. No shell, no package manager, nothing to exploit.
+FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+COPY --from=build /out/vekst-core /vekst-core
+EXPOSE 8080
+USER nonroot:nonroot
+ENTRYPOINT ["/vekst-core"]
+
+# Development: the Go toolchain stays in the image so live_update can recompile
+# in place. Distroless has no shell for Tilt's restart wrapper and no compiler,
+# so a Go edit would otherwise cost a full image build and rollout -- which is
+# the loop that makes people abandon a Kubernetes dev environment (design D5).
+#
+# Runs as root, unlike the runtime image: Tilt syncs sources in over tar, which
+# needs write access to /src. Development only -- the deployed image is the
+# distroless `runtime` target above, non-root and with no shell at all.
+FROM build AS dev
+COPY --from=build /out/vekst-core /vekst-core
+EXPOSE 8080
+ENTRYPOINT ["/vekst-core"]

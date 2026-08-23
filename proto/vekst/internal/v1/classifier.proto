@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package vekst.internal.v1;
+
+// The Go output directory drops the "internal" path element on purpose. Go
+// treats any path containing internal/ as a visibility boundary, so generated
+// code under core/gen/vekst/internal/ would be unimportable from core/classify.
+// The proto package stays vekst.internal.v1 -- it is the wire identity, and
+// ARCHITECTURE.md section 8 names it.
+option go_package = "github.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinternalv1";
+
+// ClassifierService is internal: native gRPC on a private ClusterIP Service, called
+// only by core. It is never exposed through the Ingress, and it never receives
+// database credentials -- ARCHITECTURE.md A-4.
+//
+// ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
+// vendor memory and rule matcher, none of which exist before changes 3.1 and
+// 3.2. See ../README.md.
+service ClassifierService {
+  rpc Version(VersionRequest) returns (VersionResponse);
+}
+
+message VersionRequest {}
+
+message VersionResponse {
+  // Recorded on every classification row from change 3.2 onward, alongside
+  // taxonomy_version and ruleset_version. Those three strings are what make a
+  // March report reproduce in June.
+  string engine_version = 1;
+
+  // RFC 3339.
+  string built_at = 2;
+}

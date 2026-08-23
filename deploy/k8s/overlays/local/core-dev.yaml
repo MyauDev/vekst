@@ -1,0 +1,32 @@
+# live_update writes into the running container: Tilt syncs sources in and, for
+# core, rewrites a restart marker. A read-only root filesystem denies both, and
+# the symptom is a crash loop for core and a silently ignored edit for the
+# classifier.
+#
+# Relaxed here and only here. The base keeps readOnlyRootFilesystem true, so the
+# hardening that matters in a deployment is not weakened by a development
+# convenience. This is a configuration difference, not a workload difference --
+# the rule an overlay must respect.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core
+spec:
+  template:
+    spec:
+      containers:
+        - name: core
+          securityContext:
+            readOnlyRootFilesystem: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: classifier
+spec:
+  template:
+    spec:
+      containers:
+        - name: classifier
+          securityContext:
+            readOnlyRootFilesystem: false

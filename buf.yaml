@@ -1,0 +1,16 @@
+version: v2
+
+modules:
+  - path: proto
+
+lint:
+  use:
+    - STANDARD
+  # STANDARD requires a package-versioned directory layout, which is what keeps
+  # vekst.v1 and vekst.internal.v1 from colliding as the contract grows.
+
+breaking:
+  use:
+    - FILE
+  # FILE is the strictest useful level: it fails on anything that would break a
+  # generated client, including field renames a wire-only check would allow.

@@ -1,0 +1,76 @@
+# Vekst — see README.md. Generated code is never hand-edited; run `make gen`.
+SHELL := /bin/bash
+.DEFAULT_GOAL := help
+
+GOBIN := $(shell go env GOPATH)/bin
+export PATH := $(PATH):$(GOBIN)
+
+VERSION  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+BUILT_AT ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS  := -X github.com/MyauDev/vekst/core/internal/buildinfo.version=$(VERSION) \
+            -X github.com/MyauDev/vekst/core/internal/buildinfo.builtAt=$(BUILT_AT)
+
+# The local cluster is pinned like every other tool (design D9). An unpinned
+# cluster silently drifts away from what you deploy to, which is the entire
+# benefit the Kubernetes dev environment was bought for.
+CLUSTER   := vekst
+K3S_IMAGE ?= rancher/k3s:v1.34.10-k3s1
+INGRESS_PORT ?= 8081
+# A local registry, so Tilt loads images into the cluster instead of trying to
+# push them to Docker Hub. k3d advertises it via the local-registry-hosting
+# ConfigMap, which Tilt reads automatically.
+REGISTRY_PORT ?= 5555
+
+.PHONY: help gen build lint test ci dev down
+
+help: ## List targets
+	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
+
+gen: ## Regenerate all stubs from /proto (Go, TypeScript, Python)
+	buf generate --template buf.gen.go.yaml
+	buf generate --template buf.gen.connect.yaml --path proto/vekst/v1
+	buf generate --template buf.gen.grpc.yaml    --path proto/vekst/internal/v1
+	buf generate --template buf.gen.web.yaml     --path proto/vekst/v1
+	@# Python: grpc_tools.protoc directly. It is protoc, not a buf plugin, so it
+	@# cannot be driven from a buf.gen template. /proto stays the single source
+	@# of truth; buf still owns lint and breaking for the contract.
+	cd classifier && uv run python -m grpc_tools.protoc \
+		-I ../proto \
+		--python_out=src --grpc_python_out=src \
+		--mypy_out=src --mypy_grpc_out=src \
+		../proto/vekst/internal/v1/classifier.proto
+	@# The classifier is installed non-editable, so regenerated stubs only reach
+	@# the venv after a resync. In the cluster, Tilt live_update syncs sources
+	@# into the container instead.
+	cd classifier && uv sync --no-editable --quiet
+
+dev: ## Create the local cluster if absent, then start Tilt
+	@k3d cluster list $(CLUSTER) >/dev/null 2>&1 || { \
+	  echo "creating k3d cluster '$(CLUSTER)' on $(K3S_IMAGE)"; \
+	  k3d cluster create $(CLUSTER) --image $(K3S_IMAGE) \
+	    -p "$(INGRESS_PORT):80@loadbalancer" \
+	    --registry-create $(CLUSTER)-registry:0.0.0.0:$(REGISTRY_PORT) --wait; }
+	@# Switch context explicitly. The Tiltfile also pins allow_k8s_contexts, so
+	@# a stray kubeconfig cannot point this at a real cluster.
+	kubectl config use-context k3d-$(CLUSTER)
+	cd deploy && tilt up
+
+down: ## Delete the cluster and everything in it
+	-cd deploy && tilt down --delete-namespaces 2>/dev/null
+	-k3d cluster delete $(CLUSTER)
+
+build: ## Build core with its version stamped in
+	go build -ldflags "$(LDFLAGS)" -o bin/vekst-core ./core/cmd/vekst-core
+
+lint: ## Lint every language
+	buf lint
+	go vet ./...
+	cd classifier && uv run ruff check . && uv run mypy .
+	cd web && npx tsc --noEmit
+
+test: ## Run every test suite
+	go test ./...
+	cd classifier && uv run pytest -q
+	cd web && npx vitest run
+
+ci: lint test ## What CI runs

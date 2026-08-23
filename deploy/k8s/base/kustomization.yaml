@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The base is what the application IS. An overlay changes configuration --
+# image tags, replicas, limits, ingress host, credentials -- never the set of
+# workloads.
+#
+# There is no Postgres here on purpose. The development database lives in the
+# local overlay only, so no deployment overlay can inherit a database that has
+# no rehearsed backup and restore procedure. Design D1 and D5.
+resources:
+  - core.yaml
+  - classifier.yaml
+  - web.yaml
+  - ingress.yaml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: vekst

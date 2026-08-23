@@ -1,0 +1,27 @@
+# Ownership follows the two tracks in docs/IMPLEMENTATION_PLAN.md section 2.1.
+# The rule it encodes: after the foundation, do not both edit the same file.
+#
+# TODO(0.1): @MyauDev/track-a and @MyauDev/track-b are placeholders. Replace
+# them with the real GitHub teams or usernames before enabling required
+# reviews, or every rule below silently matches nobody.
+
+# Default: no owner. Anything unclaimed is reviewed by whoever is around.
+
+# --- Track A: ingest -------------------------------------------------------
+/core/internal/ingest/      @MyauDev/track-a
+/core/internal/dedup/       @MyauDev/track-a
+
+# --- Track B: meaning ------------------------------------------------------
+/core/classify/             @MyauDev/track-b
+/core/internal/report/      @MyauDev/track-b
+/classifier/                @MyauDev/track-b
+
+# --- Both reviewers required ----------------------------------------------
+# Contracts and deployment shape. A change here reaches every service, so it
+# is reviewed by both tracks.
+/proto/                     @MyauDev/track-a @MyauDev/track-b
+/deploy/k8s/base/           @MyauDev/track-a @MyauDev/track-b
+
+# Change 0.2 adds /core/internal/db and the money packages here, when those
+# paths exist. GitHub silently ignores a CODEOWNERS entry for a path that does
+# not exist, so listing them early would look enforced while doing nothing.

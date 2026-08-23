@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package vekst.v1;
+
+option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
+
+// HealthService is browser-facing, served over Connect. It is the only service
+// that may be called without a tenant context, and it must never read tenant
+// data. Change 0.1 design D3.
+service HealthService {
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message CheckRequest {}
+
+message CheckResponse {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_SERVING = 1;
+    STATUS_NOT_SERVING = 2;
+  }
+
+  // The status of core itself. Independent of the classifier: a classifier
+  // outage is a retryable condition, not an outage of core.
+  Status status = 1;
+
+  // Git SHA of the running core build, or "dev" when unstamped.
+  string version = 2;
+
+  // RFC 3339. A string rather than google.protobuf.Timestamp so the skeleton
+  // does not depend on well-known-type resolution before anything needs it.
+  string built_at = 3;
+
+  // Best-effort. Empty when the classifier does not answer, which is not an
+  // error. See ARCHITECTURE.md section 3.5.
+  string classifier_version = 4;
+}

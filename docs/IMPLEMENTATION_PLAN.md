@@ -167,8 +167,8 @@ invented data. If the pipeline did not compute it, it does not count.
 
 | # | Change | Capability | Track | Days |
 | --- | --- | --- | --- | --- |
-| 0.1 | `bootstrap-monorepo` — Go core, buf/Connect, Vite+React+Tailwind, Compose, CI | `platform-foundation` | both | 4 |
-| 0.2 | `add-postgres-and-migrations` — goose, sqlc, two DB roles, `Money` + a no-float test | `platform-foundation` | both | 2 |
+| 0.1 | `bootstrap-monorepo` — Go core, **Python classifier**, buf/Connect, Vite+React+Tailwind, **k3d + Tilt**, CI | `platform-foundation` | both | ~~4~~ **9** |
+| 0.2 | `add-postgres-and-migrations` — goose, sqlc, two DB roles, **River**, `Money` + no-float tests | `platform-foundation` | both | ~~2~~ **3.75** |
 | 1.1 | `add-tenancy-and-rls` — organizations → entities → accounts, `SET LOCAL app.org_id`, forced RLS, CI policy check, cross-tenant tests | `tenancy` | B | 3 |
 | 1.2 | `add-identity` — Google OIDC only | `identity-access` | B | 1.5 |
 | 2.1 | `add-file-upload` — signed-URL upload, size and MIME limits, batch state machine, `source_kind` | `file-ingestion` | A | 2 |
@@ -185,8 +185,19 @@ invented data. If the pipeline did not compute it, it does not count.
 | 5.1 | `add-web-app-shell` — Tailwind token layer from the `ui.unlumen.com` reference, light mode only, en + ru | `web-app` | A | 2 |
 | 5.2 | `add-demo-screens` — Imports (with the validation report), Review, P&L | `web-app` | A+B | 2 |
 
-**Total: 37 person-days.** Track A ≈ 17.5 · Track B ≈ 17 · shared ≈ 2.5.
-The tracks are close to balanced. That is deliberate — check it again after week one.
+**Total as planned: 37 person-days.** Track A ≈ 17.5 · Track B ≈ 17 · shared ≈ 2.5.
+
+> **Stale, 2026-08-23.** Changes 0.1 and 0.2 measured **≈13 person-days against the
+> 6 budgeted here**, before either track wrote ingest or classification code. Three
+> founder decisions taken after this table was written account for it: the Demo is
+> hosted, the development environment is local Kubernetes, and the Python
+> classifier ships from day one instead of at Commercial.
+>
+> The Demo also needs a change that provisions the cluster, DNS, TLS and backups.
+> **No milestone budgets that work at all.**
+>
+> §2's capacity arithmetic predates all four and no longer holds. Re-derive it
+> before treating 1 October as a commitment.
 
 ### 3.1 Deliberately excluded from the Demo
 
@@ -241,7 +252,8 @@ About 30 person-days ≈ 19 working days with two developers.
 `add-dunning-lifecycle` (3) · `add-data-erasure` (1) · `add-report-sales` (2) ·
 `add-report-opex` (2) · `add-report-cashflow` (2) · `add-deviation-highlighting` (2) ·
 `add-audit-log` (1) · `add-pdf-export` (1.5) · `add-german-locale` (1) ·
-`add-marketing-site` (3) · `extract-classifier-service-python` (3)
+`add-marketing-site` (3) · ~~`extract-classifier-service-python` (3)~~ — **done in
+change 0.1**; the service has existed since the skeleton. See `ARCHITECTURE.md` §2
 
 Carried from the Palm spec, unchanged: dunning (pause, keep data, 3 reminders, delete at
 3 months, `scheduled_deletion_at` written once at pause and never recomputed); the
@@ -267,7 +279,7 @@ remaining report templates · mobile client · AI comments on already-highlighte
 | D-3 | The predefined output table structure | 4.1 | 15 September |
 | D-4 | Does the Demo split VAT out of gross? | 3.1, 4.1 | Default: no. Report gross and say so |
 | D-5 | FX rate source | 2.5 | Default: ECB daily reference rates, cached, rate on the booking date |
-| D-6 | Hosting target — unanswered after four asks | 0.1, 0.2 | Default: Hetzner Cloud (EU), Docker Compose, Caddy, nightly encrypted backups to R2 |
+| D-6 | Hosting target — **the Demo is confirmed hosted; the host is still unnamed** | The provisioning change | Working assumption: Hetzner Cloud (EU) with k3s, matching the local k3d environment. Docker Compose and Caddy are superseded by Kubernetes and an Ingress |
 | D-7 | Legal entity country | Commercial | Any Paddle-supported country. Ukraine and Kazakhstan qualify; Belarus does not |
 | D-8 | May a customer override a completeness warning, and who signs it off? | 2.3, and `add-validation-overrides` | Default: `approver` may override, with a written reason, recorded on the report |
 | D-9 | Cross-client shared vendor memory: yes with consent, or never | The terms of service | Before the first invoice |

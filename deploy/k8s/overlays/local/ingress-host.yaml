@@ -1,0 +1,17 @@
+# The overlay changes the host and nothing else. The path routing stays in the
+# base so every environment inherits identical routing -- design D6.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vekst
+spec:
+  rules:
+    - host: vekst.localhost
+      http:
+        paths:
+          - path: /rpc
+            pathType: Prefix
+            backend: { service: { name: core, port: { name: http } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: web, port: { name: http } } }

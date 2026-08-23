@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+#
+# web: two targets. `dev` runs Vite for Tilt live_update; `static` produces the
+# built assets a deployment serves. Change 0.1 uses dev; the static target
+# exists so the deployment overlay has something to point at.
+
+FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS deps
+WORKDIR /app
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+
+FROM deps AS dev
+COPY web ./
+EXPOSE 5173
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "5173"]
+
+FROM deps AS build
+COPY web ./
+RUN npx tsc --noEmit && npx vite build
+
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS static
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 8080

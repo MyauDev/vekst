@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core
+  labels: { app.kubernetes.io/name: core, app.kubernetes.io/part-of: vekst }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: core }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: core }
+    spec:
+      containers:
+        - name: core
+          image: vekst/core
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - name: VEKST_ADDR
+              value: ":8080"
+            # Native gRPC to a ClusterIP on the private network. The classifier
+            # is never routed through the Ingress -- design D6.
+            - name: VEKST_CLASSIFIER_ADDR
+              value: "classifier:9090"
+          # Liveness is dependency-free on purpose: it answers "is this process
+          # broken", not "is the system healthy". Change 0.2 adds /readyz for
+          # the dependency check. A liveness probe that checks a dependency
+          # turns a recoverable outage into a crash loop.
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: core
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: core }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
