@@ -1,0 +1,59 @@
+name: CodeQL
+
+# Separate from ci.yaml on purpose. CodeQL needs security-events: write, which
+# ci.yaml deliberately does not grant, and it wants a schedule: the rules improve
+# over time, so re-scanning unchanged code finds things the first run could not.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, off-peak. Catches newly published queries against code nobody touched.
+    - cron: "27 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload results to the Security tab
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: autobuild
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Go must compile for CodeQL to analyse it. The generated stubs are
+      # committed, so this needs no codegen toolchain -- one of the things that
+      # decision bought.
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
