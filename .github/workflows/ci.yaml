@@ -23,15 +23,26 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      # setup_only: buf is driven explicitly below. The action's own breaking
+      # step errors with "had no .proto files" when main has no baseline yet,
+      # and its default pr_comment needs pull-requests: write, which this
+      # workflow deliberately does not grant.
       - uses: bufbuild/buf-action@v1
         with:
-          lint: true
-          format: false
-          # Compare against main. On the first commit main has no /proto, and
-          # this must pass rather than error on a missing baseline.
-          breaking: true
-          breaking_against: "https://github.com/${{ github.repository }}.git#branch=main"
-          push: false
+          setup_only: true
+      - run: buf lint --error-format github-actions
+
+      - name: breaking change check
+        run: |
+          git fetch --quiet origin main || true
+          if git ls-tree -r --name-only origin/main 2>/dev/null | grep -q '\.proto$'; then
+            buf breaking --error-format github-actions --against '.git#branch=origin/main'
+          else
+            # A first proto commit has no baseline. That is not a breaking
+            # change, and treating it as an error would mean the gate could
+            # never be introduced in the same change that introduces /proto.
+            echo "::notice::main has no .proto files yet — no baseline to compare against"
+          fi
 
   codegen:
     name: generated code has not drifted
@@ -115,14 +126,27 @@ jobs:
           done
 
   # --- secrets -------------------------------------------------------------
-  gitleaks:
-    name: gitleaks
+  secrets:
+    name: secret scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
-        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+      # The gitleaks CLI is MIT. Only the gitleaks-action wrapper is
+      # commercially licensed for organisation-owned repositories, which this
+      # one now is. Running the binary directly is the same scan, unlicensed,
+      # and pinned to a version we choose rather than a floating tag.
+      - name: install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: scan git history
+        run: gitleaks git --redact --no-banner .
+      - name: scan working tree
+        run: gitleaks dir --redact --no-banner .
 
   # --- images --------------------------------------------------------------
   images:
