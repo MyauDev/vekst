@@ -25,6 +25,13 @@ request.
 - **THEN** the round-trip job fails
 - **AND** the pull request cannot be merged
 
+#### Scenario: Re-applying an already-applied migration is safe
+
+- **WHEN** migration 001 is applied against a database in the same cluster where its roles
+  already exist
+- **THEN** it completes without error rather than failing on an existing role
+- **AND** the resulting privileges are identical to a first application
+
 #### Scenario: Migrations complete before core serves traffic
 
 - **WHEN** the environment is started from nothing
@@ -43,6 +50,24 @@ request.
 The system SHALL define exactly two database roles. `vekst_migrator` SHALL own the schema and
 apply migrations. `vekst_app` SHALL own nothing, SHALL NOT hold `BYPASSRLS`, SHALL NOT be a
 superuser, and SHALL hold only DML rights. The `core` service SHALL connect as `vekst_app`.
+
+`vekst_migrator` SHALL be provisioned by the environment rather than created by a migration,
+because it is the role migrations are applied as and therefore exists before any of them
+runs. `vekst_app` SHALL be created by the first migration.
+
+#### Scenario: The migrator role is supplied by the environment
+
+- **WHEN** the first migration runs
+- **THEN** it does not attempt to create the role it is running as
+- **AND** it creates `vekst_app`, which does not exist beforehand
+
+#### Scenario: A missing or under-privileged migrator fails with a named reason
+
+- **WHEN** migrations are applied by a role that is not `vekst_migrator`, or by one that
+  cannot create `vekst_app`
+- **THEN** the migration fails immediately
+- **AND** the error names the role that must be provisioned, rather than surfacing a bare
+  permission error from a later statement
 
 #### Scenario: The application role cannot bypass row-level security
 
@@ -66,6 +91,12 @@ superuser, and SHALL hold only DML rights. The `core` service SHALL connect as `
 - **WHEN** the `core` Deployment's environment and mounted Secrets are inspected
 - **THEN** they contain `vekst_app` credentials only
 - **AND** no `vekst_migrator` credential is present
+
+#### Scenario: The migration Job carries the credentials core does not
+
+- **WHEN** the migration Job's environment and mounted Secrets are inspected
+- **THEN** they contain `vekst_migrator` credentials
+- **AND** the two workloads read separate Secrets, so neither can inherit the other's
 
 ### Requirement: One transaction entry point
 
@@ -110,6 +141,12 @@ it concerns were committed.
 - **THEN** River schedules a retry with backoff
 - **AND** the job is not discarded on its first failure
 
+#### Scenario: Shutdown drains rather than abandons
+
+- **WHEN** the process receives a termination signal while a job is running
+- **THEN** the client stops accepting new jobs and waits for the running one to finish
+- **AND** the job is not left claimed by a worker that no longer exists
+
 ### Requirement: Background workers reach the database only through the entry point
 
 The system SHALL require every River worker to access the database through the single
@@ -146,14 +183,30 @@ test added by a later change SHALL read this file rather than embedding its own 
 #### Scenario: River and migration tables are listed
 
 - **WHEN** the allowlist is inspected
-- **THEN** it names River's tables and the migration version table
+- **THEN** it names every table River creates, including River's own migration table
+- **AND** it names the migration version table
 - **AND** it states that adding an entry is a security decision
+
+#### Scenario: The list matches the tables the migrations actually create
+
+- **WHEN** the tables present after this change's migrations are applied are compared with
+  the allowlist
+- **THEN** every one of them appears in it
+- **AND** a table River creates that nobody listed fails here, rather than surfacing later
+  as a failure of the coverage test change 1.1 writes
 
 #### Scenario: Adding an exemption requires both reviewers
 
 - **WHEN** a pull request adds a line to the allowlist with approval from one developer
 - **THEN** the required-reviewers check is unsatisfied
 - **AND** the pull request cannot be merged
+
+#### Scenario: The reviewer rule resolves to real reviewers
+
+- **WHEN** the ownership file entry covering the allowlist is inspected
+- **THEN** it names reviewers that exist
+- **AND** it contains no placeholder, so the rule cannot match nobody while appearing
+  enforced
 
 ### Requirement: Money is integer minor units with an explicit currency
 
@@ -165,8 +218,11 @@ language, and SHALL NOT expose one to TypeScript as a JavaScript number.
 #### Scenario: The generated types carry money safely in all three languages
 
 - **WHEN** the types generated from the money contract are inspected
-- **THEN** the minor-units field is a 64-bit integer in Go and in Python
-- **AND** its TypeScript type is `string`, not `number`
+- **THEN** the money contract is generated for Go, TypeScript and Python alike, not only for
+  the language that first consumes it
+- **AND** the minor-units field is a 64-bit integer in Go and in Python
+- **AND** its TypeScript type is one that holds an `int64` exactly — `string` or `bigint` —
+  and is never `number`
 - **AND** an amount of 12.34 EUR is representable as minor units 1234 with currency code
   `EUR`
 
@@ -194,13 +250,15 @@ amount survives a real browser round trip belongs to the first change that retur
 
 ### Requirement: Readiness reflects dependencies; liveness does not
 
-The system SHALL expose `/readyz`, reporting ready only when the process responds and the
-database pool answers. `/healthz` SHALL remain dependency-free. Kubernetes SHALL use
+The system SHALL expose `/readyz`, reporting ready only when the process responds, the
+database pool answers, and the applied schema version is at least the version the binary
+requires. `/healthz` SHALL remain dependency-free. Kubernetes SHALL use
 `/healthz` for liveness and `/readyz` for readiness.
 
 #### Scenario: A healthy pod with a reachable database serves traffic
 
-- **WHEN** `core` is running and the database answers
+- **WHEN** `core` is running, the database answers, and the applied schema is at or above
+  the version the binary requires
 - **THEN** `/healthz` and `/readyz` both succeed
 - **AND** the pod is Ready
 
@@ -223,14 +281,27 @@ database pool answers. `/healthz` SHALL remain dependency-free. Kubernetes SHALL
 The system SHALL commit generated code to `/core/gen`, `/web/src/gen` and
 `/classifier/src/vekst`, and `sqlc` output to `/core/gen/db`. CI SHALL fail when any committed
 output does not match what the generators produce from the checked-in sources. `vekst/v1`
-SHALL generate Go and TypeScript; `vekst/internal/v1` SHALL generate Go and Python; `sqlc`
+SHALL generate Go and TypeScript; `vekst/internal/v1` SHALL generate Go and Python; the money
+contract SHALL generate Go, TypeScript and Python, wherever in the workspace it lives; `sqlc`
 SHALL generate Go from the checked-in SQL. Every generator SHALL be local and pinned by its
-language's lockfile.
+language's lockfile, so that regeneration never depends on a network service.
 
 #### Scenario: Regenerating produces no diff
 
 - **WHEN** CI runs `make gen` on a pull request
 - **THEN** `git diff --exit-code` reports no change across any generated directory
+
+#### Scenario: Regeneration needs no network service
+
+- **WHEN** `make gen` runs with no access to a code-generation registry
+- **THEN** it completes successfully from locally pinned generators
+
+#### Scenario: A package outside the existing generator paths still generates
+
+- **WHEN** a proto package is added that no generator invocation currently covers
+- **THEN** `make gen` produces its stubs in every language the requirement names for it
+- **AND** a language whose generator silently skipped it fails the drift check rather than
+  passing with nothing to compare
 
 #### Scenario: A proto change without regeneration is rejected
 
@@ -306,8 +377,8 @@ the available make targets.
   the repository and runs `make dev`
 - **THEN** a local cluster is created if one is not already running
 - **AND** Tilt builds all three images and applies the `local` overlay
-- **AND** the migration Job completes, then the `core`, `classifier`, `web` and Postgres
-  workloads all reach the Ready state
+- **AND** Postgres reaches the Ready state, then the migration Job runs to completion, then
+  the `core`, `classifier` and `web` workloads reach the Ready state
 - **AND** the walking-skeleton page loads through the Ingress with no further configuration
 
 #### Scenario: An unreachable cluster reports what to do
