@@ -21,7 +21,13 @@ INGRESS_PORT ?= 8081
 # ConfigMap, which Tilt reads automatically.
 REGISTRY_PORT ?= 5555
 
-.PHONY: help gen build lint test ci dev down
+.PHONY: help gen build lint test ci dev down migrate-up migrate-down
+
+# vekst_migrator only -- the role migrations run as. core itself never sees
+# this credential; it connects as vekst_app. Local default matches the local
+# overlay's Postgres (design D1/Q1/Q2). Local-development credential only,
+# reachable at 127.0.0.1 alone -- never a real secret, same as postgres.yaml.
+DATABASE_URL_MIGRATOR ?= postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable
 
 help: ## List targets
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -30,7 +36,10 @@ gen: ## Regenerate all stubs from /proto (Go, TypeScript, Python)
 	buf generate --template buf.gen.go.yaml
 	buf generate --template buf.gen.connect.yaml --path proto/vekst/v1
 	buf generate --template buf.gen.grpc.yaml    --path proto/vekst/internal/v1
-	buf generate --template buf.gen.web.yaml     --path proto/vekst/v1
+	@# vekst.type.v1 (Money) is browser- and classifier-facing alike, so the web
+	@# and Python legs list it explicitly alongside their own package -- a
+	@# generator with only its own package in scope would silently skip it.
+	buf generate --template buf.gen.web.yaml     --path proto/vekst/v1 --path proto/vekst/type/v1
 	@# Python: grpc_tools.protoc directly. It is protoc, not a buf plugin, so it
 	@# cannot be driven from a buf.gen template. /proto stays the single source
 	@# of truth; buf still owns lint and breaking for the contract.
@@ -38,11 +47,15 @@ gen: ## Regenerate all stubs from /proto (Go, TypeScript, Python)
 		-I ../proto \
 		--python_out=src --grpc_python_out=src \
 		--mypy_out=src --mypy_grpc_out=src \
-		../proto/vekst/internal/v1/classifier.proto
+		../proto/vekst/internal/v1/classifier.proto \
+		../proto/vekst/type/v1/money.proto
 	@# The classifier is installed non-editable, so regenerated stubs only reach
 	@# the venv after a resync. In the cluster, Tilt live_update syncs sources
 	@# into the container instead.
 	cd classifier && uv sync --no-editable --quiet
+	@# sqlc: typed Go from the checked-in SQL, joining the same drift gate as
+	@# buf's output (design D7).
+	go tool sqlc generate
 
 dev: ## Create the local cluster if absent, then start Tilt
 	@k3d cluster list $(CLUSTER) >/dev/null 2>&1 || { \
@@ -62,9 +75,23 @@ down: ## Delete the cluster and everything in it
 build: ## Build core with its version stamped in
 	go build -ldflags "$(LDFLAGS)" -o bin/vekst-core ./core/cmd/vekst-core
 
+## core/migrations/00002_river.go is a Go migration: it must be compiled into
+## the binary that runs it, so plain goose (a generic CLI with no knowledge of
+## our init() registrations) cannot apply it. `vekst-core migrate` is the same
+## binary that serves traffic, reading the same embedded migrations -- design
+## Q5 -- so migrating always goes through it, both here and in the cluster's
+## migration Job.
+migrate-up: ## Apply pending migrations to DATABASE_URL_MIGRATOR
+	DATABASE_URL_MIGRATOR="$(DATABASE_URL_MIGRATOR)" go run ./core/cmd/vekst-core migrate up
+
+migrate-down: ## Roll back one migration on DATABASE_URL_MIGRATOR
+	DATABASE_URL_MIGRATOR="$(DATABASE_URL_MIGRATOR)" go run ./core/cmd/vekst-core migrate down
+
 lint: ## Lint every language
 	buf lint
 	go vet ./...
+	./scripts/check-db-entry-point.sh
+	./scripts/check-codeowners.sh
 	cd classifier && uv run ruff check . && uv run mypy .
 	cd web && npx tsc --noEmit
 

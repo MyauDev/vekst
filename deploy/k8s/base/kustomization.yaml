@@ -8,11 +8,17 @@ kind: Kustomization
 # There is no Postgres here on purpose. The development database lives in the
 # local overlay only, so no deployment overlay can inherit a database that has
 # no rehearsed backup and restore procedure. Design D1 and D5.
+#
+# The migration Job IS here, unlike Postgres: every environment migrates its
+# schema, so a Job that lived only in an overlay would force each overlay to
+# reinvent it -- exactly the divergence this base/overlay split forbids
+# (design Migration Plan).
 resources:
   - core.yaml
   - classifier.yaml
   - web.yaml
   - ingress.yaml
+  - migrate-job.yaml
 
 labels:
   - includeSelectors: false

@@ -13,11 +13,22 @@ import (
 	"time"
 )
 
-// Config is the whole of this service's configuration. Change 0.2 adds the
-// database; until then there is deliberately nothing stateful here.
+// Config is the whole of this service's configuration.
 type Config struct {
 	// Addr is the HTTP listen address, e.g. ":8080".
 	Addr string
+
+	// DatabaseURL is a libpq connection string authenticating as vekst_app.
+	// core never holds vekst_migrator credentials -- those belong to the
+	// migration Job alone (design Q1/Q2). Read from a Secret named
+	// vekst-db-app, key "url", in every environment but local.
+	DatabaseURL string
+
+	// DatabaseMaxConns bounds the connection pool.
+	DatabaseMaxConns int32
+
+	// DatabaseConnectTimeout bounds the initial connection and startup ping.
+	DatabaseConnectTimeout time.Duration
 
 	// ClassifierAddr is the internal gRPC target for the classifier service,
 	// e.g. "classifier:9090". Empty disables the call: core still serves, and
@@ -39,11 +50,14 @@ type Config struct {
 // correct for local development.
 func Load() (Config, error) {
 	c := Config{
-		Addr:              env("VEKST_ADDR", ":8080"),
-		ClassifierAddr:    env("VEKST_CLASSIFIER_ADDR", ""),
-		ClassifierTimeout: 2 * time.Second,
-		ShutdownTimeout:   15 * time.Second,
-		LogLevel:          env("VEKST_LOG_LEVEL", "info"),
+		Addr:                   env("VEKST_ADDR", ":8080"),
+		ClassifierAddr:         env("VEKST_CLASSIFIER_ADDR", ""),
+		ClassifierTimeout:      2 * time.Second,
+		ShutdownTimeout:        15 * time.Second,
+		LogLevel:               env("VEKST_LOG_LEVEL", "info"),
+		DatabaseURL:            env("DATABASE_URL", ""),
+		DatabaseMaxConns:       10,
+		DatabaseConnectTimeout: 5 * time.Second,
 	}
 
 	var err error
@@ -52,6 +66,12 @@ func Load() (Config, error) {
 	}
 	if c.ShutdownTimeout, err = envDuration("VEKST_SHUTDOWN_TIMEOUT", c.ShutdownTimeout); err != nil {
 		return Config{}, err
+	}
+	if c.DatabaseConnectTimeout, err = envDuration("VEKST_DB_CONNECT_TIMEOUT", c.DatabaseConnectTimeout); err != nil {
+		return Config{}, err
+	}
+	if c.DatabaseURL == "" {
+		return Config{}, fmt.Errorf("DATABASE_URL is not set")
 	}
 	return c, nil
 }

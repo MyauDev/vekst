@@ -118,6 +118,16 @@ Capacity to 1 October:
 The Demo scope below is **37 person-days**. It fits, with 4 days of slack. That slack is
 the whole margin — do not spend it in advance.
 
+> **Stale, 2026-09-02.** The line above no longer holds. §3's own note records 0.1 and 0.2
+> at **≈13 person-days actual against 6 budgeted** here — a **7-day overrun** on the first
+> two of eighteen changes, before either track has written a line of ingest or
+> classification code. If every remaining change tracks its own budget exactly (the
+> optimistic case — 0.1 and 0.2 did not), total actual cost is 37 + 7 = **44 person-days**
+> against the 41 usable computed above: a **3-day shortfall**, not 4 days of slack, and
+> before the unbudgeted provisioning change §3 also names. This table needs a real
+> re-baseline, not a footnote; recomputing it is not this task's job, only flagging that
+> the number above is now wrong.
+
 ### 2.1 The work split
 
 Two tracks, one seam. The seam is the `transactions` table.

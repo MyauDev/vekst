@@ -85,6 +85,26 @@ ALTER DEFAULT PRIVILEGES FOR ROLE vekst_migrator IN SCHEMA public
 `vekst_app` is explicitly `NOBYPASSRLS`. It is not enough that it lacks the attribute today;
 a test asserts it, so a later `ALTER ROLE` cannot quietly grant it.
 
+The `DO` block above catches the wrong-identity case. The spec's role requirement also
+commits to a second failure mode — a migrator that *is* `vekst_migrator` but lacks
+`CREATEROLE` — which needs its own guard around the `CREATE ROLE` statement itself, not just
+around `current_user`:
+
+```sql
+-- Second guard, around CREATE ROLE itself: a migrator missing CREATEROLE gets a
+-- bare "permission denied for database" from Postgres. Catch it and re-raise
+-- naming the role to provision (Q1), rather than three cryptic statements in.
+DO $$ BEGIN
+  CREATE ROLE vekst_app LOGIN NOBYPASSRLS;
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE EXCEPTION 'vekst_migrator needs CREATEROLE to provision vekst_app; see Q1';
+WHEN duplicate_object THEN
+  NULL; -- idempotent per risk row 1
+END $$;
+```
+
+Confirm the exact exception class on task 1.2/1.4 — this is illustrative, not tested SQL.
+
 **002 — River's schema.** Applied by River's own migrator, wrapped in a goose migration so
 there is one ordered history rather than two. Creates `river_job`, `river_leader`,
 `river_queue` and friends.
@@ -156,15 +176,20 @@ river_migration
 river_job
 river_leader
 river_queue
-river_client
-river_client_queue
+river_notification
 ```
 
 `river_migration` is River's own version table. Wrapping River's migrator in a goose
 migration gives one *ordered* history, not one table — River still records what it applied.
-Confirm the exact set against the River version pinned in `go.mod` when 002 is written; a
-table missing from this list fails 1.1's coverage test, which is the correct failure but an
-avoidable one.
+
+Confirmed against `github.com/riverqueue/river v0.47.0`, the version task 4.1 pins: its
+`main` migration line (`riverdriver/riverdatabasesql/migration/main`) creates exactly
+`river_migration`, `river_job` (plus the `river_job_state` enum, which the allowlist does not
+need to name — it is a type, not a table), `river_leader`, `river_queue` and
+`river_notification`. `river_client` and `river_client_queue` do not exist in this version —
+an earlier draft of this list named them from memory rather than from the migrations
+themselves; if a future River upgrade adds or renames a table, task 4.7b's test catches it
+before 1.1's coverage test would.
 
 **The rule that must travel with it:** because River's tables have no RLS, a job handler
 must set its own tenant context. A worker calls `InTx` and 1.1's `SET LOCAL app.org_id` is
@@ -260,7 +285,7 @@ this decision could still cost an afternoon.
 
 | Risk | Mitigation |
 | --- | --- |
-| **Roles are cluster-scoped, migrations are database-scoped.** `CREATE ROLE` in a migration is unusual and fails on a second database in the same cluster | Guard `vekst_app` with `IF NOT EXISTS` semantics via a `DO` block, and treat 001 as idempotent. `vekst_migrator` is not created by a migration at all — it is provisioned by the environment, because it is the role the migration runs as (Q1) |
+| **Roles are cluster-scoped, migrations are database-scoped.** `CREATE ROLE` in a migration is unusual and fails on a second database in the same cluster | Guard `vekst_app` with `IF NOT EXISTS` semantics via a `DO` block, and treat 001 as idempotent. `vekst_migrator` is not created by a migration at all — it is provisioned by the environment, because it is the role the migration runs as (Q1). **Confirmed live**: `CREATE DATABASE vekst2` in the same cluster, then `migrate up` against it — 001 ran clean against the already-existing `vekst_app` role, and `vekst2`'s own tables got correct default privileges independently |
 | **The migrator may lack `CREATEROLE` on a managed provider**, so 001 cannot create `vekst_app` | 001's `DO` block raises an exception naming the role to provision, instead of failing on a permission error. The escape hatch is the same path Q1 already uses for `vekst_migrator` |
 | A developer opens a transaction outside `InTx`, and 1.1's tenant context silently does not apply | A CI grep for `pool.Begin`/`pool.Query` outside `/core/internal/db`. Cheap, and it fails loudly at the moment the second door is added rather than the day a customer sees another customer's data |
 | The RLS allowlist becomes a place to silence the 1.1 test | It is a checked-in file under CODEOWNERS requiring both reviewers, with the reason written at the top. The alternative — a regex inside the test — is edited without anyone noticing |

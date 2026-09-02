@@ -23,17 +23,24 @@ spec:
             # is never routed through the Ingress -- design D6.
             - name: VEKST_CLASSIFIER_ADDR
               value: "classifier:9090"
+            # vekst_app only. vekst_migrator credentials live in a separate
+            # Secret (vekst-db-migrator) that only the migration Job mounts --
+            # design Q1/Q2.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: vekst-db-app, key: url }
           # Liveness is dependency-free on purpose: it answers "is this process
-          # broken", not "is the system healthy". Change 0.2 adds /readyz for
-          # the dependency check. A liveness probe that checks a dependency
-          # turns a recoverable outage into a crash loop.
+          # broken", not "is the system healthy". A liveness probe that checks
+          # a dependency turns a recoverable outage into a crash loop.
           livenessProbe:
             httpGet: { path: /healthz, port: http }
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+          # Readiness also gates on the database and the schema version --
+          # design D6.
           readinessProbe:
-            httpGet: { path: /healthz, port: http }
+            httpGet: { path: /readyz, port: http }
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3

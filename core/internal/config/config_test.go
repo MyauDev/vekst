@@ -6,9 +6,14 @@ import (
 )
 
 func TestLoadDefaults(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DatabaseMaxConns <= 0 || cfg.DatabaseConnectTimeout <= 0 {
+		t.Errorf("database pool defaults must be positive, got %d and %v", cfg.DatabaseMaxConns, cfg.DatabaseConnectTimeout)
 	}
 
 	if cfg.Addr != ":8080" {
@@ -25,6 +30,7 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadReadsEnvironment(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
 	t.Setenv("VEKST_ADDR", ":9999")
 	t.Setenv("VEKST_CLASSIFIER_ADDR", "classifier:9090")
 	t.Setenv("VEKST_CLASSIFIER_TIMEOUT", "750ms")
@@ -53,6 +59,7 @@ func TestLoadReadsEnvironment(t *testing.T) {
 // readily -- an unset ConfigMap key arrives as "" -- and silently listening on
 // "" instead of ":8080" would be very hard to trace back to its cause.
 func TestEmptyEnvValueFallsBackToDefault(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
 	t.Setenv("VEKST_ADDR", "")
 
 	cfg, err := Load()
@@ -84,9 +91,19 @@ func TestInvalidDurationIsRejected(t *testing.T) {
 }
 
 func TestInvalidClassifierTimeoutIsRejected(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
 	t.Setenv("VEKST_CLASSIFIER_TIMEOUT", "never")
 
 	if _, err := Load(); err == nil {
 		t.Error("Load() accepted an unparseable classifier timeout")
+	}
+}
+
+// core always connects to Postgres from change 0.2 onward -- an unset
+// DATABASE_URL must fail at startup, not surface as a mysterious dial error
+// once the server is already listening.
+func TestMissingDatabaseURLIsRejected(t *testing.T) {
+	if _, err := Load(); err == nil {
+		t.Error("Load() accepted an unset DATABASE_URL")
 	}
 }

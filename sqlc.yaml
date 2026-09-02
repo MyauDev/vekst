@@ -1,0 +1,23 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "core/internal/db/query"
+    schema:
+      - "core/migrations"
+      # goose_db_version is created by goose itself, not by a migration file
+      # -- see the comment in this file for why sqlc still needs to see it.
+      - "core/internal/db/schema"
+    gen:
+      go:
+        package: "db"
+        out: "core/gen/db"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        # Money's minor units are int64; sqlc's default int32 for a bigint
+        # column would silently truncate a large amount. No column is money
+        # yet (0.2's non-goal), but the override belongs here now so the
+        # first money column added by a later change is correct by default
+        # rather than by someone remembering this file exists.
+        overrides:
+          - db_type: "bigint"
+            go_type: "int64"

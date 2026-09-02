@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ../../base
   - postgres.yaml          # development only; never in the base
+  - db-secrets.yaml        # dev-only credentials; contents differ per environment (design Q2)
 
 patches:
   - path: ingress-host.yaml
