@@ -45,6 +45,16 @@ func TestInsertTxCommitted(t *testing.T) {
 		_ = client.Stop(stopCtx)
 	}()
 
+	// Captured before InsertTx and matched against river_job.created_at
+	// below: this database is a long-lived scratch instance reused across a
+	// whole session's worth of test runs, and "any completed noop job
+	// exists" is trivially true forever after the first one ever ran. An
+	// earlier version of this test checked exactly that and passed
+	// instantly without the job it had just inserted ever actually
+	// completing -- Work() showed 0% coverage as a result, which is what
+	// caught it.
+	insertedAt := time.Now()
+
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
@@ -59,7 +69,11 @@ func TestInsertTxCommitted(t *testing.T) {
 	var count int
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if err := pool.QueryRow(ctx, "SELECT count(*) FROM river_job WHERE kind = 'noop' AND state = 'completed'").Scan(&count); err != nil {
+		err := pool.QueryRow(ctx,
+			"SELECT count(*) FROM river_job WHERE kind = 'noop' AND state = 'completed' AND created_at >= $1",
+			insertedAt,
+		).Scan(&count)
+		if err != nil {
 			t.Fatalf("querying river_job: %v", err)
 		}
 		if count > 0 {

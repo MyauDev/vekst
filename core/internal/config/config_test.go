@@ -99,10 +99,25 @@ func TestInvalidClassifierTimeoutIsRejected(t *testing.T) {
 	}
 }
 
+func TestInvalidDatabaseConnectTimeoutIsRejected(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+	t.Setenv("VEKST_DB_CONNECT_TIMEOUT", "not-a-duration")
+
+	if _, err := Load(); err == nil {
+		t.Error("Load() accepted an unparseable VEKST_DB_CONNECT_TIMEOUT")
+	}
+}
+
 // core always connects to Postgres from change 0.2 onward -- an unset
 // DATABASE_URL must fail at startup, not surface as a mysterious dial error
 // once the server is already listening.
 func TestMissingDatabaseURLIsRejected(t *testing.T) {
+	// t.Setenv, not an ambient assumption: a developer or CI job that
+	// happens to have DATABASE_URL exported (e.g. while running the live
+	// db/jobs tests elsewhere in this session) would otherwise make this
+	// test silently pass for the wrong reason.
+	t.Setenv("DATABASE_URL", "")
+
 	if _, err := Load(); err == nil {
 		t.Error("Load() accepted an unset DATABASE_URL")
 	}

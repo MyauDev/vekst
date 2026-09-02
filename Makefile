@@ -43,11 +43,21 @@ gen: ## Regenerate all stubs from /proto (Go, TypeScript, Python)
 	@# Python: grpc_tools.protoc directly. It is protoc, not a buf plugin, so it
 	@# cannot be driven from a buf.gen template. /proto stays the single source
 	@# of truth; buf still owns lint and breaking for the contract.
+	@#
+	@# classifier.proto declares a service, so it gets all four outputs.
+	@# money.proto declares only a message -- running it through
+	@# --grpc_python_out/--mypy_grpc_out produces a _grpc.py containing nothing
+	@# but a version-check guard, with an unused `warnings` import flagged by
+	@# every linter that looks at it. Separate invocations, not separate flags
+	@# per file: protoc applies one set of output flags to every file it's given.
 	cd classifier && uv run python -m grpc_tools.protoc \
 		-I ../proto \
 		--python_out=src --grpc_python_out=src \
 		--mypy_out=src --mypy_grpc_out=src \
-		../proto/vekst/internal/v1/classifier.proto \
+		../proto/vekst/internal/v1/classifier.proto
+	cd classifier && uv run python -m grpc_tools.protoc \
+		-I ../proto \
+		--python_out=src --mypy_out=src \
 		../proto/vekst/type/v1/money.proto
 	@# The classifier is installed non-editable, so regenerated stubs only reach
 	@# the venv after a resync. In the cluster, Tilt live_update syncs sources

@@ -33,6 +33,19 @@ same cluster; and added a mechanical check against `CODEOWNERS` regressing to pl
 text. `make ci` is fully green. One item, 7.5, is `[ ]` for a stated reason — a real attempt
 hit a host-level Kubernetes networking conflict, not a defect in this change.
 
+**Coverage pass, same day.** Sonar's gate is 80%. Go was at 39.1% raw / ~87.4% once measured
+the way Sonar actually measures it (excluding `core/gen/**` and `core/cmd/**`, per
+`sonar-project.properties`) after closing the real 0%-covered gaps in `core/internal/db`,
+`core/internal/migrate` and `core/migrations/00002_river.go`. Python and web were already at
+100%. Writing these tests surfaced two more real bugs, not just coverage numbers:
+`DROP ROLE vekst_app` in migration 001's down step fails if `vekst_app` still holds grants in
+*another* database in the same cluster (`DROP OWNED BY` is per-database, `DROP ROLE` is
+cluster-wide) — a real limitation of tearing down one database independently, worth knowing
+even though it wasn't fixed; and `TestInsertTxCommitted` was a false-positive pass the whole
+time — its completion check matched *any* completed `noop` job ever run against the shared
+scratch database, not the one it had just inserted, so it stopped actually proving anything
+after the first successful run. Fixed by matching on `created_at`.
+
 ## 1. Migrations and roles — both
 
 - [x] 1.1 Add `goose` to the toolchain, a `/core/migrations` directory, and `make migrate-up`/`make migrate-down`
