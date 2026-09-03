@@ -1,6 +1,13 @@
 # Development database. It lives in this overlay and NEVER in the base, so no
 # deployment overlay can inherit a database with no rehearsed backup and restore
-# procedure -- design D1. Change 0.2 migrates it; today nothing connects to it.
+# procedure -- design D1.
+#
+# POSTGRES_USER is vekst_migrator, not a generic superuser: that role is
+# provisioned by the environment (design Q1), and the postgres image's
+# POSTGRES_USER becomes exactly that -- the initdb user, owning the database
+# and schema public, which migration 00001's REVOKE/ALTER DEFAULT PRIVILEGES
+# statements require. core itself never authenticates as this role; it uses
+# vekst_app, created by migration 00001 and read from the vekst-db-app Secret.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,10 +26,10 @@ spec:
           image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
           env:
             - { name: POSTGRES_DB, value: vekst }
-            - { name: POSTGRES_USER, value: vekst }
+            - { name: POSTGRES_USER, value: vekst_migrator }
             # Development only. A real environment takes this from a Secret,
-            # which is the provisioning change's job.
-            - { name: POSTGRES_PASSWORD, value: vekst }
+            # which is the provisioning change's job (design Q1/Q2).
+            - { name: POSTGRES_PASSWORD, value: vekst_migrator }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
           ports:
             - { name: postgres, containerPort: 5432 }

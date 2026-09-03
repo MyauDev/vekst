@@ -1,0 +1,28 @@
+name: Vekst CodeQL config
+
+# Generated code is excluded for the same reason it is excluded from SonarQube:
+# protoc output is not ours to fix, and alerts against it bury the ones that are.
+#
+# Caveat worth knowing: paths-ignore filters reliably for the interpreted
+# languages. For Go, CodeQL analyses whatever the build produces, so generated
+# packages are still compiled -- this suppresses their alerts rather than
+# preventing their analysis.
+paths-ignore:
+  - core/gen
+  - web/src/gen
+  - classifier/src/vekst
+  - "**/*.pb.go"
+  - "**/*_grpc.pb.go"
+  - "**/*_pb2.py"
+  - "**/*_pb2_grpc.py"
+  - "**/*_pb.ts"
+  - web/node_modules
+  - "**/.venv"
+  - web/dist
+
+# security-extended adds rules beyond the default set; quality adds
+# maintainability queries. Both are appropriate for a codebase this young --
+# the cost of a false positive now is far lower than after twenty more changes.
+queries:
+  - uses: security-extended
+  - uses: security-and-quality

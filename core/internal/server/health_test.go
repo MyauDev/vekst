@@ -112,7 +112,7 @@ func TestCheckRespectsDeadline(t *testing.T) {
 // asserts the constraint that survives it -- liveness never depends on it.
 func TestServesWithNoDatabase(t *testing.T) {
 	cfg := config.Config{Addr: "127.0.0.1:0", ShutdownTimeout: time.Second}
-	srv := New(cfg, discard(), classify.Unavailable{})
+	srv := New(cfg, discard(), classify.Unavailable{}, healthyDB(t))
 
 	ts := httptest.NewServer(srv.http.Handler)
 	defer ts.Close()
@@ -145,7 +145,7 @@ func TestServesWithNoDatabase(t *testing.T) {
 // like an incident.
 func TestRunServesThenShutsDownCleanly(t *testing.T) {
 	cfg := config.Config{Addr: "127.0.0.1:0", ShutdownTimeout: 2 * time.Second}
-	srv := New(cfg, discard(), classify.Unavailable{})
+	srv := New(cfg, discard(), classify.Unavailable{}, healthyDB(t))
 
 	// Bind an ephemeral port ourselves so the test never collides with a
 	// developer's running stack.
@@ -197,7 +197,7 @@ func TestRunReportsListenFailure(t *testing.T) {
 	defer func() { _ = ln.Close() }()
 
 	cfg := config.Config{Addr: ln.Addr().String(), ShutdownTimeout: time.Second}
-	srv := New(cfg, discard(), classify.Unavailable{})
+	srv := New(cfg, discard(), classify.Unavailable{}, healthyDB(t))
 
 	if err := srv.Run(context.Background()); err == nil {
 		t.Error("Run returned nil when the port was already bound")

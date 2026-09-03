@@ -3,8 +3,10 @@
 Management reporting for SME owners. Upload your financial data, get the reports
 your business actually needs.
 
-**Status: change 0.1, `bootstrap-monorepo`.** The skeleton is up and every layer
-is wired end to end. There is no ingest, no classification and no report yet.
+**Status: change 0.2, `add-postgres-and-migrations`, in progress.** `core` now
+connects to Postgres 16: migrations, the two database roles, River for
+background jobs, and the `Money` type. There is still no ingest, no
+classification and no report.
 
 ---
 
@@ -36,6 +38,10 @@ of core.
 | Tilt | 0.37+ | builds and live-reloads into it |
 | kubectl, kustomize | recent | applies and renders manifests |
 
+`goose` and `sqlc` need no separate install: both are pinned as Go tool
+dependencies in `go.mod` (`go 1.24+`'s `tool` directive) and run via `go run
+./core/cmd/vekst-core migrate ...` and `go tool sqlc generate` respectively.
+
 ## Getting started
 
 ```sh
@@ -66,31 +72,69 @@ make down    # deletes the cluster and everything in it
 | --- | --- |
 | `make dev` | Create the cluster if absent, then `tilt up` |
 | `make down` | Delete the cluster and its volumes |
-| `make gen` | Regenerate every stub from `/proto` |
+| `make gen` | Regenerate every stub from `/proto` and `/core/internal/db/query` |
 | `make build` | Build `core` with its version stamped in |
-| `make lint` | `buf lint`, `go vet`, `ruff`, `mypy`, `tsc` |
+| `make migrate-up` | Apply pending migrations to `DATABASE_URL_MIGRATOR` |
+| `make migrate-down` | Roll back one migration on `DATABASE_URL_MIGRATOR` |
+| `make lint` | `buf lint`, `go vet`, the DB-entry-point check, `ruff`, `mypy`, `tsc` |
 | `make test` | `go test`, `pytest`, `vitest` |
 | `make ci` | What CI runs |
+
+## Database
+
+Two roles, never one — the mechanism that makes `FORCE ROW LEVEL SECURITY`
+meaningful rather than advisory (`CLAUDE.md`, openspec design D1):
+
+| Role | Owns | Used by |
+| --- | --- | --- |
+| `vekst_migrator` | the schema; applies migrations | the migration Job only, via `DATABASE_URL_MIGRATOR` |
+| `vekst_app` | nothing — DML rights only, `NOBYPASSRLS` | `core` itself, via `DATABASE_URL` |
+
+`core` never holds `vekst_migrator` credentials. Migrations are Go's
+`goose`, embedded into the `vekst-core` binary (`core/migrations`) — the
+binary that migrates and the binary that serves are the same binary, so
+`vekst-core migrate up|down` is what both `make migrate-up`/`make
+migrate-down` and the cluster's migration Job run; the standalone `goose`
+CLI cannot see `00002_river.go`'s Go migration and must not be used to apply
+migrations directly.
+
+**A psql prompt in the local cluster:**
+
+```sh
+kubectl exec -it deploy/postgres -- psql -U vekst_migrator -d vekst
+```
+
+`vekst_migrator` (not `vekst_app`) because that Deployment's own credentials
+are what's mounted there; `vekst_app`'s password is `vekst_app` locally if
+you want to connect as it instead — `psql "postgres://vekst_app:vekst_app@localhost:5432/vekst"`
+after `kubectl port-forward svc/postgres 5432:5432`.
 
 ## Layout
 
 ```
 proto/vekst/v1/            browser-facing contract  (Connect)
 proto/vekst/internal/v1/   core -> classifier       (native gRPC)
-core/                      Go: chi, connect-go. Owns all state
-  cmd/vekst-core/          main
-  internal/server/         router, handlers, shutdown
+proto/vekst/type/v1/       Money — shared by both contracts above
+core/                      Go: chi, connect-go, pgx/v5. Owns all state
+  cmd/vekst-core/          main; also `migrate up|down`
+  migrations/              goose migrations, embedded into the binary
+  internal/db/             the pool and InTx — the one transaction entry point
+  internal/migrate/        applies migrations; derives /readyz's required version
+  internal/jobs/           River: client, worker registry, the no-op job
+  internal/money/          Money type, ISO-4217 exponent table, no-float guard
+  internal/server/         router, handlers, /healthz, /readyz, shutdown
   internal/ingest/         Track A — change 2.1 onward
   internal/dedup/          Track A — change 2.6
   classify/                Track B — the Classifier interface + gRPC client
   internal/report/         Track B — change 4.1
-  gen/                     generated, committed
+  gen/                     generated, committed (buf + sqlc)
 classifier/                Python: grpcio. Stateless, no database, ever
   src/vekst_classifier/    the service
   src/vekst/               generated, committed
 web/                       React 19 + Vite + Tailwind v4
   src/gen/                 generated, committed
 deploy/                    Tiltfile, Dockerfiles, Kustomize base + overlays
+  db/rls-exempt-tables.txt infrastructure tables exempt from 1.1's RLS coverage test
 ```
 
 Ownership follows `.github/CODEOWNERS`. After the foundation, the two tracks do

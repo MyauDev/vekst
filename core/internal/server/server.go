@@ -23,37 +23,44 @@ type Server struct {
 	http *http.Server
 	log  *slog.Logger
 	cfg  config.Config
+	db   readinessChecker
 }
 
-// New builds the router and the HTTP server. It performs no I/O.
-func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier) *Server {
+// New builds the router and the HTTP server. It performs no I/O. database is
+// never nil from change 0.2 onward: core always connects to Postgres.
+func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker) *Server {
+	s := &Server{
+		http: &http.Server{
+			Addr:              cfg.Addr,
+			ReadHeaderTimeout: 10 * time.Second,
+		},
+		log: log,
+		cfg: cfg,
+		db:  database,
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
 
 	// Liveness. Deliberately dependency-free: it answers "is this process
-	// broken", not "is the system healthy". Change 0.2 adds /readyz for the
-	// latter. A liveness probe that checks a dependency turns a recoverable
-	// outage into a crash loop.
+	// broken", not "is the system healthy". A liveness probe that checks a
+	// dependency turns a recoverable outage into a crash loop.
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("live-update-probe " + buildinfo.Version() + "\n"))
 	})
 
+	// Readiness. Checks the database and the schema version -- design D6.
+	r.Get("/readyz", s.readyz)
+
 	// The browser API. Connect over HTTP, mounted under /rpc so the Ingress can
 	// route by path prefix and the browser stays same-origin (design D6).
 	path, handler := vektv1connect.NewHealthServiceHandler(&healthHandler{classifier: classifier, log: log})
 	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
 
-	return &Server{
-		http: &http.Server{
-			Addr:              cfg.Addr,
-			Handler:           r,
-			ReadHeaderTimeout: 10 * time.Second,
-		},
-		log: log,
-		cfg: cfg,
-	}
+	s.http.Handler = r
+	return s
 }
 
 // Run serves until ctx is cancelled, then drains within ShutdownTimeout.

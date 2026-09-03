@@ -80,6 +80,85 @@ jobs:
       - run: go test -race ./...
       - uses: golang/govulncheck-action@v1
         with: { go-version-input: "${{ env.GO_VERSION }}" }
+      # The mechanism behind design D2's one transaction entry point.
+      - run: ./scripts/check-db-entry-point.sh
+
+  # --- database: migrations, roles, the RLS-exemption allowlist ------------
+  database:
+    name: migrations and roles
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vekst_migrator
+          POSTGRES_PASSWORD: vekst_migrator
+          POSTGRES_DB: vekst
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vekst_migrator -d vekst"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL_MIGRATOR: postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable
+      # vekst_app, for the InTx and River tests below -- they skip themselves
+      # when this is unset (e.g. a developer's `go test ./...` with no
+      # database running), but CI always has one.
+      DATABASE_URL: postgres://vekst_app:vekst_app@localhost:5432/vekst?sslmode=disable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with: { go-version: "${{ env.GO_VERSION }}", cache: true }
+      - name: install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # Task 8.1: up, down to zero, up again against a scratch database --
+      # the cheapest way to discover a down migration was never written.
+      - name: migrate up
+        run: go run ./core/cmd/vekst-core migrate up
+      - name: migrate down (River)
+        run: go run ./core/cmd/vekst-core migrate down
+      - name: migrate down (roles)
+        run: go run ./core/cmd/vekst-core migrate down
+      - name: migrate up again
+        run: go run ./core/cmd/vekst-core migrate up
+
+      # Task 8.2: vekst_app cannot bypass row-level security, is not a
+      # superuser, and cannot create a table.
+      - name: role assertions
+        run: |
+          bypassrls=$(psql "$DATABASE_URL_MIGRATOR" -tAc "SELECT rolbypassrls FROM pg_roles WHERE rolname = 'vekst_app'")
+          [ "$bypassrls" = "f" ] || { echo "::error::vekst_app has BYPASSRLS"; exit 1; }
+
+          issuper=$(psql "$DATABASE_URL_MIGRATOR" -tAc "SELECT rolsuper FROM pg_roles WHERE rolname = 'vekst_app'")
+          [ "$issuper" = "f" ] || { echo "::error::vekst_app is a superuser"; exit 1; }
+
+          if psql "postgres://vekst_app:vekst_app@localhost:5432/vekst?sslmode=disable" \
+              -c "CREATE TABLE role_assertion_probe (id int)" >/tmp/create.log 2>&1; then
+            echo "::error::vekst_app was able to create a table"
+            cat /tmp/create.log
+            exit 1
+          fi
+
+      # Task 4.7b: deploy/db/rls-exempt-tables.txt matches the tables these
+      # migrations actually create, so a table nobody listed fails here --
+      # not later, as an unexplained failure of the 1.1 coverage test.
+      - name: RLS-exemption allowlist matches actual tables
+        run: |
+          actual=$(psql "$DATABASE_URL_MIGRATOR" -tAc \
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1")
+          expected=$(grep -v '^#' deploy/db/rls-exempt-tables.txt | grep -v '^$' | sort)
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::deploy/db/rls-exempt-tables.txt does not match the tables migrations create"
+            diff <(echo "$expected") <(echo "$actual") || true
+            exit 1
+          fi
+
+      # Tasks 4.5/4.6 and InTx's own commit/rollback behavior: real
+      # transaction semantics against the now-migrated database above. These
+      # tests skip themselves (not fail) when DATABASE_URL is unset, e.g. a
+      # developer's plain `go test ./...`.
+      - name: InTx and River tests against a live database
+        run: go test ./core/internal/db/... ./core/internal/jobs/... -run 'TestInTx|TestInsertTx' -v
 
   python:
     name: python
@@ -147,11 +226,55 @@ jobs:
         run: gitleaks git --redact --no-banner .
       - name: scan working tree
         run: gitleaks dir --redact --no-banner .
+      # CODEOWNERS drifted back to placeholder text once already this
+      # change (uncommitted, caught in review) -- this is the mechanism
+      # that catches a repeat.
+      - name: CODEOWNERS has no placeholder text
+        run: ./scripts/check-codeowners.sh
 
   # --- static analysis -----------------------------------------------------
   sonarqube:
     name: SonarQube
     runs-on: ubuntu-latest
+    # Without this, core/internal/db, core/internal/jobs, core/internal/migrate
+    # and core/migrations/00002_river.go's tests all skip themselves (no
+    # DATABASE_URL) rather than fail -- so this job used to report them as
+    # untested, not as failing, and nothing here caught it. Since almost all
+    # of that code is new in a given change, it dominates SonarCloud's
+    # new-code-coverage gate specifically, which is what actually blocks a
+    # pull request -- overall coverage looked fine while new-code coverage
+    # was failing underneath it.
+    # Two Postgres containers, not one: core/internal/migrate's round-trip
+    # test does a real `DROP ROLE vekst_app`, which Postgres refuses
+    # cluster-wide as long as vekst_app holds grants in *any* database in
+    # that cluster -- including the already-migrated `vekst` database the
+    # other packages' tests need. One cluster can't host both without the
+    # migrate test failing on every run (found the hard way while adding
+    # this job; see design.md's risk table).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vekst_migrator
+          POSTGRES_PASSWORD: vekst_migrator
+          POSTGRES_DB: vekst
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vekst_migrator -d vekst"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      postgres-migrate:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vekst_migrator
+          POSTGRES_PASSWORD: vekst_migrator
+          POSTGRES_DB: vekst
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vekst_migrator -d vekst"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL_MIGRATOR: postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable
+      DATABASE_URL: postgres://vekst_app:vekst_app@localhost:5432/vekst?sslmode=disable
     steps:
       - uses: actions/checkout@v5
         with:
@@ -165,11 +288,27 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with: { enable-cache: true, python-version: "${{ env.PYTHON_VERSION }}" }
 
+      - name: migrate up
+        run: go run ./core/cmd/vekst-core migrate up
+
       # Coverage is produced here rather than reused from the language jobs: a
       # scan without it reports every line as untested, and a quality gate built
       # on that number is worse than no gate.
+      #
+      # core/internal/migrate runs separately, against postgres-migrate, with
+      # -coverpkg widened to also credit core/migrations (the package its
+      # tests actually exercise via goose's registered Go migration) -- then
+      # both profiles are merged into the one file the scan step reads.
       - name: go coverage
-        run: go test -coverprofile=coverage.out -covermode=atomic ./core/...
+        run: |
+          go test $(go list ./core/... | grep -v internal/migrate) \
+            -coverprofile=coverage.out -covermode=atomic
+          DATABASE_URL_MIGRATOR="postgres://vekst_migrator:vekst_migrator@localhost:5433/vekst?sslmode=disable" \
+            go test ./core/internal/migrate/... \
+            -coverprofile=coverage.migrate.out -covermode=atomic \
+            -coverpkg=./core/internal/migrate/...,./core/migrations/...
+          { head -1 coverage.out; tail -n +2 coverage.out; tail -n +2 coverage.migrate.out; } > coverage.merged.out
+          mv coverage.merged.out coverage.out
       - name: python coverage
         working-directory: classifier
         run: |

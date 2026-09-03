@@ -1,0 +1,16 @@
+# Tables that are infrastructure, not tenant data, and are therefore exempt
+# from the row-level-security coverage test change 1.1 adds. Adding a line
+# here is a security decision: it says "no tenant's data can ever land in
+# this table," and it requires both reviewers per CODEOWNERS.
+#
+# goose_db_version is goose's own migration-version table (migration 00001
+# and earlier). The river_* tables are created by core/migrations/00002 --
+# see openspec design D4, confirmed against github.com/riverqueue/river
+# v0.47.0's `main` migration line. Task 4.7b asserts this list is exactly
+# the set of tables present after this change's migrations run.
+goose_db_version
+river_migration
+river_job
+river_leader
+river_queue
+river_notification

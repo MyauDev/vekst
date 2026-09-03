@@ -14,12 +14,14 @@ was decided and why, including the alternatives that were rejected.
 ## Commands
 
 ```sh
-make dev     # k3d cluster + Tilt. Docker must be running
-make down    # delete the cluster
-make gen     # regenerate all stubs from /proto
-make lint    # buf lint, go vet, ruff, mypy, tsc
-make test    # go test, pytest, vitest
-make ci      # lint + test, what CI runs
+make dev          # k3d cluster + Tilt. Docker must be running
+make down         # delete the cluster
+make gen          # regenerate all stubs from /proto and /core/internal/db/query
+make migrate-up   # apply pending migrations to DATABASE_URL_MIGRATOR
+make migrate-down # roll back one migration on DATABASE_URL_MIGRATOR
+make lint         # buf lint, go vet, the DB-entry-point check, ruff, mypy, tsc
+make test         # go test, pytest, vitest
+make ci           # lint + test, what CI runs
 ```
 
 Run `make ci` before proposing a change is finished.
@@ -33,9 +35,13 @@ Run `make ci` before proposing a change is finished.
 | `core/internal/ingest/`, `core/internal/dedup/` | Track A | ingest and deduplication |
 | `core/classify/`, `core/internal/report/` | Track B | classification boundary, reports |
 | `classifier/` | Track B | the Python service |
+| `core/internal/db/` | both | the pool and `InTx` — the one transaction entry point |
+| `core/internal/jobs/` | both | River: client, worker registry |
 | `deploy/k8s/base/` | both | what the application is, in every environment |
+| `deploy/db/rls-exempt-tables.txt` | both | infrastructure tables exempt from the RLS coverage test |
 
-`/proto` and `/deploy/k8s/base` need both reviewers. See `.github/CODEOWNERS`.
+`/proto`, `/deploy/k8s/base` and the RLS-exempt allowlist need both reviewers. See
+`.github/CODEOWNERS`.
 
 ## Invariants
 
@@ -46,8 +52,11 @@ or leaks one customer's finances to another.
 
 **Money is `int64` minor units plus an ISO-4217 code.** Never a float, in any
 language. Never a JavaScript `number` on the wire — it cannot hold `int64`
-exactly. Multi-currency stores the original amount, the FX rate, the rate date
-and the base-currency amount. Change 0.2 adds the type and the guards.
+exactly. The type and its no-float guards (Go, Python, and a TypeScript test
+of the generated field type) exist in `core/internal/money` and
+`proto/vekst/type/v1/money.proto`; no table stores an amount yet. Multi-currency
+storage — the original amount, the FX rate, the rate date and the
+base-currency amount — is change 2.5.
 
 **Every tenant table carries `org_id`, an RLS policy, and `FORCE ROW LEVEL
 SECURITY`.** Tenancy is `organizations` → `entities` → `accounts`; `entity_id`
@@ -83,17 +92,30 @@ number in the original file, never by parsed row index.
 **Generated code is never hand-edited.** `core/gen`, `web/src/gen` and
 `classifier/src/vekst` come from `make gen` and are drift-checked in CI.
 
+**`core/internal/db.InTx` is the only place a transaction begins.** Every
+caller — Connect RPC handler, River worker — goes through it; nothing else may
+hold the pool or query it directly. `scripts/check-db-entry-point.sh` enforces
+this by import (only `core/internal/db` and `core/internal/jobs` may import
+`pgxpool` — the latter because River's own driver needs the raw pool for its
+background polling, which touches only River's own infrastructure tables, not
+application data). Change 1.1 adds `SET LOCAL app.org_id` inside `InTx`, and
+nowhere else.
+
 **A background job sets its own tenant context.** River's tables carry no
 `org_id` and no RLS, so a worker takes its tenant identifier from its job
-arguments — never from ambient state. Arrives with change 0.2.
+arguments — never from ambient state, the same way a handler trusts only the
+authenticated session and never a global. `deploy/db/rls-exempt-tables.txt` is
+the checked-in, both-reviewers-required record of which tables are River's or
+goose's infrastructure rather than tenant data; change 1.1's RLS coverage test
+reads it instead of embedding its own exceptions.
 
 ## Conventions
 
 - The engine is written as if it already ran in another process, because it
   does: inputs in, outputs out, no database handle, no clock, no globals.
-- Liveness (`/healthz`) never checks a dependency. Readiness (`/readyz`, change
-  0.2) does. A liveness probe that checks the database turns a recoverable
-  outage into a crash loop.
+- Liveness (`/healthz`) never checks a dependency. Readiness (`/readyz`) checks
+  the database and the schema version. A liveness probe that checks the
+  database turns a recoverable outage into a crash loop.
 - The backend returns error codes, never sentences. Translation is the client's.
 - An overlay differs from the Kustomize base in configuration only — never in
   the set of workloads.

@@ -1,0 +1,36 @@
+# Runs the same core image core.yaml runs, with a "migrate up" argument
+# instead of serving traffic -- the binary that migrates and the binary that
+# serves are the same binary reading the same embedded migrations (design
+# Q5). Lives in the base, not an overlay: every environment migrates, and an
+# overlay inventing its own copy of this Job is exactly what 0.1's manifest
+# requirement forbids. An overlay supplies only its credentials Secret's
+# contents and the image tag.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  labels: { app.kubernetes.io/name: migrate }
+spec:
+  # A fresh Job object per apply -- Tilt and CI both replace it rather than
+  # expecting Kubernetes to update an immutable Job spec in place.
+  backoffLimit: 2
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: migrate }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: vekst/core
+          args: ["migrate", "up"]
+          env:
+            # vekst_migrator only. This credential never reaches core.yaml's
+            # Deployment -- design Q1/Q2, asserted by the spec scenario
+            # "Migrator credentials are absent from the serving container".
+            - name: DATABASE_URL_MIGRATOR
+              valueFrom:
+                secretKeyRef: { name: vekst-db-migrator, key: url }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
