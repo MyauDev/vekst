@@ -236,6 +236,45 @@ jobs:
   sonarqube:
     name: SonarQube
     runs-on: ubuntu-latest
+    # Without this, core/internal/db, core/internal/jobs, core/internal/migrate
+    # and core/migrations/00002_river.go's tests all skip themselves (no
+    # DATABASE_URL) rather than fail -- so this job used to report them as
+    # untested, not as failing, and nothing here caught it. Since almost all
+    # of that code is new in a given change, it dominates SonarCloud's
+    # new-code-coverage gate specifically, which is what actually blocks a
+    # pull request -- overall coverage looked fine while new-code coverage
+    # was failing underneath it.
+    # Two Postgres containers, not one: core/internal/migrate's round-trip
+    # test does a real `DROP ROLE vekst_app`, which Postgres refuses
+    # cluster-wide as long as vekst_app holds grants in *any* database in
+    # that cluster -- including the already-migrated `vekst` database the
+    # other packages' tests need. One cluster can't host both without the
+    # migrate test failing on every run (found the hard way while adding
+    # this job; see design.md's risk table).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vekst_migrator
+          POSTGRES_PASSWORD: vekst_migrator
+          POSTGRES_DB: vekst
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vekst_migrator -d vekst"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      postgres-migrate:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vekst_migrator
+          POSTGRES_PASSWORD: vekst_migrator
+          POSTGRES_DB: vekst
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vekst_migrator -d vekst"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL_MIGRATOR: postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable
+      DATABASE_URL: postgres://vekst_app:vekst_app@localhost:5432/vekst?sslmode=disable
     steps:
       - uses: actions/checkout@v5
         with:
@@ -249,11 +288,27 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with: { enable-cache: true, python-version: "${{ env.PYTHON_VERSION }}" }
 
+      - name: migrate up
+        run: go run ./core/cmd/vekst-core migrate up
+
       # Coverage is produced here rather than reused from the language jobs: a
       # scan without it reports every line as untested, and a quality gate built
       # on that number is worse than no gate.
+      #
+      # core/internal/migrate runs separately, against postgres-migrate, with
+      # -coverpkg widened to also credit core/migrations (the package its
+      # tests actually exercise via goose's registered Go migration) -- then
+      # both profiles are merged into the one file the scan step reads.
       - name: go coverage
-        run: go test -coverprofile=coverage.out -covermode=atomic ./core/...
+        run: |
+          go test $(go list ./core/... | grep -v internal/migrate) \
+            -coverprofile=coverage.out -covermode=atomic
+          DATABASE_URL_MIGRATOR="postgres://vekst_migrator:vekst_migrator@localhost:5433/vekst?sslmode=disable" \
+            go test ./core/internal/migrate/... \
+            -coverprofile=coverage.migrate.out -covermode=atomic \
+            -coverpkg=./core/internal/migrate/...,./core/migrations/...
+          { head -1 coverage.out; tail -n +2 coverage.out; tail -n +2 coverage.migrate.out; } > coverage.merged.out
+          mv coverage.merged.out coverage.out
       - name: python coverage
         working-directory: classifier
         run: |
