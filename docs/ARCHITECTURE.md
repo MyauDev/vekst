@@ -427,9 +427,71 @@ Unchanged from v1, and now enforced across a language boundary:
 - RLS on every tenant table, plus `ALTER TABLE ... FORCE ROW LEVEL SECURITY`.
 - Two database roles: `vekst_migrator` owns the schema; `vekst_app` owns nothing, has no
   `BYPASSRLS`, and holds only DML rights.
+- **Neither role is a superuser, and that is provisioning, not preference.** A superuser and a
+  `BYPASSRLS` role bypass row security unconditionally — `FORCE` included — so a superuser
+  `vekst_migrator` would make everything above decorative, and would do so only where the
+  tests run: every managed Postgres hands out a plain database owner instead. The environment
+  must create `vekst_migrator` with `CREATEROLE` and ownership of database `vekst` (Postgres 15
+  and later derive schema-`public` ownership from the database owner) and nothing more.
+  `deploy/db/provision-migrator.sql` is that contract in executable form; CI runs it and the
+  local overlay mounts it into initdb, so neither can drift from what a hosted environment
+  does. A CI assertion fails the build if either role gains `rolsuper` or `rolbypassrls`.
+- **Referential-integrity checks bypass RLS** — foreign keys *and* unique constraints alike,
+  which the manual states in one sentence. A plain single-column FK between tenant tables is a
+  cross-tenant existence oracle, and a global `UNIQUE` on a tenant table is a louder one,
+  disclosing a value rather than an identifier. So foreign keys between tenant tables are
+  composite and carry `org_id`, and every uniqueness constraint takes `org_id` as its leading
+  column. This is not obvious and will be re-litigated otherwise.
+- **A migration that backfills a tenant table must open a window.** Under a non-superuser owner
+  `FORCE` applies to migrations too, so an unqualified `UPDATE` raises. The idiom is
+  `ALTER TABLE t NO FORCE ROW LEVEL SECURITY`, the backfill, then `FORCE` again, all in one
+  transaction — visible in the migration diff, and a forgotten restore lands in
+  `pg_class.relforcerowsecurity`, which the coverage test asserts.
 - Tenant context is set with `SET LOCAL app.org_id` inside the request transaction. A
   repository call outside that transaction must fail.
 - A CI test lists tenant tables without an RLS policy and fails the build.
+
+---
+
+## 7.5 Authentication and sessions
+
+Added by change 1.2 `add-identity`, which is where the reasoning behind each point lives.
+
+- **An identity is `(provider, subject)`, never an email.** OpenID Connect states that an
+  issuer may reuse an email value across different end users over time, so only the
+  issuer/subject pair identifies a person stably. Matching a login to an account by address is
+  the standard account-takeover path. `provider` names an *issuer instance*, not a protocol:
+  for Google the two collapse, but a multi-tenant Entra or a SAML IdP will need either
+  issuer-scoped values or an `issuer` column in the key.
+- **`users.email` is descriptive and nullable.** Not every provider asserts an address (Apple's
+  private relay, SAML attribute mappings). It is `UNIQUE`, which is the sole mechanism behind
+  "one address, one account".
+- **The account record is provisioned once and never written by a later claim.** This is what
+  lets one person hold several sign-in methods without them overwriting each other, and it
+  keeps a `UNIQUE` violation off the login path entirely — the returning path writes nothing,
+  so a provider address that has changed simply goes stale rather than locking anyone out.
+- **The identity binding is insert-once, enforced by privilege.** `vekst_app` holds no `UPDATE`
+  on `user_identities`, so a subject cannot be repointed at a different account. No RLS policy
+  would catch that write; it looks entirely legitimate.
+- **Sessions are server-side, opaque and revocable.** The cookie carries 32 random bytes; the
+  database stores only their SHA-256. Revocation is the whole reason for the table — a signed
+  stateless token cannot offer it, and an offboarded external accountant is exactly the case
+  that needs it.
+- **The sign-in flow is plain HTTP, not Connect.** `/auth/google/start`, `/auth/google/callback`
+  and `/auth/logout` are the single exception to "the browser talks to core over Connect",
+  because a Connect handler cannot answer with a 302 and the callback arrives as a browser
+  navigation. It is an exception about transport, not contract: no application data crosses
+  them.
+- **The callback checks two halves.** `state` travels in the URL and the `auth_flows` row id in
+  a cookie, so a leaked callback URL carries only one of them. Consuming a flow deletes the
+  row, so a replay and an invented `state` are refused identically.
+- **`users`, `user_identities`, `sessions` and `auth_flows` are outside RLS**, each for a
+  reason recorded in `deploy/db/rls-exempt-tables.txt`: none belongs to an organisation. The
+  exposure that creates is cross-person, not cross-tenant, and the boundary is held by a
+  revoked privilege, `scripts/check-identity-queries.sh`, and the `core/internal/identity`
+  package comment rather than by a policy.
+- **Signing in grants no access to data.** Membership is what grants access, and `memberships`
+  arrives with change 1.1.
 
 ---
 

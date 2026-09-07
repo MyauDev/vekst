@@ -6,6 +6,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -14,6 +16,60 @@ type Querier interface {
 	// migrations (design D6/Q5), and fails naming both when the schema is
 	// behind.
 	AppliedMigrationVersion(ctx context.Context) (int64, error)
+	// Consuming deletes, in one statement, so a replayed callback cannot race a
+	// first one: exactly one DELETE can return a row. A callback whose state
+	// matches nothing and one whose flow was already consumed are therefore
+	// indistinguishable, which is deliberate -- the caller learns nothing from
+	// the difference.
+	ConsumeAuthFlow(ctx context.Context, state string) (ConsumeAuthFlowRow, error)
+	DeleteExpiredAuthFlows(ctx context.Context) (int64, error)
+	// Sessions outlive their expiry by a retention window so a recently expired
+	// session is still visible to an operator asking what happened.
+	DeleteExpiredSessions(ctx context.Context, expiresAt pgtype.Timestamptz) (int64, error)
+	// Queries for the four identity tables: users, user_identities, sessions and
+	// auth_flows.
+	//
+	// These four tables are outside row-level security (deploy/db/rls-exempt-
+	// tables.txt), so nothing at the database level filters what they return.
+	// Every statement in this file therefore reads by primary key or unique key,
+	// and joins only to another of the four. scripts/check-identity-queries.sh
+	// enforces both properties: no other query file may name these tables, and
+	// nothing here may reach outside them. See openspec add-identity design 1.1.
+	//
+	// There is deliberately no update-user statement and no update-identity
+	// statement. The account record is provisioned once and never written by a
+	// later token claim (design D3a); the identity binding is insert-once, and
+	// vekst_app holds no UPDATE privilege on it at all (design D3b).
+	// The whole of sign-in resolution. An identity is (provider, subject) and
+	// never an email: an issuer may reuse an email across different end users
+	// over time, so matching a login by address is the standard account-takeover
+	// path.
+	FindIdentity(ctx context.Context, arg FindIdentityParams) (UserIdentity, error)
+	// The middleware's one read per request: a unique-index probe on the token
+	// hash, joined to the session's own user. Both tables are inside the exempt
+	// four, so this join stays within the boundary the narrowness check draws.
+	// Expiry and revocation are predicates here rather than checks in Go, so a
+	// revoked or expired session simply matches nothing.
+	FindLiveSessionWithUser(ctx context.Context, tokenSha256 []byte) (FindLiveSessionWithUserRow, error)
+	FindUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	InsertAuthFlow(ctx context.Context, arg InsertAuthFlowParams) (pgtype.UUID, error)
+	// Insert-once, with no ON CONFLICT clause. Repointing a subject at another
+	// user is account takeover; vekst_app has no UPDATE privilege here, so this
+	// cannot become an upsert without a migration that CODEOWNERS would catch.
+	InsertIdentity(ctx context.Context, arg InsertIdentityParams) error
+	// token_sha256 is the SHA-256 of 32 random bytes; the raw value lives only in
+	// the cookie and is never stored, so a read of this table yields nothing a
+	// browser could present.
+	InsertSession(ctx context.Context, arg InsertSessionParams) (InsertSessionRow, error)
+	// Provisioning, and the only statement that ever writes a user row. A
+	// duplicate address raises 23505 on users_email_key, which the caller
+	// translates into the email_taken code -- the constraint is the check, so two
+	// concurrent first sign-ins on one address cannot both succeed.
+	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
+	// Sign-out marks the row revoked rather than deleting it, so the session is
+	// auditable afterwards and the expiry job is what finally removes it.
+	RevokeSession(ctx context.Context, tokenSha256 []byte) error
+	TouchSession(ctx context.Context, id pgtype.UUID) error
 }
 
 var _ Querier = (*Queries)(nil)

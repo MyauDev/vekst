@@ -17,6 +17,7 @@ import (
 	"github.com/MyauDev/vekst/core/internal/buildinfo"
 	"github.com/MyauDev/vekst/core/internal/config"
 	"github.com/MyauDev/vekst/core/internal/db"
+	"github.com/MyauDev/vekst/core/internal/identity"
 	"github.com/MyauDev/vekst/core/internal/jobs"
 	"github.com/MyauDev/vekst/core/internal/migrate"
 	"github.com/MyauDev/vekst/core/internal/server"
@@ -101,7 +102,34 @@ func run() error {
 	}
 	defer database.Close()
 
-	jobsClient, err := jobs.New(database.Pool())
+	// Sign-in is optional. With no OAuth client configured core still serves
+	// and only the auth routes fail, so a developer without credentials gets a
+	// working stack (add-identity design D6a). Discovery of Google's endpoints
+	// and JWKS happens here, once, with a bounded timeout -- never on the
+	// first browser redirect.
+	var ident *identity.Service
+	if cfg.GoogleConfigured() {
+		discoverCtx, cancel := context.WithTimeout(ctx, cfg.DatabaseConnectTimeout)
+		ident, err = identity.New(discoverCtx, identity.Config{
+			ClientID:         cfg.GoogleClientID,
+			ClientSecret:     cfg.GoogleClientSecret,
+			RedirectURL:      cfg.GoogleRedirectURL,
+			SessionLifetime:  cfg.SessionLifetime,
+			SessionRetention: cfg.SessionRetention,
+			AuthFlowLifetime: cfg.AuthFlowLifetime,
+			CookieSecure:     cfg.CookieSecure,
+		}, database, log)
+		cancel()
+		if err != nil {
+			return err
+		}
+		log.Info("sign-in configured", "redirect_url", cfg.GoogleRedirectURL)
+	} else {
+		log.Warn("sign-in is not configured; /auth routes will answer with " +
+			identity.CodeNotConfigured)
+	}
+
+	jobsClient, err := jobs.New(database.Pool(), ident)
 	if err != nil {
 		return err
 	}
@@ -118,7 +146,7 @@ func run() error {
 		}
 	}()
 
-	return server.New(cfg, log, classifier, database).Run(ctx)
+	return server.New(cfg, log, classifier, database, ident).Run(ctx)
 }
 
 func level(s string) slog.Level {

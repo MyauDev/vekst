@@ -43,7 +43,7 @@ func healthyDB(t *testing.T) stubDB {
 func newTestServer(t *testing.T, database readinessChecker) *Server {
 	t.Helper()
 	cfg := config.Config{Addr: "127.0.0.1:0", ShutdownTimeout: time.Second}
-	return New(cfg, discard(), classify.Unavailable{}, database)
+	return New(cfg, discard(), classify.Unavailable{}, database, nil)
 }
 
 // Task 6.2: with the database unreachable, /readyz fails and /healthz still

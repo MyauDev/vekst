@@ -14,16 +14,16 @@
 // that rule to be enforced against, so today it is documented here, not
 // guarded by a test.
 //
-// Every worker reaches application data only through core/internal/db.InTx,
-// never against the pool directly -- the same one-door rule design D2
-// applies to handlers. This package is the one sanctioned exception to "only
+// Every worker reaches application data only through core/internal/db's one
+// transaction entry point, never against the pool directly -- the same
+// one-door rule design D2 applies to handlers. This package is the one sanctioned exception to "only
 // core/internal/db imports pgxpool" (scripts/check-db-entry-point.sh allows
 // it explicitly): River's own driver needs the raw pool for its background
 // polling and leader election, which touches only River's own
 // infrastructure tables -- tables design D4 establishes carry no tenant data
-// in the first place, so there is nothing here for InTx's tenant context to
+// in the first place, so there is nothing here for a tenant context to
 // protect. Enqueuing a job (InsertTx, below) still requires a caller-supplied
-// transaction obtained from InTx, same as any other write.
+// transaction obtained from that entry point, same as any other write.
 package jobs
 
 import (
@@ -44,15 +44,33 @@ type Client struct {
 
 // New builds a River client bound to pool, with every worker this change
 // registers. It performs no I/O; call Start to begin processing.
-func New(pool *pgxpool.Pool) (*Client, error) {
+// WorkerRegistrar lets a package own its own workers and schedules without
+// this one importing it. A registrar adds its workers to the registry and
+// returns any periodic schedules they need.
+//
+// It exists so the queries a worker runs stay inside the package that owns
+// them -- core/internal/identity's four tables are outside row-level security
+// and are read only through that package, a boundary
+// scripts/check-identity-queries.sh enforces.
+type WorkerRegistrar interface {
+	Register(*river.Workers) []*river.PeriodicJob
+}
+
+func New(pool *pgxpool.Pool, registrars ...WorkerRegistrar) (*Client, error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &NoopWorker{})
+
+	var periodic []*river.PeriodicJob
+	for _, r := range registrars {
+		periodic = append(periodic, r.Register(workers)...)
+	}
 
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 10},
 		},
-		Workers: workers,
+		Workers:      workers,
+		PeriodicJobs: periodic,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("jobs: constructing river client: %w", err)

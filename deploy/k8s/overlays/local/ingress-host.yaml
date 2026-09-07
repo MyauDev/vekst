@@ -1,12 +1,20 @@
 # The overlay changes the host and nothing else. The path routing stays in the
 # base so every environment inherits identical routing -- design D6.
+#
+# The host is plain "localhost", not "vekst.localhost": Google refuses to
+# register a redirect URI whose host is a subdomain of localhost, exempting only
+# localhost itself and localhost IPs, so no local redirect URI could be
+# registered otherwise. Keeping one host for the document, /rpc and /auth is
+# what makes the session cookie first-party and means no CORS header is needed.
+# This is a configuration difference, not a workload difference -- the rule an
+# overlay must respect. See add-identity design D6.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: vekst
 spec:
   rules:
-    - host: vekst.localhost
+    - host: localhost
       http:
         paths:
           - path: /rpc

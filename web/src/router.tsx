@@ -6,7 +6,8 @@ import {
 } from "@tanstack/react-router";
 import type { Transport } from "@connectrpc/connect";
 
-import { HealthCard } from "./HealthCard";
+import { Session } from "./App";
+import { t } from "./i18n";
 
 /** What every route can reach. Change 5.2 adds the session here. */
 interface RouterContext {
@@ -17,10 +18,8 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: () => (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-6 p-8">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Vekst</h1>
-        <p className="text-sm text-slate-500">
-          Walking skeleton — every value below crossed both service boundaries.
-        </p>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("app.title")}</h1>
+        <p className="text-sm text-slate-500">{t("app.tagline")}</p>
       </div>
       <Outlet />
     </main>
@@ -32,7 +31,10 @@ const indexRoute = createRoute({
   path: "/",
   component: function Index() {
     const { transport } = indexRoute.useRouteContext();
-    return <HealthCard transport={transport} />;
+    // Sign-in gating lives here rather than in a route guard: there is exactly
+    // one route today, and a guard that redirects to a login route would be a
+    // second thing to keep in step with the one screen that exists.
+    return <Session transport={transport} />;
   },
 });
 

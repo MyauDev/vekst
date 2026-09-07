@@ -101,6 +101,7 @@ lint: ## Lint every language
 	buf lint
 	go vet ./...
 	./scripts/check-db-entry-point.sh
+	./scripts/check-identity-queries.sh
 	./scripts/check-codeowners.sh
 	cd classifier && uv run ruff check . && uv run mypy .
 	cd web && npx tsc --noEmit

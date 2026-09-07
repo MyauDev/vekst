@@ -78,11 +78,11 @@ func (d *DB) Close() {
 
 // Pool exposes the raw pool to River's own driver (core/internal/jobs),
 // which needs it for background polling and leader election -- work that
-// touches none of River's tables' rows through InTx because River's tables
+// touches none of River's tables' rows through InSystemTx because River's tables
 // carry no tenant data to protect (design D4). This is the one sanctioned
 // second consumer of the pool; scripts/check-db-entry-point.sh allows it
 // explicitly. Everything that touches application data still goes through
-// InTx alone.
+// InSystemTx alone.
 func (d *DB) Pool() *pgxpool.Pool {
 	return d.pool
 }

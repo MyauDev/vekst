@@ -44,6 +44,54 @@ type Config struct {
 
 	// LogLevel is one of debug, info, warn, error.
 	LogLevel string
+
+	// GoogleClientID and GoogleClientSecret authenticate core to Google's
+	// OIDC endpoints. Both empty means sign-in is not configured: core still
+	// serves, and the auth routes answer with a configuration error rather
+	// than a nil dereference, so a developer with no credentials still gets a
+	// working stack (add-identity design D6a).
+	GoogleClientID     string
+	GoogleClientSecret string
+
+	// GoogleRedirectURL must exactly match a URI registered on the Google
+	// OAuth client. Google refuses to register a host that is a subdomain of
+	// localhost, which is why the local overlay serves plain "localhost"
+	// (design D6).
+	GoogleRedirectURL string
+
+	// SessionLifetime is how long a session stays valid after sign-in.
+	SessionLifetime time.Duration
+
+	// SessionRetention is how long an expired session row survives before the
+	// expiry job removes it. Expiry ends access; retention only governs how
+	// long the row remains readable to an operator asking what happened.
+	SessionRetention time.Duration
+
+	// AuthFlowLifetime bounds how long a started sign-in may stay pending.
+	// Short on purpose: it is the window in which a state value is live.
+	AuthFlowLifetime time.Duration
+
+	// CookieSecure sets the Secure attribute on the session and flow cookies.
+	// True everywhere including locally -- current browsers treat
+	// http://localhost as a secure context -- and configurable only so that a
+	// browser which disagrees is a setting rather than a patch.
+	CookieSecure bool
+}
+
+// PlaceholderCredential is the value committed in
+// deploy/k8s/overlays/local/google-oidc.yaml so that `kubectl kustomize`
+// renders and CI stays green without a real secret in the repository. Real
+// values arrive from a git-ignored google-oidc.secret.yaml that Tilt applies
+// when it is present.
+//
+// core refuses to start when it sees this value. A placeholder that silently
+// reaches a running service is worse than a missing one: sign-in would fail at
+// Google with an opaque error, far from the cause.
+const PlaceholderCredential = "REPLACE_ME"
+
+// GoogleConfigured reports whether sign-in can work at all.
+func (c Config) GoogleConfigured() bool {
+	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && c.GoogleRedirectURL != ""
 }
 
 // Load reads configuration from the environment, applying defaults that are
@@ -58,6 +106,13 @@ func Load() (Config, error) {
 		DatabaseURL:            env("DATABASE_URL", ""),
 		DatabaseMaxConns:       10,
 		DatabaseConnectTimeout: 5 * time.Second,
+		GoogleClientID:         env("VEKST_GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:     env("VEKST_GOOGLE_CLIENT_SECRET", ""),
+		GoogleRedirectURL:      env("VEKST_GOOGLE_REDIRECT_URL", ""),
+		SessionLifetime:        14 * 24 * time.Hour,
+		SessionRetention:       7 * 24 * time.Hour,
+		AuthFlowLifetime:       10 * time.Minute,
+		CookieSecure:           true,
 	}
 
 	var err error
@@ -70,10 +125,47 @@ func Load() (Config, error) {
 	if c.DatabaseConnectTimeout, err = envDuration("VEKST_DB_CONNECT_TIMEOUT", c.DatabaseConnectTimeout); err != nil {
 		return Config{}, err
 	}
+	if c.SessionLifetime, err = envDuration("VEKST_SESSION_LIFETIME", c.SessionLifetime); err != nil {
+		return Config{}, err
+	}
+	if c.SessionRetention, err = envDuration("VEKST_SESSION_RETENTION", c.SessionRetention); err != nil {
+		return Config{}, err
+	}
+	if c.AuthFlowLifetime, err = envDuration("VEKST_AUTH_FLOW_LIFETIME", c.AuthFlowLifetime); err != nil {
+		return Config{}, err
+	}
+	if c.CookieSecure, err = envBool("VEKST_COOKIE_SECURE", c.CookieSecure); err != nil {
+		return Config{}, err
+	}
 	if c.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is not set")
 	}
+	// Absent is a supported state; the placeholder is not. See
+	// PlaceholderCredential.
+	for _, f := range []struct{ name, value string }{
+		{"VEKST_GOOGLE_CLIENT_ID", c.GoogleClientID},
+		{"VEKST_GOOGLE_CLIENT_SECRET", c.GoogleClientSecret},
+		{"VEKST_GOOGLE_REDIRECT_URL", c.GoogleRedirectURL},
+	} {
+		if f.value == PlaceholderCredential {
+			return Config{}, fmt.Errorf(
+				"%s is still %q: apply deploy/k8s/overlays/local/google-oidc.secret.yaml with real values, or unset it to run without sign-in",
+				f.name, PlaceholderCredential)
+		}
+	}
 	return c, nil
+}
+
+func envBool(key string, def bool) (bool, error) {
+	raw, ok := os.LookupEnv(key)
+	if !ok || raw == "" {
+		return def, nil
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("%s: %q is not a boolean: %w", key, raw, err)
+	}
+	return v, nil
 }
 
 func env(key, def string) string {

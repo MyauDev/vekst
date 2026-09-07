@@ -1,0 +1,43 @@
+# Committed placeholders, deliberately NOT the db-secrets.yaml pattern.
+#
+# Those database credentials are throwaway values for a Postgres that exists
+# only on a laptop, so committing them costs nothing. A Google client secret is
+# not throwaway: it is a real bearer credential for a real Google client, and
+# .gitignore already refuses /deploy/k8s/**/*.secret.yaml for exactly this
+# reason.
+#
+# But CI's manifests job runs `kubectl kustomize` on every overlay, and an
+# overlay referencing a git-ignored file fails to render. So this file is
+# committed with placeholder values -- kustomize renders, CI stays green, and
+# gitleaks finds nothing because there is nothing to find.
+#
+# The values here are EMPTY, not REPLACE_ME. This Secret really is deployed to
+# a local cluster, so whatever is written here is what core reads: empty means
+# "sign-in is not configured", which core treats as a supported state -- it
+# serves normally and only the auth routes fail. A REPLACE_ME here would make
+# core refuse to start, and a developer with no OAuth client would get a crash
+# loop instead of a working stack.
+#
+# Real values live in google-oidc.secret.yaml beside this file, which is
+# git-ignored and which Tilt applies instead of this one when it is present.
+# core still refuses to start on REPLACE_ME, because that value means someone
+# created the secret file and left a placeholder in it -- which is worse than
+# not configuring sign-in at all, since it fails opaquely at Google. See
+# add-identity design D6a.
+#
+# To configure sign-in locally:
+#
+#   cp google-oidc.yaml google-oidc.secret.yaml
+#   # fill in the three values in the copy, then re-run `make dev`
+#
+# The redirect URL must exactly match a URI registered on the Google OAuth
+# client. Google refuses to register a host that is a subdomain of localhost,
+# which is why this overlay serves plain "localhost" (design D6).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vekst-google-oidc
+stringData:
+  client_id: ""
+  client_secret: ""
+  redirect_url: http://localhost:8081/auth/google/callback

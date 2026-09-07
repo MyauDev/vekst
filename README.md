@@ -50,13 +50,44 @@ make dev     # creates the k3d cluster if absent, then starts Tilt
 
 Then open either:
 
-- **http://vekst.localhost:8081** — through the cluster Ingress. `/rpc` is routed
+- **http://localhost:8081** — through the cluster Ingress. `/rpc` is routed
   to `core` and everything else to `web`, which is exactly what a deployment does.
 - **http://localhost:5173** — Tilt's port-forward straight to the web pod. Here
   Vite's dev proxy forwards `/rpc` to the `core` Service instead.
 
 Both work and both are same-origin. The second exists because it is what the
 Tilt UI links to; the first is the one that matches production.
+
+### Signing in (optional)
+
+The stack runs without sign-in configured: everything serves, and only the
+`/auth/*` routes answer with `auth_not_configured`. To enable Google sign-in you
+need a Google Cloud OAuth client.
+
+1. Create an OAuth 2.0 Client ID (type: Web application) in a Google Cloud
+   project.
+2. Register `http://localhost:8081/auth/google/callback` as an authorised
+   redirect URI. Google refuses a host that is a subdomain of `localhost`, which
+   is why this overlay serves plain `localhost` rather than `vekst.localhost`.
+3. Copy the placeholder Secret and fill it in — the copy is git-ignored:
+
+   ```sh
+   cd deploy/k8s/overlays/local
+   cp google-oidc.yaml google-oidc.secret.yaml
+   # set client_id and client_secret in the copy
+   ```
+
+4. Re-run `make dev`. Tilt applies the copy instead of the committed
+   placeholders and prints which one it used.
+
+`core` refuses to start if it finds `REPLACE_ME` in either credential: a
+placeholder reaching a running service fails opaquely at Google, far from its
+cause. Empty values are different, and are the supported "not configured" state.
+
+**Obtaining a session for manual testing.** Sign in through the browser at
+<http://localhost:8081>, then read the `vekst_session` cookie from devtools. The
+database stores only its SHA-256, so the cookie value is the only copy — there
+is deliberately no way to recover a working token from the `sessions` table.
 
 `make dev` switches your kubectl context to `k3d-vekst`. The Tiltfile also pins
 `allow_k8s_contexts`, so a stray kubeconfig cannot point this at a real cluster —
@@ -90,6 +121,32 @@ meaningful rather than advisory (`CLAUDE.md`, openspec design D1):
 | `vekst_migrator` | the schema; applies migrations | the migration Job only, via `DATABASE_URL_MIGRATOR` |
 | `vekst_app` | nothing — DML rights only, `NOBYPASSRLS` | `core` itself, via `DATABASE_URL` |
 
+**Neither is a superuser.** A superuser bypasses row-level security
+unconditionally, `FORCE` included, so a superuser `vekst_migrator` would turn
+tenant isolation into decoration — and only in development and CI, since every
+managed Postgres hands out a plain database owner. CI asserts both roles have
+`rolsuper` and `rolbypassrls` false.
+
+### What the environment must provision
+
+`vekst_migrator` exists *before* any migration runs — it is the role they are
+applied as — so nothing in `core/migrations` can create it. That falls to the
+environment, and the contract is one file:
+
+```sh
+psql "$SUPERUSER_URL" -v ON_ERROR_STOP=1 -f deploy/db/provision-migrator.sql
+```
+
+It creates `vekst_migrator` with `CREATEROLE` and nothing else, and database
+`vekst` owned by it — which is what confers ownership of schema `public`,
+since Postgres 15 and later derive that from the database owner. Migration
+`00001` creates `vekst_app` itself and refuses to run as anyone else.
+
+Run it as a throwaway superuser: the container's initdb user locally, or the
+managed service's administrative role. Nothing uses that superuser again. The
+local cluster mounts this same file into Postgres's initdb directory and CI
+runs it as a step, so the two cannot drift.
+
 `core` never holds `vekst_migrator` credentials. Migrations are Go's
 `goose`, embedded into the `vekst-core` binary (`core/migrations`) — the
 binary that migrates and the binary that serves are the same binary, so
@@ -104,8 +161,8 @@ migrations directly.
 kubectl exec -it deploy/postgres -- psql -U vekst_migrator -d vekst
 ```
 
-`vekst_migrator` (not `vekst_app`) because that Deployment's own credentials
-are what's mounted there; `vekst_app`'s password is `vekst_app` locally if
+`vekst_migrator` (not the container's `POSTGRES_USER`, which is a throwaway
+superuser that owns nothing); `vekst_app`'s password is `vekst_app` locally if
 you want to connect as it instead — `psql "postgres://vekst_app:vekst_app@localhost:5432/vekst"`
 after `kubectl port-forward svc/postgres 5432:5432`.
 

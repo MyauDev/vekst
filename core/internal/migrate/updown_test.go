@@ -13,14 +13,12 @@ import (
 // core/internal/jobs tests also use. Up and Down here drop and recreate the
 // whole schema, and `go test ./...` runs different packages' tests
 // concurrently by default; sharing a database with those tests would race.
-func testMigratorURL(t *testing.T) string {
+func testMigratorURL(t *testing.T, dbName string) string {
 	t.Helper()
 	base := os.Getenv("DATABASE_URL_MIGRATOR")
 	if base == "" {
 		t.Skip("DATABASE_URL_MIGRATOR not set; skipping a test that needs a live Postgres")
 	}
-
-	const dbName = "vekst_migrate_updown_test"
 
 	u, err := url.Parse(base)
 	if err != nil {
@@ -61,16 +59,20 @@ func testMigratorURL(t *testing.T) string {
 // the registered Go migration, the only test coverage core/migrations/
 // 00002_river.go's upRiver/downRiver get.
 func TestUpDownUp(t *testing.T) {
-	url := testMigratorURL(t)
+	url := testMigratorURL(t, "vekst_migrate_updown_test")
 	ctx := context.Background()
 
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up: %v", err)
 	}
-	assertTableCount(t, url, 6) // goose_db_version + 5 River tables
+	// goose_db_version + 5 River tables + 4 identity tables (00003).
+	assertTableCount(t, url, 10)
 
-	// Down twice: 00002 (River) then 00001 (roles), matching the two
-	// migrations actually registered.
+	// Down three times: 00003 (identity), 00002 (River), 00001 (roles),
+	// matching the three migrations actually registered.
+	if err := Down(ctx, url); err != nil {
+		t.Fatalf("Down (identity): %v", err)
+	}
 	if err := Down(ctx, url); err != nil {
 		t.Fatalf("Down (River): %v", err)
 	}
@@ -86,7 +88,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 6)
+	assertTableCount(t, url, 10)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {

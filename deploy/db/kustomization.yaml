@@ -1,0 +1,20 @@
+# This directory holds database artefacts that are not manifests and not
+# migrations: the RLS-exemption allowlist, and the provisioning contract.
+#
+# The kustomization exists only so the local overlay can mount
+# provision-migrator.sql into Postgres's initdb directory. Kustomize refuses
+# to read files above its own root, and copying the SQL into the overlay
+# would give CI and the local cluster two copies of the one thing that must
+# not differ -- what the environment owes the schema before goose runs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+configMapGenerator:
+  - name: postgres-initdb
+    files:
+      - provision-migrator.sql
+    options:
+      # A stable name: the Deployment references this ConfigMap by name, and
+      # the content changing should re-run initdb on a fresh volume, not
+      # orphan the mount.
+      disableNameSuffixHash: true

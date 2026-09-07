@@ -1,0 +1,35 @@
+import { authErrorMessage, t } from "./i18n";
+
+/**
+ * The sign-in screen: one button, which leaves the single-page app entirely.
+ *
+ * A plain link rather than a fetch, because the OIDC flow is a browser
+ * redirect: core answers /auth/google/start with a 302 to Google, and only a
+ * top-level navigation can follow it and come back with cookies intact.
+ *
+ * Deliberately unstyled beyond what makes it usable. `add-web-app-shell` (5.1)
+ * establishes the token layer, and this markup is expected to be thrown away.
+ */
+export function SignIn({ authError }: { authError?: string | null }) {
+  const message = authErrorMessage(authError ?? null);
+
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-lg font-medium text-slate-900">{t("signIn.heading")}</h2>
+      <p className="text-sm text-slate-500">{t("signIn.blurb")}</p>
+
+      {message && (
+        <p role="alert" className="text-sm text-red-600">
+          {message}
+        </p>
+      )}
+
+      <a
+        href="/auth/google/start"
+        className="inline-flex w-fit items-center rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
+      >
+        {t("signIn.google")}
+      </a>
+    </section>
+  );
+}

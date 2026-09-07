@@ -33,6 +33,9 @@ export default defineConfig({
         "**/*.test.tsx",
         // Composition root: createRoot and render, no logic to assert.
         "src/main.tsx",
+        // Clickable mockups of the Demo screens. Not production code and not
+        // imported by it. See src/mock/README.md; delete with 5.2.
+        "src/mock/**",
       ],
     },
   },

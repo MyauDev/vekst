@@ -5,6 +5,11 @@ resources:
   - ../../base
   - postgres.yaml          # development only; never in the base
   - db-secrets.yaml        # dev-only credentials; contents differ per environment (design Q2)
+  - google-oidc.yaml       # placeholders only; real values in the git-ignored google-oidc.secret.yaml
+  # The provisioning contract as a ConfigMap, generated from the same file CI
+  # runs, so the local cluster and CI cannot drift on what the environment
+  # owes the schema before goose runs.
+  - ../../../db
 
 patches:
   - path: ingress-host.yaml

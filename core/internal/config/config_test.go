@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -120,5 +121,75 @@ func TestMissingDatabaseURLIsRejected(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Error("Load() accepted an unset DATABASE_URL")
+	}
+}
+
+// Absent Google credentials are a supported state: core serves, and only the
+// sign-in routes fail. A developer with no OAuth client still gets a working
+// stack (add-identity design D6a).
+func TestLoadWithoutGoogleCredentials(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load with no Google credentials: %v", err)
+	}
+	if c.GoogleConfigured() {
+		t.Error("GoogleConfigured() = true with nothing set")
+	}
+}
+
+// The placeholder is not a supported state. It is committed so that
+// `kubectl kustomize` renders every overlay in CI, and reaching a running
+// service means the real secret was never applied -- which would otherwise
+// surface as an opaque failure at Google, far from its cause.
+func TestLoadRejectsPlaceholderCredentials(t *testing.T) {
+	for _, key := range []string{
+		"VEKST_GOOGLE_CLIENT_ID",
+		"VEKST_GOOGLE_CLIENT_SECRET",
+		"VEKST_GOOGLE_REDIRECT_URL",
+	} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+			t.Setenv(key, PlaceholderCredential)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatalf("Load with %s=%s: want an error", key, PlaceholderCredential)
+			}
+			if !strings.Contains(err.Error(), key) {
+				t.Errorf("error does not name the offending variable: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadAcceptsRealGoogleCredentials(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+	t.Setenv("VEKST_GOOGLE_CLIENT_ID", "123.apps.googleusercontent.com")
+	t.Setenv("VEKST_GOOGLE_CLIENT_SECRET", "a-real-looking-secret")
+	t.Setenv("VEKST_GOOGLE_REDIRECT_URL", "http://localhost:8081/auth/google/callback")
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !c.GoogleConfigured() {
+		t.Error("GoogleConfigured() = false with all three set")
+	}
+	if !c.CookieSecure {
+		t.Error("CookieSecure defaults to false; it must default to true")
+	}
+	if c.SessionLifetime <= 0 || c.AuthFlowLifetime <= 0 {
+		t.Errorf("lifetimes must be positive: session=%s flow=%s", c.SessionLifetime, c.AuthFlowLifetime)
+	}
+}
+
+func TestLoadRejectsUnparsableCookieSecure(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+	t.Setenv("VEKST_COOKIE_SECURE", "yes-please")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("VEKST_COOKIE_SECURE=yes-please: want an error")
 	}
 }

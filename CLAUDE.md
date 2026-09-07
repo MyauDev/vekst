@@ -92,14 +92,41 @@ number in the original file, never by parsed row index.
 **Generated code is never hand-edited.** `core/gen`, `web/src/gen` and
 `classifier/src/vekst` come from `make gen` and are drift-checked in CI.
 
-**`core/internal/db.InTx` is the only place a transaction begins.** Every
+**`core/internal/db.InSystemTx` is the only place a transaction begins.** Every
 caller — Connect RPC handler, River worker — goes through it; nothing else may
-hold the pool or query it directly. `scripts/check-db-entry-point.sh` enforces
+hold the pool or query it directly. Change 1.2 renamed it from `InTx` while it
+had no call sites; change 1.1 adds a tenant-aware `InTx(ctx, org, fn)` beside
+it, and `InSystemTx` stays the deliberately awkward door for the few untenanted
+reads. `scripts/check-db-entry-point.sh` enforces
 this by import (only `core/internal/db` and `core/internal/jobs` may import
 `pgxpool` — the latter because River's own driver needs the raw pool for its
 background polling, which touches only River's own infrastructure tables, not
 application data). Change 1.1 adds `SET LOCAL app.org_id` inside `InTx`, and
-nowhere else.
+nowhere else — never inside `InSystemTx`, which is precisely the entry point
+that sets no tenant context.
+
+**An identity is `(provider, subject)`, never an email; the account record is
+provisioned once.** An issuer may reuse an email across different end users over
+time, so matching a login by address is the standard account-takeover path.
+`users.email` is descriptive, nullable and `UNIQUE`. It is written at
+provisioning and **never by a later token claim** — that rule, not the column's
+location, is what lets one person hold several sign-in methods without them
+overwriting each other, and it keeps a `UNIQUE` violation off the login path
+where it would lock out a valid account. The binding in `user_identities` is
+insert-once and `vekst_app` holds no `UPDATE` on it, so a subject cannot be
+repointed at another person.
+
+**`/auth/google/start`, `/auth/google/callback` and `/auth/logout` are the one
+non-Connect browser surface.** A Connect handler cannot answer with a 302 and
+the callback is a browser navigation. The exception is about transport, not
+contract: no application data crosses those routes. Everything else the browser
+reads goes through Connect.
+
+**`users`, `user_identities`, `sessions` and `auth_flows` are read only through
+`core/internal/identity`.** They are outside RLS — none belongs to an
+organisation — so the boundary is held by `scripts/check-identity-queries.sh`
+instead of a policy. To list the people in an organisation, read `memberships`
+under RLS for the ids and then fetch users by key; do not add a join.
 
 **A background job sets its own tenant context.** River's tables carry no
 `org_id` and no RLS, so a worker takes its tenant identifier from its job
