@@ -56,14 +56,41 @@ def normalize_description(s: str) -> str:
 
 
 LEGAL_FORMS = [
-    r"ООО", r"ОДО", r"ЗАО", r"ОАО", r"УП", r"ЧУП", r"ИП", r"ТОО", r"АО", r"ТОВ", r"ПАО",
+    r"ООО",
+    r"ОДО",
+    r"ЗАО",
+    r"ОАО",
+    r"УП",
+    r"ЧУП",
+    r"ИП",
+    r"ТОО",
+    r"АО",
+    r"ТОВ",
+    r"ПАО",
     r"ИНДИВИДУАЛЬНЫЙ ПРЕДПРИНИМАТЕЛЬ",
     r"ТОВАРИЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ",
-    r"LLC", r"LLP", r"LTD", r"LIMITED", r"INC\.?", r"CORP\.?", r"GMBH", r"AB", r"OU", r"OÜ",
-    r"SARL", r"SRL", r"PTY", r"BV", r"NV", r"SA", r"AG", r"KG",
+    r"LLC",
+    r"LLP",
+    r"LTD",
+    r"LIMITED",
+    r"INC\.?",
+    r"CORP\.?",
+    r"GMBH",
+    r"AB",
+    r"OU",
+    r"OÜ",
+    r"SARL",
+    r"SRL",
+    r"PTY",
+    r"BV",
+    r"NV",
+    r"SA",
+    r"AG",
+    r"KG",
     r"SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
     r"SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
-    r"SP\.?\s?Z\.?\s?O\.?\s?O\.?", r"S\.A\.",
+    r"SP\.?\s?Z\.?\s?O\.?\s?O\.?",
+    r"S\.A\.",
 ]
 _LF = re.compile(r"(?:^|\s)(?:" + "|".join(LEGAL_FORMS) + r")(?=\s|$)")
 
@@ -83,12 +110,14 @@ def strip_address(name: str) -> str:
     if not name:
         return name
     head, _, _ = name.partition(" ")
-    rest = name[len(head):]
+    rest = name[len(head) :]
     m = _ADDR.search(rest)
     return (head + rest[: m.start()]).strip() if m else name.strip()
 
 
-def counterparty_key(name: str = "", tax_id: str = "", account: str = "") -> tuple[str, str]:
+def counterparty_key(
+    name: str = "", tax_id: str = "", account: str = ""
+) -> tuple[str, str]:
     """Stable identity of a counterparty, and the tier that produced it.
 
     The tier matters downstream: a tax identifier is regulator-issued and
@@ -103,7 +132,11 @@ def counterparty_key(name: str = "", tax_id: str = "", account: str = "") -> tup
     if tid and tid != "0" and len(tid) >= 8:
         return f"tax:{tid}", "tax_id"
 
-    n = unicodedata.normalize("NFKC", strip_address(name or "")).translate(QUOTES).upper()
+    n = (
+        unicodedata.normalize("NFKC", strip_address(name or ""))
+        .translate(QUOTES)
+        .upper()
+    )
     n = re.sub(r"[\"'`]", " ", n)
     n = _LF.sub(" ", n)
     n = re.sub(r"[^\w\s]", " ", n, flags=re.UNICODE)

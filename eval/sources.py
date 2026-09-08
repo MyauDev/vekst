@@ -45,7 +45,9 @@ def _zip_name(info: zipfile.ZipInfo) -> str:
 
 def ensure_statements() -> str:
     """Unpack the statement archives on first use. Idempotent."""
-    if os.path.isdir(CACHE) and glob.glob(os.path.join(CACHE, "*", "**", "*.*"), recursive=True):
+    if os.path.isdir(CACHE) and glob.glob(
+        os.path.join(CACHE, "*", "**", "*.*"), recursive=True
+    ):
         return CACHE
     os.makedirs(CACHE, exist_ok=True)
     for z in glob.glob(os.path.join(DOCCL, "*.zip")):
@@ -74,11 +76,14 @@ def _find(fragment: str) -> str:
 # The accountant's categorisation tables: 590 hand-written rules, three files.
 # --------------------------------------------------------------------------
 
+
 def load_rules(country: str) -> list[dict]:
     """One rule per row: (purpose contains) AND (counterparty contains) AND
     (direction) -> a five-level category path."""
     path = _find({"BY": "_BY_PL", "KZ": "_KZ_PL", "PL": "_PO_PL"}[country])
-    rows = list(openpyxl.load_workbook(path, data_only=True)["PL"].iter_rows(values_only=True))
+    rows = list(
+        openpyxl.load_workbook(path, data_only=True)["PL"].iter_rows(values_only=True)
+    )
     head = {str(v).strip(): i for i, v in enumerate(rows[0]) if v}
 
     def cell(row, key):
@@ -96,13 +101,15 @@ def load_rules(country: str) -> list[dict]:
         # is how 85% of card payments came to read as unlabelled.
         if not any(p for p in path):
             continue
-        out.append({
-            # Poland names the matched field differently; it holds the same thing.
-            "purp": cell(row, "Назначение") or cell(row, "Dane operacji"),
-            "cp": cell(row, "Корреспондент.Название"),
-            "dir": cell(row, "Income/Expense"),
-            "path": path,
-        })
+        out.append(
+            {
+                # Poland names the matched field differently; it holds the same thing.
+                "purp": cell(row, "Назначение") or cell(row, "Dane operacji"),
+                "cp": cell(row, "Корреспондент.Название"),
+                "dir": cell(row, "Income/Expense"),
+                "path": path,
+            }
+        )
     return out
 
 
@@ -110,10 +117,24 @@ def load_rules(country: str) -> list[dict]:
 # Statements.
 # --------------------------------------------------------------------------
 
+
 def _num(s) -> float:
     if isinstance(s, (int, float)):
         return float(s or 0)
-    return float((str(s or "0").replace("\xa0", " ").replace(" ", "").replace(",", ".")) or 0)
+    return float(
+        (str(s or "0").replace("\xa0", " ").replace(" ", "").replace(",", ".")) or 0
+    )
+
+
+def _by_name(row: list[str], head: dict[str, int], name: str) -> str:
+    """Read a cell by column name. Missing column or short row reads as empty:
+    a Priorbank export drops Корреспондент.УНП entirely on currency accounts."""
+    i = head.get(name)
+    return (row[i] if i is not None and i < len(row) else "") or ""
+
+
+def _cell(sheet, row: int, col: int) -> str:
+    return str(sheet.cell_value(row, col)).strip()
 
 
 def by_txns() -> list[dict]:
@@ -126,25 +147,34 @@ def by_txns() -> list[dict]:
     """
     out = []
     for f in sorted(glob.glob(os.path.join(ensure_statements(), "РБ", "*", "*.csv"))):
-        rows = list(csv.reader(open(f, encoding="cp1251"), delimiter=";"))
-        hi = next((i for i, r in enumerate(rows) if r and r[0].startswith("Дата док")), None)
+        with open(f, encoding="cp1251") as fh:
+            rows = list(csv.reader(fh, delimiter=";"))
+        hi = next(
+            (i for i, r in enumerate(rows) if r and r[0].startswith("Дата док")), None
+        )
         if hi is None:
             continue
         head = {n.strip(): i for i, n in enumerate(rows[hi])}
-        get = lambda r, k: (r[head[k]] if k in head and head[k] < len(r) else "") or ""
-        for r in rows[hi + 1:]:
-            if len(r) < 5 or not re.match(r"^\d{2}\.\d{2}\.\d{4}$", (r[0] or "").strip()):
+        for r in rows[hi + 1 :]:
+            if len(r) < 5 or not re.match(
+                r"^\d{2}\.\d{2}\.\d{4}$", (r[0] or "").strip()
+            ):
                 continue
-            debit, credit = _num(get(r, "Номинал.Дебет")), _num(get(r, "Номинал.Кредит"))
-            out.append({
-                "cp": get(r, "Корреспондент.Название"),
-                "tax": get(r, "Корреспондент.УНП"),
-                "acct": get(r, "Корреспондент.Счет"),
-                "purp": get(r, "Назначение"),
-                "knp": "",
-                "dir": "Expense" if debit > 0 else "Income",
-                "amt": max(debit, credit),
-            })
+            debit, credit = (
+                _num(_by_name(r, head, "Номинал.Дебет")),
+                _num(_by_name(r, head, "Номинал.Кредит")),
+            )
+            out.append(
+                {
+                    "cp": _by_name(r, head, "Корреспондент.Название"),
+                    "tax": _by_name(r, head, "Корреспондент.УНП"),
+                    "acct": _by_name(r, head, "Корреспондент.Счет"),
+                    "purp": _by_name(r, head, "Назначение"),
+                    "knp": "",
+                    "dir": "Expense" if debit > 0 else "Income",
+                    "amt": max(debit, credit),
+                }
+            )
     return out
 
 
@@ -159,22 +189,35 @@ def kz_txns() -> list[dict]:
     for f in sorted(glob.glob(os.path.join(ensure_statements(), "КЗ", "*", "*.xls"))):
         sh = xlrd.open_workbook(f).sheet_by_index(0)
         for i in range(1, sh.nrows):
-            v = lambda j: str(sh.cell_value(i, j)).strip()
-            out.append({
-                "cp": v(19), "tax": v(20), "acct": v(21),
-                "purp": v(17), "knp": v(16),
-                "dir": "Expense" if v(3) == "DEBIT" else "Income",
-                "amt": max(_num(sh.cell_value(i, 10)), _num(sh.cell_value(i, 12))),
-            })
+            out.append(
+                {
+                    "cp": _cell(sh, i, 19),
+                    "tax": _cell(sh, i, 20),
+                    "acct": _cell(sh, i, 21),
+                    "purp": _cell(sh, i, 17),
+                    "knp": _cell(sh, i, 16),
+                    "dir": "Expense" if _cell(sh, i, 3) == "DEBIT" else "Income",
+                    "amt": max(_num(sh.cell_value(i, 10)), _num(sh.cell_value(i, 12))),
+                }
+            )
     return out
 
 
 PL_KEYS = [
-    "Rachunek kontrahenta", "Nazwa i adres Kontrahenta", "Tytuł", "Rachunek",
-    "Lokalizacja", "Numer karty", "Numer referencyjny",
-    "Oryginalna kwota operacji", "Identyfikator transakcji", "Data i czas operacji",
+    "Rachunek kontrahenta",
+    "Nazwa i adres Kontrahenta",
+    "Tytuł",
+    "Rachunek",
+    "Lokalizacja",
+    "Numer karty",
+    "Numer referencyjny",
+    "Oryginalna kwota operacji",
+    "Identyfikator transakcji",
+    "Data i czas operacji",
 ]
-_PL_FIELD = re.compile(r"\s*(" + "|".join(map(re.escape, PL_KEYS)) + r")\s*:\s*(.*)$", re.S)
+_PL_FIELD = re.compile(
+    r"\s*(" + "|".join(map(re.escape, PL_KEYS)) + r")\s*:\s*(.*)$", re.S
+)
 
 
 def pl_parse(s: str) -> dict:
@@ -200,18 +243,22 @@ def pl_txns() -> list[dict]:
             # Card payments name the merchant after a '*': "DNH*GODADDY.COM".
             merchant = loc.split("*")[-1].strip() if "*" in loc else ""
             amt = sh.cell_value(i, 4) or 0
-            out.append({
-                "cp": d.get("Nazwa i adres Kontrahenta", "") or merchant,
-                "tax": "", "acct": d.get("Rachunek kontrahenta", ""),
-                "purp": d.get("Tytuł", ""), "knp": "",
-                # The bank's own operation type. Not regulated the way КНП is,
-                # but it separates a fee from a transfer from a card payment
-                # without reading any text, and it is the only field here that
-                # classifies anything on its own.
-                "typ": str(sh.cell_value(i, 3)).strip(),
-                "dir": "Income" if amt > 0 else "Expense",
-                "amt": abs(amt),
-            })
+            out.append(
+                {
+                    "cp": d.get("Nazwa i adres Kontrahenta", "") or merchant,
+                    "tax": "",
+                    "acct": d.get("Rachunek kontrahenta", ""),
+                    "purp": d.get("Tytuł", ""),
+                    "knp": "",
+                    # The bank's own operation type. Not regulated the way КНП is,
+                    # but it separates a fee from a transfer from a card payment
+                    # without reading any text, and it is the only field here that
+                    # classifies anything on its own.
+                    "typ": str(sh.cell_value(i, 3)).strip(),
+                    "dir": "Income" if amt > 0 else "Expense",
+                    "amt": abs(amt),
+                }
+            )
     return out
 
 

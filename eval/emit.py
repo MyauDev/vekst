@@ -16,11 +16,17 @@ Nothing here is hand-edited. Re-running reproduces all six byte for byte.
 import csv
 import json
 import os
-
 from collections import Counter
 
-from build import (COMPUTED, OUT, TAXONOMY_VERSION, build_by_template, build_kz_template,
-                   build_pl_template, build_taxonomy)
+from build import (
+    COMPUTED,
+    OUT,
+    TAXONOMY_VERSION,
+    build_by_template,
+    build_kz_template,
+    build_pl_template,
+    build_taxonomy,
+)
 from norm import NORMALIZE_VERSION, normalize_description
 
 
@@ -29,10 +35,17 @@ def _sql(v):
 
 
 def _matcher(rule):
-    m = {"source_kind": "bank", "normalize_version": NORMALIZE_VERSION,
-         "all": [{"field": rule["field"], "op": rule["op"], "value": rule["stored_value"]}]}
+    m = {
+        "source_kind": "bank",
+        "normalize_version": NORMALIZE_VERSION,
+        "all": [
+            {"field": rule["field"], "op": rule["op"], "value": rule["stored_value"]}
+        ],
+    }
     if rule["direction"]:
-        m["all"].append({"field": "direction", "op": "eq", "value": rule["direction"].lower()})
+        m["all"].append(
+            {"field": "direction", "op": "eq", "value": rule["direction"].lower()}
+        )
     return m
 
 
@@ -45,7 +58,11 @@ def prepare():
     # differ only by a bank's prefix are one rule.
     seen, kept, collapsed = set(), [], 0
     for r in rules:
-        value = normalize_description(r["value"]) if r["field"] == "description" else r["value"]
+        value = (
+            normalize_description(r["value"])
+            if r["field"] == "description"
+            else r["value"]
+        )
         key = (r["country"], r["field"], value, r["direction"], r["path"])
         if key in seen:
             collapsed += 1
@@ -58,55 +75,145 @@ def prepare():
 
     missing = [r for r in kept if r["path"] not in cats]
     if missing:
-        raise SystemExit("rules point at categories that do not exist: "
-                         + "; ".join(" > ".join(r["path"]) for r in missing))
+        raise SystemExit(
+            "rules point at categories that do not exist: "
+            + "; ".join(" > ".join(r["path"]) for r in missing)
+        )
     return cats, customers, kept, collapsed
 
 
 def write_taxonomy_csv(cats, customers):
-    with open(os.path.join(OUT, "taxonomy.csv"), "w", newline="", encoding="utf-8-sig") as f:
+    with open(
+        os.path.join(OUT, "taxonomy.csv"), "w", newline="", encoding="utf-8-sig"
+    ) as f:
         w = csv.writer(f, delimiter=";")
-        w.writerow(["code", "level", "scope", "L1", "L2", "L3", "L4", "L5", "name",
-                    "leaf", "in_pnl", "computed", "formula", "requires_allocation", "rules"])
+        w.writerow(
+            [
+                "code",
+                "level",
+                "scope",
+                "L1",
+                "L2",
+                "L3",
+                "L4",
+                "L5",
+                "name",
+                "leaf",
+                "in_pnl",
+                "computed",
+                "formula",
+                "requires_allocation",
+                "rules",
+            ]
+        )
         for path, c in sorted(cats.items(), key=lambda kv: kv[1]["code"]):
-            w.writerow([c["code"], c["level"], c["scope"], *path, *[""] * (5 - len(path)),
-                        c["name"], "yes" if c["leaf"] else "", "yes" if c["is_pnl"] else "no",
-                        "", "", "yes" if c["alloc"] else "", c["rules"]])
+            w.writerow(
+                [
+                    c["code"],
+                    c["level"],
+                    c["scope"],
+                    *path,
+                    *[""] * (5 - len(path)),
+                    c["name"],
+                    "yes" if c["leaf"] else "",
+                    "yes" if c["is_pnl"] else "no",
+                    "",
+                    "",
+                    "yes" if c["alloc"] else "",
+                    c["rules"],
+                ]
+            )
         for code, name, formula in COMPUTED:
-            w.writerow([code, 1, "global", name, "", "", "", "", name, "", "yes", "yes",
-                        formula, "", ""])
+            w.writerow(
+                [
+                    code,
+                    1,
+                    "global",
+                    name,
+                    "",
+                    "",
+                    "",
+                    "",
+                    name,
+                    "",
+                    "yes",
+                    "yes",
+                    formula,
+                    "",
+                    "",
+                ]
+            )
         w.writerow([])
-        w.writerow(["-- customer dimension: read from the counterparty, not from the tree --"])
+        w.writerow(
+            ["-- customer dimension: read from the counterparty, not from the tree --"]
+        )
         for name, n in customers.most_common():
             w.writerow([name, n])
 
 
 def write_templates_csv(cats, rules):
-    with open(os.path.join(OUT, "templates.csv"), "w", newline="", encoding="utf-8-sig") as f:
+    with open(
+        os.path.join(OUT, "templates.csv"), "w", newline="", encoding="utf-8-sig"
+    ) as f:
         w = csv.writer(f, delimiter=";")
-        w.writerow(["priority", "country", "scope", "field", "op", "value", "direction",
-                    "category_code", "category_path"])
+        w.writerow(
+            [
+                "priority",
+                "country",
+                "scope",
+                "field",
+                "op",
+                "value",
+                "direction",
+                "category_code",
+                "category_path",
+            ]
+        )
         for r in rules:
-            w.writerow([r["priority"], r["country"], r["scope"], r["field"], r["op"],
-                        r["stored_value"], r["direction"], cats[r["path"]]["code"],
-                        " > ".join(r["path"])])
+            w.writerow(
+                [
+                    r["priority"],
+                    r["country"],
+                    r["scope"],
+                    r["field"],
+                    r["op"],
+                    r["stored_value"],
+                    r["direction"],
+                    cats[r["path"]]["code"],
+                    " > ".join(r["path"]),
+                ]
+            )
 
 
 def write_fixtures(cats, rules):
-    json.dump(
-        {"taxonomy_version": TAXONOMY_VERSION, "normalize_version": NORMALIZE_VERSION,
-         "rules": [{"priority": r["priority"], "country": r["country"], "scope": r["scope"],
-                    "category_code": cats[r["path"]]["code"],
-                    "category_path": " > ".join(r["path"]),
-                    "matcher": _matcher(r)} for r in rules]},
-        open(os.path.join(OUT, "rules.json"), "w", encoding="utf-8"),
-        ensure_ascii=False, indent=1)
-    json.dump(
-        {c["code"]: {"path": list(p), **{k: v for k, v in c.items() if k != "code"}}
-         for p, c in cats.items()},
-        open(os.path.join(OUT, "categories.json"), "w", encoding="utf-8"),
-        ensure_ascii=False, indent=1)
+    bundle = {
+        "taxonomy_version": TAXONOMY_VERSION,
+        "normalize_version": NORMALIZE_VERSION,
+        "rules": [
+            {
+                "priority": r["priority"],
+                "country": r["country"],
+                "scope": r["scope"],
+                "category_code": cats[r["path"]]["code"],
+                "category_path": " > ".join(r["path"]),
+                "matcher": _matcher(r),
+            }
+            for r in rules
+        ],
+    }
+    with open(os.path.join(OUT, "rules.json"), "w", encoding="utf-8") as f:
+        json.dump(bundle, f, ensure_ascii=False, indent=1)
 
+    catalogue = {
+        c["code"]: {"path": list(p), **{k: v for k, v in c.items() if k != "code"}}
+        for p, c in cats.items()
+    }
+    with open(os.path.join(OUT, "categories.json"), "w", encoding="utf-8") as f:
+        json.dump(catalogue, f, ensure_ascii=False, indent=1)
+
+
+# ruff: noqa: E501 -- the SQL below is generated output, not Python. Wrapping the
+# INSERT column list to 88 characters would change the file this writes.
 
 CATEGORIES_HEADER = """-- Category taxonomy, taxonomy_version = {tv}.
 -- Generated by eval/emit.py from the founder's source files. Do not hand-edit.
@@ -160,12 +267,17 @@ def write_seeds(cats, rules):
                 f"  ({_sql(TAXONOMY_VERSION)}, {_sql(c['code'])}, {_sql(parent)}, "
                 f"{_sql(c['scope'])}, NULL, {_sql(c['name'])}, {c['level']}, "
                 f"{str(c['leaf']).lower()}, {str(c['is_pnl']).lower()}, false, NULL, "
-                f"{str(c['alloc']).lower()})")
+                f"{str(c['alloc']).lower()})"
+            )
         for code, name, formula in COMPUTED:
             rows.append(
                 f"  ({_sql(TAXONOMY_VERSION)}, {_sql(code)}, NULL, 'global', NULL, "
-                f"{_sql(name)}, 1, false, true, true, {_sql(formula)}, false)")
-        f.write(",\n".join(rows) + "\nON CONFLICT (taxonomy_version, code) DO NOTHING;\nCOMMIT;\n")
+                f"{_sql(name)}, 1, false, true, true, {_sql(formula)}, false)"
+            )
+        f.write(
+            ",\n".join(rows)
+            + "\nON CONFLICT (taxonomy_version, code) DO NOTHING;\nCOMMIT;\n"
+        )
 
     n = Counter(r["country"] for r in rules)
     with open(os.path.join(OUT, "seed_rules.sql"), "w", encoding="utf-8") as f:
@@ -174,7 +286,8 @@ def write_seeds(cats, rules):
             f"  (NULL, {_sql(r['scope'])}, {r['priority']}, "
             f"{_sql(json.dumps(_matcher(r), ensure_ascii=False))}, "
             f"{_sql(cats[r['path']]['code'])}, {_sql(TAXONOMY_VERSION)}, true)"
-            for r in rules]
+            for r in rules
+        ]
         f.write(",\n".join(rows) + ";\nCOMMIT;\n")
 
 
@@ -189,12 +302,16 @@ def main():
     leaves = sum(1 for c in cats.values() if c["leaf"])
     globals_ = sum(1 for c in cats.values() if c["scope"] == "global")
     per_country = Counter(r["country"] for r in rules)
-    print(f"taxonomy   {len(cats)} nodes (+{len(COMPUTED)} computed), {leaves} leaves, "
-          f"{globals_} global / {len(cats) - globals_} org")
+    print(
+        f"taxonomy   {len(cats)} nodes (+{len(COMPUTED)} computed), {leaves} leaves, "
+        f"{globals_} global / {len(cats) - globals_} org"
+    )
     print(f"customers  {len(customers)} lifted out of the tree into a dimension")
-    print(f"rules      {len(rules)} ("
-          + " + ".join(f"{n} {c}" for c, n in sorted(per_country.items()))
-          + f"), {collapsed} collapsed by normalisation")
+    print(
+        f"rules      {len(rules)} ("
+        + " + ".join(f"{n} {c}" for c, n in sorted(per_country.items()))
+        + f"), {collapsed} collapsed by normalisation"
+    )
     print(f"written to {OUT}")
 
 

@@ -89,7 +89,7 @@ def report(country: str, txns: list, rules: list, cats: dict, code2path: dict) -
         # section; it does not make the node deeper in any meaningful sense.
         if a[-1] == "Other":
             a = a[:-1]
-        return len(a) < len(b) and b[:len(a)] == a
+        return len(a) < len(b) and b[: len(a)] == a
 
     fired, matched, missed = Counter(), [], []
     agreed = awaiting = less = disagreed = unlabelled = 0
@@ -117,21 +117,32 @@ def report(country: str, txns: list, rules: list, cats: dict, code2path: dict) -
 
     print(f"\n{'=' * 78}")
     print(f"{country}   rules {len(mine)}   transactions {len(txns)}")
-    print(f"  COVERAGE  {len(matched):5}/{len(txns)} = {len(matched) / len(txns) * 100:5.1f}% of rows"
-          f"   {sum(t['amt'] for t in matched) / total_amount * 100:5.1f}% of amount")
+    rows_pct = len(matched) / len(txns) * 100
+    amount_pct = sum(t["amt"] for t in matched) / total_amount * 100
+    print(
+        f"  COVERAGE  {len(matched):5}/{len(txns)} = {rows_pct:5.1f}% of rows"
+        f"   {amount_pct:5.1f}% of amount"
+    )
     judged = agreed + awaiting + less + disagreed
     if judged:
-        print(f"  ACCURACY  agreed {agreed:5} ({agreed / judged * 100:5.1f}%)"
-              f"   awaiting allocation {awaiting:4}   less specific {less:3}"
-              f"   DISAGREED {disagreed:3} ({disagreed / judged * 100:5.2f}%)")
+        print(
+            f"  ACCURACY  agreed {agreed:5} ({agreed / judged * 100:5.1f}%)"
+            f"   awaiting allocation {awaiting:4}   less specific {less:3}"
+            f"   DISAGREED {disagreed:3} ({disagreed / judged * 100:5.2f}%)"
+        )
     dead = [r for r in mine if not fired.get(r["priority"])]
-    print(f"  RULES     fired {len(mine) - len(dead)}/{len(mine)}   never fired {len(dead)}")
+    fired_count = len(mine) - len(dead)
+    print(f"  RULES     fired {fired_count}/{len(mine)}   never fired {len(dead)}")
 
     if missed:
-        keys = {counterparty_key(t.get("cp", ""), t.get("tax", ""), t.get("acct", ""))[0]
-                for t in missed}
-        print(f"  RESIDUE   {len(missed)} rows over {len(keys)} counterparties"
-              f"  — one review decision each, then L0 has them")
+        keys = {
+            counterparty_key(t.get("cp", ""), t.get("tax", ""), t.get("acct", ""))[0]
+            for t in missed
+        }
+        print(
+            f"  RESIDUE   {len(missed)} rows over {len(keys)} counterparties"
+            f"  — one review decision each, then L0 has them"
+        )
         agg = Counter()
         for t in missed:
             agg[(t.get("cp") or t.get("purp") or "")[:52]] += 1
@@ -140,19 +151,28 @@ def report(country: str, txns: list, rules: list, cats: dict, code2path: dict) -
 
     for t, ours, theirs in conflicts[:3]:
         print(f"  ! {' > '.join(code2path[ours]):<44} <- ours")
-        print(f"    {' > '.join(code2path[theirs]):<44} <- theirs   {t.get('purp', '')[:52]}")
+        theirs_path = " > ".join(code2path[theirs])
+        print(f"    {theirs_path:<44} <- theirs   {t.get('purp', '')[:52]}")
 
-    return {"matched": len(matched), "total": len(txns), "disagreed": disagreed,
-            "dead": len(dead), "residue": len(missed)}
+    return {
+        "matched": len(matched),
+        "total": len(txns),
+        "disagreed": disagreed,
+        "dead": len(dead),
+        "residue": len(missed),
+    }
 
 
 def main():
-    bundle = json.load(open(os.path.join(OUT, "rules.json"), encoding="utf-8"))
+    with open(os.path.join(OUT, "rules.json"), encoding="utf-8") as f:
+        bundle = json.load(f)
     cats, _ = build_taxonomy()
     code2path = {c["code"]: p for p, c in cats.items()}
 
-    print(f"taxonomy={bundle['taxonomy_version']}  engine={ENGINE_VERSION}  "
-          f"normalize={NORMALIZE_VERSION}")
+    print(
+        f"taxonomy={bundle['taxonomy_version']}  engine={ENGINE_VERSION}  "
+        f"normalize={NORMALIZE_VERSION}"
+    )
 
     totals = Counter()
     for country, load in STATEMENTS.items():
@@ -161,10 +181,12 @@ def main():
             totals[k] += v
 
     print(f"\n{'=' * 78}")
-    print(f"TOTAL  coverage {totals['matched']}/{totals['total']} = "
-          f"{totals['matched'] / totals['total'] * 100:.1f}%"
-          f"   disagreements {totals['disagreed']}"
-          f"   rules that never fired {totals['dead']}")
+    print(
+        f"TOTAL  coverage {totals['matched']}/{totals['total']} = "
+        f"{totals['matched'] / totals['total'] * 100:.1f}%"
+        f"   disagreements {totals['disagreed']}"
+        f"   rules that never fired {totals['dead']}"
+    )
 
 
 if __name__ == "__main__":

@@ -66,7 +66,12 @@ def _condition_holds(txn: dict, c: dict) -> bool:
         return normalize_description(want) in normalize_description(txn.get("acct", ""))
 
     if field == "counterparty_key":
-        return counterparty_key(txn.get("cp", ""), txn.get("tax", ""), txn.get("acct", ""))[0] == want
+        return (
+            counterparty_key(
+                txn.get("cp", ""), txn.get("tax", ""), txn.get("acct", "")
+            )[0]
+            == want
+        )
 
     return False
 
@@ -79,19 +84,28 @@ def classify(txn: dict, rules: list, memory: dict | None = None) -> dict | None:
     counterparty key to a category code and is what the review queue fills.
     """
     if memory:
-        key, tier = counterparty_key(txn.get("cp", ""), txn.get("tax", ""), txn.get("acct", ""))
+        key, tier = counterparty_key(
+            txn.get("cp", ""), txn.get("tax", ""), txn.get("acct", "")
+        )
         if key in memory:
-            return {"category": memory[key], "layer": "L0", "rule": key,
-                    "confidence": 1.00, "evidence": tier}
+            return {
+                "category": memory[key],
+                "layer": "L0",
+                "rule": key,
+                "confidence": 1.00,
+                "evidence": tier,
+            }
 
     for r in rules:
         if all(_condition_holds(txn, c) for c in r["matcher"]["all"]):
             by_code = r["matcher"]["all"][0]["field"] == "knp"
-            return {"category": r["category_code"],
-                    "layer": "L0.5" if by_code else "L1",
-                    "rule": r["priority"],
-                    # A regulated code is stronger evidence than a text match,
-                    # and both sit above the 0.80 auto-accept threshold.
-                    "confidence": 0.99 if by_code else 0.95,
-                    "evidence": r["scope"]}
+            return {
+                "category": r["category_code"],
+                "layer": "L0.5" if by_code else "L1",
+                "rule": r["priority"],
+                # A regulated code is stronger evidence than a text match,
+                # and both sit above the 0.80 auto-accept threshold.
+                "confidence": 0.99 if by_code else 0.95,
+                "evidence": r["scope"],
+            }
     return None
