@@ -86,6 +86,13 @@ jobs:
       # identity tables are read only through one query file, and that file
       # never reaches outside them.
       - run: ./scripts/check-identity-queries.sh
+      # The taxonomy is generated from source files that live outside the
+      # repository, so CI cannot regenerate and diff it the way the codegen job
+      # does for /proto. It can check that the committed artefacts still agree:
+      # that migration 005's embedded copy of the seed matches the generator's
+      # output, and that every template rule still points at a seeded category.
+      # A shared rule cannot target a per-organisation one.
+      - run: ./scripts/check-taxonomy-seed.sh
 
   # --- database: migrations, roles, the RLS-exemption allowlist ------------
   database:
