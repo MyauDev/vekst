@@ -57,7 +57,6 @@ func newHarness(t *testing.T) *harness {
 		SessionLifetime:  time.Hour,
 		SessionRetention: time.Hour,
 		AuthFlowLifetime: 10 * time.Minute,
-		CookieSecure:     false, // httptest serves plain HTTP
 		Issuer:           provider.issuer(),
 	}, database, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
@@ -80,7 +79,11 @@ func newHarness(t *testing.T) *harness {
 		_, _ = io.WriteString(w, u.ID.String())
 	})
 
-	h.server = httptest.NewServer(r)
+	// TLS, not plain HTTP. The cookies this package issues are Secure without
+	// exception, and a cookie jar will not send a Secure cookie back over http --
+	// so a plaintext harness could only ever test the flow with that attribute
+	// switched off, which is the one configuration production never runs.
+	h.server = httptest.NewTLSServer(r)
 	t.Cleanup(h.server.Close)
 
 	// The redirect URL must be the running test server's, which is only known
@@ -134,7 +137,9 @@ func (h *harness) client() *http.Client {
 		h.t.Fatalf("building cookie jar: %v", err)
 	}
 	return &http.Client{
-		Jar:           jar,
+		Jar: jar,
+		// The transport from the test server trusts its self-signed certificate.
+		Transport:     h.server.Client().Transport,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 }

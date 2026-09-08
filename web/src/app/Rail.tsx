@@ -24,7 +24,7 @@ import type { Locale } from "../i18n";
  *  work expires: an unreviewed row is a wrong number in a report, which is why
  *  `WORKFLOW.md` §5.3 also puts the unreviewed amount among the headline
  *  figures. Nothing else earns a count. */
-function Count({ value, locale }: { value: number; locale: Locale }) {
+function Count({ value, locale }: Readonly<{ value: number; locale: Locale }>) {
   if (value <= 0) return null;
   return (
     <span
@@ -41,12 +41,12 @@ function Item({
   label,
   count,
   locale,
-}: {
+}: Readonly<{
   to: string;
   label: string;
   count?: number;
   locale: Locale;
-}) {
+}>) {
   return (
     <Link
       to={to}
@@ -69,11 +69,11 @@ export function Rail({
   locale,
   awaitingReview = 0,
   account,
-}: {
+}: Readonly<{
   locale: Locale;
   awaitingReview?: number;
   account?: React.ReactNode;
-}) {
+}>) {
   return (
     <nav
       aria-label={t("nav.reports", locale)}

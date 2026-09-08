@@ -20,7 +20,7 @@ import { PublicLayout } from "./PublicLayout";
 import { Reveal } from "./Reveal";
 import { SAMPLE_REPORT } from "./sample";
 
-function Cta({ locale, large }: { locale: Locale; large?: boolean }) {
+function Cta({ locale, large }: Readonly<{ locale: Locale; large?: boolean }>) {
   return (
     <a
       href="/signin"
@@ -40,12 +40,12 @@ function Step({
   titleKey,
   bodyKey,
   locale,
-}: {
+}: Readonly<{
   n: number;
   titleKey: MessageKey;
   bodyKey: MessageKey;
   locale: Locale;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-4">
       <span className="tabular text-2xs font-semibold uppercase tracking-widest text-text-subtle">
@@ -124,7 +124,7 @@ export function LandingPage() {
             report={SAMPLE_REPORT}
             locale={locale}
             from={SAMPLE_REPORT.periods[0]!}
-            to={SAMPLE_REPORT.periods[SAMPLE_REPORT.periods.length - 1]!}
+            to={SAMPLE_REPORT.periods.at(-1)!}
             linked={false}
           />
         </div>

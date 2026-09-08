@@ -15,7 +15,7 @@ import type { SourceKind } from "../data/types";
 import { t } from "../i18n";
 import type { Locale } from "../i18n";
 
-export function Upload({ locale, onUploaded }: { locale: Locale; onUploaded: () => void }) {
+export function Upload({ locale, onUploaded }: Readonly<{ locale: Locale; onUploaded: () => void }>) {
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);

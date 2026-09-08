@@ -34,7 +34,7 @@ function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): s
  * queue in section 7 is the list that genuinely needs it, and that is where
  * `@tanstack/react-virtual` earns its place.
  */
-function Rows({ rows, locale }: { rows: readonly DrilldownRow[]; locale: Locale }) {
+function Rows({ rows, locale }: Readonly<{ rows: readonly DrilldownRow[]; locale: Locale }>) {
   return (
     <div className="max-h-96 overflow-y-auto">
       {rows.map((row) => (
@@ -105,7 +105,7 @@ export function DrilldownPanel() {
       <div className="min-h-0 grow overflow-hidden px-5">
         {isPending ? <Loading label="…" rows={4} /> : null}
         {error ? <ErrorState message={String(error)} /> : null}
-        {data && data.rowsUnavailable ? (
+        {data?.rowsUnavailable ? (
           <p className="max-w-prose border-t border-border py-6 text-sm text-text-muted">
             {t("drilldown.unavailable", locale)}
           </p>

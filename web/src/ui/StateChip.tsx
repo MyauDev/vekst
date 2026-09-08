@@ -70,7 +70,7 @@ const PATHS: Record<Shape, string> = {
   half: "M8 2.5a5.5 5.5 0 0 1 0 11z",
 };
 
-function Icon({ shape }: { shape: Shape }) {
+function Icon({ shape }: Readonly<{ shape: Shape }>) {
   const filled = shape === "half";
   return (
     <svg
@@ -91,7 +91,7 @@ function Icon({ shape }: { shape: Shape }) {
   );
 }
 
-function Chip({ tone, shape, label }: { tone: Tone; shape: Shape; label: string }) {
+function Chip({ tone, shape, label }: Readonly<{ tone: Tone; shape: Shape; label: string }>) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wider whitespace-nowrap ${TONE[tone]}`}
@@ -102,17 +102,17 @@ function Chip({ tone, shape, label }: { tone: Tone; shape: Shape; label: string 
   );
 }
 
-export function BatchStateChip({ state, locale }: { state: BatchState; locale?: Locale }) {
+export function BatchStateChip({ state, locale }: Readonly<{ state: BatchState; locale?: Locale }>) {
   const [tone, shape] = BATCH[state];
   return <Chip tone={tone} shape={shape} label={t(`state.batch.${state}` as MessageKey, locale)} />;
 }
 
-export function ReportStateChip({ state, locale }: { state: ReportState; locale?: Locale }) {
+export function ReportStateChip({ state, locale }: Readonly<{ state: ReportState; locale?: Locale }>) {
   const [tone, shape] = REPORT[state];
   return <Chip tone={tone} shape={shape} label={t(`state.report.${state}` as MessageKey, locale)} />;
 }
 
-export function RowStateChip({ state, locale }: { state: RowState; locale?: Locale }) {
+export function RowStateChip({ state, locale }: Readonly<{ state: RowState; locale?: Locale }>) {
   const [tone, shape] = ROW[state];
   return <Chip tone={tone} shape={shape} label={t(`state.row.${state}` as MessageKey, locale)} />;
 }

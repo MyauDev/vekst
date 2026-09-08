@@ -264,7 +264,24 @@ Do not pick a colour here. Every rule below exists because the validator or `WOR
       compile error
 - [ ] 9.5 Have the `ru` state words in `DESIGN.md` §7 checked by a native speaker. They are a
       draft by a non-native writer and this change is the first to render them
-- [ ] 9.6 Add the Inter woff2 subsets under `web/public/fonts/` and uncomment `index.css` §5
+- [ ] 9.6 Add the Inter woff2 subsets under `web/public/fonts/` and declare them. The block was
+      removed from `index.css` §5 rather than left commented out — SonarCloud flags
+      commented-out code, and it is right to: nobody dares delete it and nobody can run it.
+      It belongs here, with the task that makes it true:
+
+      ```css
+      @font-face {
+        font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+        src: url("/fonts/inter-latin.woff2") format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F,
+                       U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215;
+      }
+      @font-face {
+        font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+        src: url("/fonts/inter-cyrillic.woff2") format("woff2");
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      ```
 - [ ] 9.7 Delete `web/src/mock/` and `web/mock.html`. Nothing else references either
 - [ ] 9.8 Add `/web` ownership lines to `.github/CODEOWNERS`
 - [ ] 9.9 Test: no user-facing string spells the brand `Vekst`. The two spellings are

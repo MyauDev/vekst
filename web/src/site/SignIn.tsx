@@ -10,7 +10,7 @@ import { authErrorMessage, t } from "../i18n";
  * Deliberately unstyled beyond what makes it usable. `add-web-app-shell` (5.1)
  * establishes the token layer, and this markup is expected to be thrown away.
  */
-export function SignIn({ authError }: { authError?: string | null }) {
+export function SignIn({ authError }: Readonly<{ authError?: string | null }>) {
   const message = authErrorMessage(authError ?? null);
 
   return (

@@ -9,7 +9,7 @@
  */
 import type { ReactNode } from "react";
 
-export function Kbd({ children }: { children: ReactNode }) {
+export function Kbd({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <kbd className="inline-flex h-5 min-w-5 items-center justify-center border border-border-strong px-1 font-mono text-2xs text-text">
       {children}

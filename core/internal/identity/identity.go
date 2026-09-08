@@ -93,9 +93,6 @@ type Config struct {
 	// AuthFlowLifetime bounds how long a started sign-in may stay pending.
 	AuthFlowLifetime time.Duration
 
-	// CookieSecure sets the Secure attribute on both cookies this package
-	// issues.
-	CookieSecure bool
 
 	// Issuer overrides the OIDC issuer whose discovery document is read at
 	// startup. Empty means GoogleIssuer, which is the only value production

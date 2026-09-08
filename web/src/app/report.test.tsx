@@ -60,7 +60,7 @@ describe("the report", () => {
   it("carries the currency once, in the header, not in every cell", async () => {
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
     await screen.findByRole("heading", { name: t("report.title") });
-    expect(screen.getAllByText(/EUR/).length).toBe(1);
+    expect(screen.getAllByText(/EUR/)).toHaveLength(1);
   });
 
   it("falls back to year-to-date when the link carries no range", async () => {

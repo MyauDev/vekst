@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
-export function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+export function Reveal({ children, delay = 0 }: Readonly<{ children: ReactNode; delay?: number }>) {
   const ref = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(false);
 

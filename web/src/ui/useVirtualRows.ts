@@ -24,11 +24,11 @@ export function useVirtualRows({
   count,
   parentRef,
   rowHeight,
-}: {
+}: Readonly<{
   count: number;
   parentRef: RefObject<HTMLElement | null>;
   rowHeight: number;
-}) {
+}>) {
   return useVirtualizer({
     count,
     getScrollElement: () => parentRef.current,

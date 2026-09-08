@@ -70,7 +70,7 @@ const appRoute = createRoute({
         transport={transport}
         // A rendered sign-in rather than a redirect: the person is already
         // where they meant to be, and bouncing them to another URL loses that.
-        onUnauthenticated={() => <SignInPage />}
+        unauthenticated={<SignInPage />}
       >
         <Outlet />
       </AppLayout>

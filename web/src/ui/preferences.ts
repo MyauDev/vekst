@@ -66,8 +66,10 @@ export function resolveLocale(raw: string | undefined): Locale {
 function apply() {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  if (theme === "system") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", theme);
+  // Deleting the key removes the attribute, which is what "system" means: with
+  // no `data-theme` present, the stylesheet's prefers-color-scheme block governs.
+  if (theme === "system") delete root.dataset["theme"];
+  else root.dataset["theme"] = theme;
   root.setAttribute("lang", locale);
 }
 

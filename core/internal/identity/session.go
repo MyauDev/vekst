@@ -149,6 +149,15 @@ func (s *Service) revoke(ctx context.Context, token string) error {
 //
 // No Domain attribute: the cookie stays host-only, which is what keeps it
 // first-party to the single origin serving the document, /rpc and /auth.
+//
+// Secure is unconditional. add-identity's design said "Secure stays on locally:
+// current browsers treat http://localhost as a secure context", hedged as
+// [Likely] pending a check in a real browser -- and left VEKST_COOKIE_SECURE as
+// the one-line escape hatch in case it was wrong. The check has since been made:
+// sign-in completes over http://localhost:8081. So the hedge is resolved and the
+// hatch is gone, because a setting that can turn off session security in
+// production to satisfy a test is a worse risk than the one it insured against.
+// Tests serve TLS instead (identity/harness_test.go).
 func (s *Service) setCookie(w http.ResponseWriter, name, value string, expires time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
@@ -156,7 +165,7 @@ func (s *Service) setCookie(w http.ResponseWriter, name, value string, expires t
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true,
-		Secure:   s.cfg.CookieSecure,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -168,7 +177,7 @@ func (s *Service) clearCookie(w http.ResponseWriter, name string) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   s.cfg.CookieSecure,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }

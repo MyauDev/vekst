@@ -25,11 +25,11 @@ export function EmptyState({
   title,
   detail,
   action,
-}: {
+}: Readonly<{
   title: string;
   detail: string;
   action?: ReactNode;
-}) {
+}>) {
   return (
     <div className="border-t border-border py-8">
       <p className="text-base font-medium text-text">{title}</p>
@@ -51,7 +51,7 @@ export function EmptyState({
  * `rows` should match what is being waited for, so the page does not jump when
  * the content lands.
  */
-export function Skeleton({ rows = 3, className = "" }: { rows?: number; className?: string }) {
+export function Skeleton({ rows = 3, className = "" }: Readonly<{ rows?: number; className?: string }>) {
   return (
     <div className={`flex flex-col gap-2 ${className}`} aria-hidden="true">
       {Array.from({ length: rows }, (_, i) => (
@@ -67,7 +67,7 @@ export function Skeleton({ rows = 3, className = "" }: { rows?: number; classNam
 }
 
 /** Announces a wait to a screen reader, which sees no skeleton. */
-export function Loading({ label, rows }: { label: string; rows?: number }) {
+export function Loading({ label, rows }: Readonly<{ label: string; rows?: number }>) {
   return (
     <div role="status" aria-live="polite" className="border-t border-border py-6">
       <span className="sr-only">{label}</span>
@@ -87,11 +87,11 @@ export function ErrorState({
   message,
   retry,
   retryLabel,
-}: {
+}: Readonly<{
   message: string;
   retry?: () => void;
   retryLabel?: string;
-}) {
+}>) {
   return (
     <div role="alert" className="border-t border-danger py-6">
       <p className="text-sm font-medium text-danger">{message}</p>

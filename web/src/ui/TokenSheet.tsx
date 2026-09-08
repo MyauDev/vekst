@@ -19,7 +19,7 @@ import { useLocale, useTheme, resolvedTheme } from "./preferences";
 import { BatchStateChip, ReportStateChip, RowStateChip } from "./StateChip";
 
 /** Label left, material right. The asymmetry is the layout. */
-function Row({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
+function Row({ label, note, children }: Readonly<{ label: string; note?: string; children: React.ReactNode }>) {
   return (
     <section className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-border py-6 sm:grid-cols-[8rem_1fr]">
       <div className="flex flex-col gap-1">
@@ -34,7 +34,7 @@ function Row({ label, note, children }: { label: string; note?: string; children
 /** A continuous band, no gaps and no radius. A swatch with a rounded corner and
  *  a drop of air around it is a card; a specimen butts them so the steps read
  *  against each other. */
-function Band({ items }: { items: [string, string][] }) {
+function Band({ items }: Readonly<{ items: [string, string][] }>) {
   return (
     <div>
       <div className="flex h-14 overflow-hidden border border-border">
@@ -123,11 +123,11 @@ function Toggle<T extends string>({
   values,
   current,
   onPick,
-}: {
+}: Readonly<{
   values: readonly T[];
   current: T;
   onPick: (v: T) => void;
-}) {
+}>) {
   return (
     <div className="flex items-center gap-3">
       {values.map((v) => (
@@ -207,8 +207,8 @@ export function TokenSheet() {
             ["Row classification", (["classified", "needsReview", "blocked"] as const).map((s) => (
               <RowStateChip key={s} state={s} locale={locale} />
             ))],
-          ].map(([axis, chips], i) => (
-            <div key={i} className="flex flex-wrap items-baseline gap-x-5 gap-y-2 border-b border-border pb-2">
+          ].map(([axis, chips]) => (
+            <div key={axis as string} className="flex flex-wrap items-baseline gap-x-5 gap-y-2 border-b border-border pb-2">
               <dt className="w-32 shrink-0 text-2xs text-text-subtle">{axis as string}</dt>
               {chips as React.ReactNode}
             </div>

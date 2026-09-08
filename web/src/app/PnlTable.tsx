@@ -37,7 +37,7 @@ function Figure({
   from,
   to,
   linked,
-}: {
+}: Readonly<{
   value: Money | null;
   categoryId: string;
   period: string;
@@ -45,7 +45,7 @@ function Figure({
   from: string;
   to: string;
   linked: boolean;
-}) {
+}>) {
   const text = fmt(value, locale);
   if (!value) {
     return <td className="tabular px-3 text-right text-figure-blocked">{text}</td>;
@@ -79,14 +79,14 @@ function Row({
   from,
   to,
   linked,
-}: {
+}: Readonly<{
   line: ReportLine;
   report: Report;
   locale: Locale;
   from: string;
   to: string;
   linked: boolean;
-}) {
+}>) {
   // A blocked line names its reason where the line is, and spans the columns it
   // cannot fill. DESIGN.md §2: "blocked" without the missing input named is a
   // dead end.
@@ -141,11 +141,11 @@ function SubtotalRow({
   section,
   locale,
   periods,
-}: {
+}: Readonly<{
   section: ReportSection;
   locale: Locale;
   periods: readonly string[];
-}) {
+}>) {
   return (
     <tr className="h-8 border-b-2 border-border-strong font-medium">
       <th scope="row" className="sticky left-0 z-10 bg-surface pr-3 pl-4 text-left">
@@ -168,14 +168,14 @@ export function PnlTable({
   from,
   to,
   linked = true,
-}: {
+}: Readonly<{
   report: Report;
   locale: Locale;
   from: string;
   to: string;
   /** False on the landing, where a figure must not lead into the application. */
   linked?: boolean;
-}) {
+}>) {
   return (
     // The table scrolls inside its own box; the page never scrolls sideways.
     <div className="overflow-x-auto">

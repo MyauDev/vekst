@@ -19,12 +19,12 @@ function Cell({
   value,
   locale,
   strong,
-}: {
+}: Readonly<{
   labelKey: MessageKey;
   value: Money;
   locale: Locale;
   strong?: boolean;
-}) {
+}>) {
   const exp = exponentOf(value.currencyCode);
   const text = exp === undefined ? NO_DATA : formatMinorUnits(value.minorUnits, exp, locale);
   return (
@@ -37,7 +37,7 @@ function Cell({
   );
 }
 
-export function Reconciliation({ recon, locale }: { recon: Recon; locale: Locale }) {
+export function Reconciliation({ recon, locale }: Readonly<{ recon: Recon; locale: Locale }>) {
   return (
     <section className="mt-6 border-t-2 border-border-strong pt-4">
       <h2 className="text-2xs font-semibold uppercase tracking-widest text-text">

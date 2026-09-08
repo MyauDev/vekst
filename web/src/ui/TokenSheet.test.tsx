@@ -23,7 +23,7 @@ describe("token sheet", () => {
       expect(screen.getAllByText(t(key)).length).toBeGreaterThan(0);
     }
     // "Blocked" is two states on two axes and shares one English word.
-    expect(screen.getAllByText("Blocked").length).toBe(2);
+    expect(screen.getAllByText("Blocked")).toHaveLength(2);
   });
 
   it("offers all three theme states", () => {

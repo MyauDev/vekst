@@ -15,7 +15,7 @@ import { BatchStateChip } from "../ui/StateChip";
 import { EmptyState, ErrorState, Loading } from "../ui/feedback";
 import { Upload } from "./Upload";
 
-function Period({ batch, locale }: { batch: Batch; locale: Locale }) {
+function Period({ batch, locale }: Readonly<{ batch: Batch; locale: Locale }>) {
   if (!batch.periodFrom || !batch.periodTo) return <span className="text-text-subtle">—</span>;
   const from = formatPeriodShort(batch.periodFrom, locale);
   const to = formatPeriodShort(batch.periodTo, locale);
@@ -38,7 +38,7 @@ export function ImportsScreen() {
 
       {isPending ? <Loading label={t("imports.title", locale)} rows={4} /> : null}
       {error ? <ErrorState message={String(error)} /> : null}
-      {data && data.length === 0 ? (
+      {data?.length === 0 ? (
         <EmptyState
           title={t("empty.imports.title", locale)}
           detail={t("empty.imports.detail", locale)}

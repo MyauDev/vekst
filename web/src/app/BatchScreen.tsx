@@ -32,7 +32,7 @@ function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): s
 function download(batch: BatchDetail, locale: Locale) {
   const header = `${t("batch.errors.line", locale)},code,detail\n`;
   const body = batch.errors
-    .map((e) => `${e.fileLine},${e.code},"${(e.detail ?? "").replace(/"/g, '""')}"`)
+    .map((e) => `${e.fileLine},${e.code},"${(e.detail ?? "").replaceAll('"', '""')}"`)
     .join("\n");
   const url = URL.createObjectURL(new Blob([header + body], { type: "text/csv" }));
   const a = document.createElement("a");
@@ -54,7 +54,7 @@ function download(batch: BatchDetail, locale: Locale) {
  */
 const SHOWN = 200;
 
-function Errors({ errors, locale }: { errors: readonly ValidationError[]; locale: Locale }) {
+function Errors({ errors, locale }: Readonly<{ errors: readonly ValidationError[]; locale: Locale }>) {
   const shown = errors.slice(0, SHOWN);
   return (
     <div className="max-h-96 overflow-y-auto">

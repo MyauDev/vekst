@@ -177,19 +177,8 @@ func TestLoadAcceptsRealGoogleCredentials(t *testing.T) {
 	if !c.GoogleConfigured() {
 		t.Error("GoogleConfigured() = false with all three set")
 	}
-	if !c.CookieSecure {
-		t.Error("CookieSecure defaults to false; it must default to true")
-	}
 	if c.SessionLifetime <= 0 || c.AuthFlowLifetime <= 0 {
 		t.Errorf("lifetimes must be positive: session=%s flow=%s", c.SessionLifetime, c.AuthFlowLifetime)
 	}
 }
 
-func TestLoadRejectsUnparsableCookieSecure(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
-	t.Setenv("VEKST_COOKIE_SECURE", "yes-please")
-
-	if _, err := Load(); err == nil {
-		t.Fatal("VEKST_COOKIE_SECURE=yes-please: want an error")
-	}
-}

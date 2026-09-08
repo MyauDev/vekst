@@ -9,7 +9,7 @@ import { HealthService } from "./gen/vekst/v1/health_pb";
  * The values below travelled browser -> Connect -> core -> gRPC -> classifier
  * and back, through types nobody wrote by hand.
  */
-export function HealthCard({ transport }: { transport: Transport }) {
+export function HealthCard({ transport }: Readonly<{ transport: Transport }>) {
   const { data, error, isPending } = useQuery({
     queryKey: ["health"],
     queryFn: () => createClient(HealthService, transport).check({}),
@@ -34,7 +34,7 @@ export function HealthCard({ transport }: { transport: Transport }) {
   );
 }
 
-function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+function Row({ label, value, muted }: Readonly<{ label: string; value: string; muted?: boolean }>) {
   return (
     <>
       <dt className="text-text-muted">{label}</dt>

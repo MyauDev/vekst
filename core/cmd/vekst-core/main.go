@@ -117,7 +117,6 @@ func run() error {
 			SessionLifetime:  cfg.SessionLifetime,
 			SessionRetention: cfg.SessionRetention,
 			AuthFlowLifetime: cfg.AuthFlowLifetime,
-			CookieSecure:     cfg.CookieSecure,
 		}, database, log)
 		cancel()
 		if err != nil {

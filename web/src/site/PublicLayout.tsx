@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 import { t } from "../i18n";
 import { useLocale } from "../ui/preferences";
 
-export function PublicLayout({ children }: { children: ReactNode }) {
+export function PublicLayout({ children }: Readonly<{ children: ReactNode }>) {
   const [locale] = useLocale();
 
   return (

@@ -22,12 +22,12 @@ function Tile({
   value,
   locale,
   muted,
-}: {
+}: Readonly<{
   labelKey: MessageKey;
   value: Money;
   locale: Locale;
   muted?: boolean;
-}) {
+}>) {
   const exp = exponentOf(value.currencyCode);
   const text = exp === undefined ? NO_DATA : formatMinorUnits(value.minorUnits, exp, locale);
   return (
@@ -47,7 +47,7 @@ function Tile({
   );
 }
 
-export function StatTiles({ report, locale }: { report: Report; locale: Locale }) {
+export function StatTiles({ report, locale }: Readonly<{ report: Report; locale: Locale }>) {
   return (
     <div className="flex flex-wrap gap-y-4 border-b border-border pb-5">
       <Tile labelKey="stat.revenue" value={report.revenueTotal} locale={locale} />

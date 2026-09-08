@@ -31,12 +31,12 @@ async function signOut() {
 export function AppLayout({
   transport,
   children,
-  onUnauthenticated,
-}: {
+  unauthenticated,
+}: Readonly<{
   transport: Transport;
   children: ReactNode;
-  onUnauthenticated: () => ReactNode;
-}) {
+  unauthenticated: ReactNode;
+}>) {
   const [locale] = useLocale();
   const [theme] = useTheme();
   const { data, error, isPending } = useQuery({
@@ -61,14 +61,14 @@ export function AppLayout({
   // and core reports it with that code by design. Anything else is a real
   // failure and says so rather than pretending nobody is signed in.
   if (error) {
-    if (ConnectError.from(error).code === Code.Unauthenticated) return onUnauthenticated();
+    if (ConnectError.from(error).code === Code.Unauthenticated) return unauthenticated;
     return (
       <div className="mx-auto max-w-lg p-8">
         <ErrorState message={ConnectError.from(error).message} />
       </div>
     );
   }
-  if (!data.user) return onUnauthenticated();
+  if (!data.user) return unauthenticated;
 
   const range = defaultRange();
 

@@ -127,7 +127,7 @@ function columnSum(lines: readonly RawLine[], index: number): string {
   return sumMinorUnits(lines.flatMap((l) => (l.units ? [l.units[index]!] : [])));
 }
 
-function buildSection(id: SectionId, locale: "en" | "ru"): ReportSection {
+function buildSection(id: SectionId): ReportSection {
   const raw = RAW.filter((l) => l.section === id);
   const subtotals = PERIODS.map((_, i) => money(columnSum(raw, i)));
   const total = money(sumMinorUnits(subtotals.map((m) => m.minorUnits)));
@@ -152,7 +152,6 @@ function buildSection(id: SectionId, locale: "en" | "ru"): ReportSection {
     };
   });
 
-  void locale;
   return { id, label: SECTION_LABEL[id], lines, subtotals, total };
 }
 
@@ -163,9 +162,7 @@ function buildSection(id: SectionId, locale: "en" | "ru"): ReportSection {
  * so swapping the body does not ripple into every caller's control flow.
  */
 export async function getReport(_params: { from: Period; to: Period }): Promise<Report> {
-  const sections = (["revenue", "cost_of_sales", "operating_expenses"] as const).map((id) =>
-    buildSection(id, "en"),
-  );
+  const sections = (["revenue", "cost_of_sales", "operating_expenses"] as const).map(buildSection);
 
   const revenue = sections.find((s) => s.id === "revenue")!;
   const expenseSections = sections.filter((s) => s.id !== "revenue");

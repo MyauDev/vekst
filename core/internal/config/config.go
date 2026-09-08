@@ -71,11 +71,6 @@ type Config struct {
 	// Short on purpose: it is the window in which a state value is live.
 	AuthFlowLifetime time.Duration
 
-	// CookieSecure sets the Secure attribute on the session and flow cookies.
-	// True everywhere including locally -- current browsers treat
-	// http://localhost as a secure context -- and configurable only so that a
-	// browser which disagrees is a setting rather than a patch.
-	CookieSecure bool
 }
 
 // PlaceholderCredential is the value committed in
@@ -112,7 +107,6 @@ func Load() (Config, error) {
 		SessionLifetime:        14 * 24 * time.Hour,
 		SessionRetention:       7 * 24 * time.Hour,
 		AuthFlowLifetime:       10 * time.Minute,
-		CookieSecure:           true,
 	}
 
 	var err error
@@ -132,9 +126,6 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	if c.AuthFlowLifetime, err = envDuration("VEKST_AUTH_FLOW_LIFETIME", c.AuthFlowLifetime); err != nil {
-		return Config{}, err
-	}
-	if c.CookieSecure, err = envBool("VEKST_COOKIE_SECURE", c.CookieSecure); err != nil {
 		return Config{}, err
 	}
 	if c.DatabaseURL == "" {

@@ -10,7 +10,7 @@ import type { User } from "./gen/vekst/v1/identity_pb";
  * lands, an authenticated person can reach no tenant data at all, and saying so
  * plainly is what stops that from looking broken.
  */
-export function SignedIn({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+export function SignedIn({ user, onSignOut }: Readonly<{ user: User; onSignOut: () => void }>) {
   return (
     <section className="flex flex-col gap-4">
       <div>

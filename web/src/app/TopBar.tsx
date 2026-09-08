@@ -20,7 +20,7 @@ import type { Locale } from "../i18n";
 import { formatPeriodRange } from "../ui/period";
 import { setLocale, setTheme, type ThemeChoice } from "../ui/preferences";
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex items-baseline gap-1.5">
       <span className="text-2xs uppercase tracking-widest text-text-subtle">{label}</span>
@@ -38,12 +38,12 @@ function Choice<T extends string>({
   values,
   current,
   onPick,
-}: {
+}: Readonly<{
   label: string;
   values: readonly T[];
   current: T;
   onPick: (v: T) => void;
-}) {
+}>) {
   return (
     <div className="flex items-baseline gap-2">
       <span className="sr-only">{label}</span>
@@ -73,14 +73,14 @@ export function TopBar({
   to,
   locale,
   theme,
-}: {
+}: Readonly<{
   organisation: string;
   entity: string;
   from: string;
   to: string;
   locale: Locale;
   theme: ThemeChoice;
-}) {
+}>) {
   return (
     <header className="flex h-12 shrink-0 flex-wrap items-center gap-4 border-b border-border bg-surface-raised px-6">
       <Field label={t("topbar.organisation", locale)} value={organisation} />

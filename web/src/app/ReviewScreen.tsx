@@ -33,7 +33,7 @@ function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): s
   return e === undefined ? NO_DATA : formatMinorUnits(m.minorUnits, e, locale);
 }
 
-function Legend({ locale }: { locale: Locale }) {
+function Legend({ locale }: Readonly<{ locale: Locale }>) {
   const items = [
     [<Kbd key="d">1</Kbd>, "review.key.digit"],
     [<Kbd key="e">↵</Kbd>, "review.key.enter"],
