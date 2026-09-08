@@ -1,0 +1,1432 @@
+{
+ "taxonomy_version": "v1",
+ "normalize_version": "v1",
+ "rules": [
+  {
+   "priority": 1,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ВЫПЛАТЫ ПО ДОГОВОРУ ВОЗМЕЗДНОГО ОКАЗАНИЯ УСЛУГ; СОГЛ. СПИСКУ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 2,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ВЫПЛАТЫ ПО ДОГОВОРАМ ПОДРЯДА; СОГЛ. СПИСКУ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 3,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПРОФЕССИОНАЛЬНЫЙ ДОХОД;СОГЛ. СПИСКУ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 4,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "09",
+   "category_path": "OUT OF P&L",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПОДОХОДНЫЙ НАЛОГ;ИЗ ДИВИДЕНДОВ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 5,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЛАТА ЗА ЗАЧИСЛЕНИЕ СТРАХОВЫХ ВЫПЛАТ,ДИВИДЕНДОВ,АРЕНДЫ,ЗАЙМОВ,ДРУГИХ ВЫПЛАТ И ПЕРЕЧИСЛЕНИЙ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 6,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЛАТА ЗА БЕЗНАЛ.ЗАЧИСЛ.ЗП И ПЛАТЕЖЕЙ К НЕЙ ПРИРАВ.НА КАРТ-СЧЕТА В НАЦ. ВАЛЮТЕ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 7,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ЕЖЕМЕСЯЧНАЯ АБОНЕНТСКАЯ ПЛАТА ЗА ПАКЕТ УСЛУГ \"MS BUSINESS DIRECT\""
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 8,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЛАТА ЗА УСЛУГИ \"ПРИОРБАНК\" ОАО"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 9,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "СТРАХОВЫЕ ВЗНОСЫ ПО ОБЯЗАТЕЛЬНОМУ СТРАХОВАНИЮ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 10,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "050101",
+   "category_path": "OIE > OTHER EXPENSE > Expenses compensation",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ВЫПЛАТА ПО АВАНСОВОМУ ОТЧЕТУ ХОЗ.РАСХОДЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 11,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060201",
+   "category_path": "FR > OFR > Interests received",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "УПЛАТА ПРОЦЕНТОВ ПО ОСТАТКАМ НА СЧЕТЕ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 12,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЕРЕВОД С ПРОДАЖЕЙ ПО БАЗОВОМУ КУРСУ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 13,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЛАТА ЗА ЗАЧИСЛЕНИЕ ВАЛЮТНЫХ СРЕДСТВ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 14,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "050202",
+   "category_path": "OIE > OTHER INCOME > Return of payment",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ВОЗВРАТ ОШИБОЧНО ПЕРЕВЕДЕННОЙ СУММЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 15,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0401020208",
+   "category_path": "OPEX > Administration > GM > GM Services > Office rent",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПРЕДОПЛАТА ПО ДОГОВОРУ АРЕНДЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 16,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПОСОБИЕ ПО УХОДУ ЗА РЕБЕНКОМ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 17,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПОСОБИЯ ПО УХОДУ ЗА РЕБЕНКОМ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 18,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "050202",
+   "category_path": "OIE > OTHER INCOME > Return of payment",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ВОЗВРАТ ИЗЛИШНЕ ПЕРЕЧИСЛЕНН"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 19,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0401020208",
+   "category_path": "OPEX > Administration > GM > GM Services > Office rent",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОПЛАТА ПО ДОГОВОРУ АРЕНДЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 20,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОПЛАТА ПОДОХОДНОГО НАЛОГА"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 21,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "СВОБОДНАЯ ПРОДАЖА ВАЛЮТЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 22,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "07",
+   "category_path": "CIT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОПЛАТА НАЛОГА НА ПРИБЫЛЬ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 23,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "СВОБОДНАЯ ПРОДАЖА ВАЛЮТЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 24,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "КОМАНДИРОВОЧНЫЕ РАСХОДЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 25,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "РАСЧЕТ ПРИ УВОЛЬНЕНИИ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 26,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОКОНЧАТЕЛЬНЫЙ РАСЧЕТ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 27,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЕРЕВОД С КОНВЕРСИЕЙ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 28,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "МАТЕРИАЛЬНАЯ ПОМОЩЬ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 29,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОНОЧАТЕЛЬНЫЙ РАСЧЕТ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 30,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОТЧИСЛЕНИЯ В ФСЗН"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 31,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ЗАРАБОТНАЯ ПЛАТА"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 32,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПОДОХОДНЫЙ НАЛОГ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 33,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ДЕНЕЖНАЯ ПОМОЩЬ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 34,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "05010302",
+   "category_path": "OIE > OTHER EXPENSE > Other taxes > Adv. Tax",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "СБОР ЗА РЕКЛАМУ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 35,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060102",
+   "category_path": "FR > FXR > Currency revaluation",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЕРЕОЦЕНКА"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 36,
+   "country": "BY",
+   "scope": "bank:priorbank",
+   "category_code": "060102",
+   "category_path": "FR > FXR > Currency revaluation",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ПЕРЕОЦЕНКА"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 37,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "БОЛЬНИЧНЫЙ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 38,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "09",
+   "category_path": "OUT OF P&L",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ДИВИДЕНДЫ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 39,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОТПУСКНЫЕ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 40,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ОПЛ.ПТ"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 41,
+   "country": "BY",
+   "scope": "country:BY",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "АВАНС"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 42,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "010"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 43,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "012"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 44,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "089"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 45,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "05010304",
+   "category_path": "OIE > OTHER EXPENSE > Other taxes > Other",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "120"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 46,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "121"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 47,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "122"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 48,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "223"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 49,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "223"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 50,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "230"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 51,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0404",
+   "category_path": "OPEX > PAYROLL to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "332"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 52,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "09",
+   "category_path": "OUT OF P&L",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "661"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 53,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "841"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 54,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0101",
+   "category_path": "NET SALES > SOFTWARE DEVELOPMENT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "851"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 55,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0401020202",
+   "category_path": "OPEX > Administration > GM > GM Services > Communication",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "852"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 56,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0401040101",
+   "category_path": "OPEX > Administration > Legal > Leg. Services > Claim",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "854"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 57,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0401010201",
+   "category_path": "OPEX > Administration > Finance > FI Services > 1С Cloud",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "855"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 58,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0101",
+   "category_path": "NET SALES > SOFTWARE DEVELOPMENT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "857"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 59,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0101",
+   "category_path": "NET SALES > SOFTWARE DEVELOPMENT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "858"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 60,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0101",
+   "category_path": "NET SALES > SOFTWARE DEVELOPMENT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "859"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 61,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "911"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 62,
+   "country": "KZ",
+   "scope": "country:KZ",
+   "category_code": "050104",
+   "category_path": "OIE > OTHER EXPENSE > Tax fines",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "knp",
+      "op": "eq",
+      "value": "912"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  }
+ ]
+}

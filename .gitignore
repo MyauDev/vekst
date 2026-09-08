@@ -36,3 +36,11 @@ tilt_modules/
 /classifier/.coverage
 /classifier/coverage.xml
 /web/coverage/
+
+# eval/: unpacked customer statements. Source data lives outside the repo
+# (see eval/README.md) and its cache must never be committed.
+eval/.statements/
+eval/__pycache__/
+
+# Chocolatey scratch, left in the working tree by `choco install`.
+hoco/
