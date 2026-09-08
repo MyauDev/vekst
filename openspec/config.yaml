@@ -65,7 +65,11 @@ context: |
     buf lint and buf breaking run in CI.
   - Frontend: React 19 + Vite + TypeScript + Tailwind v4, TanStack Query and Router,
     ECharts. Marketing site: Astro static, separate bundle.
-    Design reference: https://ui.unlumen.com/
+    Design reference: https://ui.unlumen.com/ and docs/DESIGN.md. Two registers
+    share one semantic token layer. Register A is the landing page. Register B is
+    the application, and it is the minimal one: minimal means less chrome at the
+    same density, never more padding and fewer rows per screen. Unlumen's defaults
+    are Register A; its spacing and type scale are overridden behind sign-in.
   - Monorepo: /proto /core /classifier /web /site /deploy /docs. GitHub Actions.
   - Payments: Paddle (Merchant of Record). NOT Stripe — Stripe does not support a
     business located in Ukraine or Kazakhstan.

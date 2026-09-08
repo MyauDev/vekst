@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package vekst.v1;
+
+option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
+
+// IdentityService is browser-facing, served over Connect. It answers "who is
+// calling", and nothing more: the sign-in flow itself is three plain HTTP
+// routes, because an OIDC redirect cannot be a remote procedure call
+// (add-identity design D1).
+service IdentityService {
+  // Returns the signed-in user, or the unauthenticated code. It is the one
+  // call the front end makes before it knows whether to render a sign-in
+  // screen or an application shell.
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
+}
+
+// User carries no organisation and no role, deliberately. There is no
+// organisation model until change 1.1, and a field that exists before it means
+// anything is a field the front end starts trusting. 1.1 extends this message;
+// buf breaking protects the addition.
+message User {
+  // Opaque to the client.
+  string id = 1;
+
+  // Descriptive only. An account is identified by provider and subject, never
+  // by an email address -- an issuer may reuse an address across different end
+  // users over time. May be empty: not every provider asserts one.
+  string email = 2;
+
+  // As reported by the provider that created the account. May be empty.
+  string name = 3;
+
+  // A supported language tag, normalised at provisioning from the provider's
+  // claim. Never a raw BCP-47 tag such as "en-GB".
+  string locale = 4;
+}
+
+message GetCurrentUserRequest {}
+
+message GetCurrentUserResponse {
+  User user = 1;
+}

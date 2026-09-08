@@ -192,10 +192,17 @@ invented data. If the pipeline did not compute it, it does not count.
 | 3.3 | `add-review-queue` — below-threshold items by amount, grouped by counterparty, keyboard-first, approval writes vendor memory | `review-queue` | B | 3 |
 | 4.1 | `add-management-pnl` — sections, periods, totals, percent of revenue, non-P&L exclusions, basis label from `source_kind` | `report-mgmt-pnl` | B | 2 |
 | 4.2 | `add-report-drilldown` — any figure opens its transactions with category, layer and confidence | `report-mgmt-pnl` | B | 1.5 |
-| 5.1 | `add-web-app-shell` — Tailwind token layer from the `ui.unlumen.com` reference, light mode only, en + ru | `web-app` | A | 2 |
+| 5.1a | `add-web-app-shell` — semantic token layer per `docs/DESIGN.md`, shell, nav, entity and period selectors, the state components. Light mode only | `web-app` | A | 1.5 |
+| 5.1b | `add-i18n-and-error-catalog` — the i18n mechanism, en + ru. **The catalog is blocked by 2.3**: it translates error codes that do not exist yet | `web-app` | A | 1.5 |
 | 5.2 | `add-demo-screens` — Imports (with the validation report), Review, P&L | `web-app` | A+B | 2 |
 
 **Total as planned: 37 person-days.** Track A ≈ 17.5 · Track B ≈ 17 · shared ≈ 2.5.
+
+> **Revised, 2026-09-06.** 5.1 is split into 5.1a and 5.1b and costs 3 days, not 2.
+> `web/package.json` has no i18n library and no ECharts, and the invariant that the
+> backend returns error codes puts every sentence in the client. 5.1a is blocked by
+> nothing. 5.1b's catalog is blocked by 2.3. The design direction and the token set
+> are in `docs/DESIGN.md`; the total above is not re-derived here.
 
 > **Stale, 2026-08-23.** Changes 0.1 and 0.2 measured **≈13 person-days against the
 > 6 budgeted here**, before either track wrote ingest or classification code. Three

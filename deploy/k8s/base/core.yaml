@@ -29,6 +29,21 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef: { name: vekst-db-app, key: url }
+            # Google OIDC. optional: true throughout -- core serves without
+            # sign-in configured, and only the auth routes fail, so a
+            # developer with no OAuth client still gets a working stack
+            # (add-identity design D6a). The Secret's committed contents are
+            # placeholders that core refuses to start on; real values come
+            # from a git-ignored overlay file.
+            - name: VEKST_GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef: { name: vekst-google-oidc, key: client_id, optional: true }
+            - name: VEKST_GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: vekst-google-oidc, key: client_secret, optional: true }
+            - name: VEKST_GOOGLE_REDIRECT_URL
+              valueFrom:
+                secretKeyRef: { name: vekst-google-oidc, key: redirect_url, optional: true }
           # Liveness is dependency-free on purpose: it answers "is this process
           # broken", not "is the system healthy". A liveness probe that checks
           # a dependency turns a recoverable outage into a crash loop.

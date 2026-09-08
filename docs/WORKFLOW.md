@@ -17,7 +17,7 @@ Source: `docs/workflow-overview.mermaid`.
 
 | Part of the flow | Demo 10-01 | Product 11-20 | Commercial 01-15 |
 | --- | --- | --- | --- |
-| Landing page | — | simple | full site |
+| Landing page | **simple** ‡ | simple | full site |
 | Two developers, two tracks | A: ingest · B: meaning | same | same |
 | Wizard + RP score + proposed package | — | — | ✔ |
 | Payment wall, Paddle | — | invoice by hand | ✔ |
@@ -36,13 +36,32 @@ Source: `docs/workflow-overview.mermaid`.
 | Readiness check | — one report only | ✔ | ✔ |
 | **Management P&L + drill-down** | **✔** | **✔** | **✔** |
 | Sales / OPEX / Cash Flow | — | — | ✔ |
+| Headline stat tiles (§5.3) | **✔** ‡ | ✔ | ✔ |
+| Dashboard charts (§5.3) | **✔** ‡ | ✔ | ✔ |
 | Deviation highlighting | — | — | ✔ |
 | XLSX export | — | ✔ | ✔ |
 | PDF export | — | — | ✔ |
 | Roles and permissions | — you create both users | ✔ | ✔ |
-| Dark mode | — | ✔ | ✔ |
+| Dark mode | **✔** ‡ | ✔ | ✔ |
 | Languages | en + ru | en + ru | + de |
 | Dunning and erasure | — | — | ✔ |
+
+‡ **Amended 2026-09-08.** The landing page, dark mode and the §5.3 charts all
+now ship with the web shell. The first two were Product items; the charts had
+no row here at all, which is why `docs/FRONTEND_PLAN.md` gap 5 had to *infer*
+they were Commercial from "the MVP is the Management P&L and nothing else".
+They have a row now, because the inference is what made them easy to drop and
+then easy to add back without anyone noticing which. The landing came forward because
+the product needs a front door before it needs a second report; dark mode came
+forward because `docs/DESIGN.md` §3 always priced it at half a day *provided*
+every component uses a semantic token name, and `scripts/check-web-tokens.sh`
+now enforces that rather than trusting it. The charts came forward by decision,
+and they cost the most of the three: they forced the chart palette `DESIGN.md`
+§0 had deferred, which is now §13. None of the three displaces anything: the
+Demo's definition of done is unchanged, and the two late blocking inputs
+(D-1, D-2) gate the screens none of them touches. Reasoning in
+`.design/web-app-shell/DECISIONS.md` §8–§9 and §16, and in
+`openspec/changes/add-web-experience/design.md` D12.
 
 ---
 

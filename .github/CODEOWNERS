@@ -30,6 +30,24 @@
 # in it.
 /deploy/db/rls-exempt-tables.txt   @MyauDev/admin
 
-# Change 0.2 adds /core/internal/db and the money packages here, when those
-# paths exist. GitHub silently ignores a CODEOWNERS entry for a path that does
-# not exist, so listing them early would look enforced while doing nothing.
+# The transaction seam and the tenant identifier. db.InTx is the one place a
+# tenant context is set, and db.OrgID is the type no other package can
+# construct -- a change to either is a change to what "acting for a tenant"
+# means (design D2, D7).
+/core/internal/db/           @MyauDev/admin
+
+# Money is int64 minor units plus an ISO-4217 code, never a float. The
+# checked-in exponent table decides how every amount is scaled.
+/core/internal/money/        @MyauDev/admin
+
+# A worker takes its tenant identifier from its job arguments and from nowhere
+# else. River's tables carry no org_id and no policy, so this package is the
+# one place tenancy is not enforced by the database (design D5).
+/core/internal/jobs/         @MyauDev/admin
+
+# The tenancy migration: the four tenant tables, their policies, the
+# NOLOGIN role vekst_membership_reader and the single SECURITY DEFINER
+# function orgs_for_user. That function and that role are the only enumerated
+# exceptions to "row-level security decides what is visible" (design D3), and
+# a second of either is a security decision, not a refactor.
+/core/migrations/00004_tenancy.sql   @MyauDev/admin

@@ -6,7 +6,33 @@ load('ext://restart_process', 'docker_build_with_restart')
 
 allow_k8s_contexts('k3d-vekst')
 
-k8s_yaml(kustomize('k8s/overlays/local'))
+# --- manifests -------------------------------------------------------------
+# The overlay carries a committed vekst-google-oidc Secret whose values are
+# placeholders, so `kubectl kustomize` renders every overlay in CI without a
+# real credential in the repository (add-identity design D6a).
+#
+# Real values live in a git-ignored google-oidc.secret.yaml beside it. Tilt
+# refuses to deploy two objects with the same name, so the placeholder is
+# filtered out and replaced rather than layered over -- filter_yaml returns
+# (matching, rest), and only `rest` plus the real Secret is deployed.
+#
+# With no such file a developer still gets a working stack: everything runs and
+# only the sign-in routes fail. core refuses to start on the placeholder value
+# itself, so a half-configured stack fails with a clear configuration error
+# rather than an opaque one at Google.
+_manifests = kustomize('k8s/overlays/local')
+_google_oidc_secret = 'k8s/overlays/local/google-oidc.secret.yaml'
+
+if os.path.exists(_google_oidc_secret):
+    _placeholder, _rest = filter_yaml(_manifests, kind='Secret', name='vekst-google-oidc')
+    k8s_yaml(_rest)
+    k8s_yaml(_google_oidc_secret)
+    print('Vekst: Google sign-in configured from ' + _google_oidc_secret)
+else:
+    k8s_yaml(_manifests)
+    print('Vekst: sign-in is NOT configured. Copy ' +
+          'k8s/overlays/local/google-oidc.yaml to google-oidc.secret.yaml ' +
+          'and fill in the three values.')
 
 # --- core (Go) -------------------------------------------------------------
 # live_update syncs sources and rebuilds inside the container. Without this a
@@ -76,4 +102,7 @@ k8s_resource('classifier', labels=['app'],  port_forwards=['9090:9090'])
 k8s_resource('web',        labels=['app'],  port_forwards=['5173:5173'])
 k8s_resource('postgres',   labels=['data'])
 
-print('Vekst: http://vekst.localhost:8081  (core /rpc, web /)')
+print('Vekst: http://localhost:8081  (core /rpc, web /, auth /auth)')
+# Plain localhost, not vekst.localhost: Google refuses a redirect URI on a
+# subdomain of localhost, so no local redirect URI could be registered
+# otherwise (add-identity design D6).

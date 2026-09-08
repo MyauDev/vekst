@@ -75,5 +75,15 @@ GRANT USAGE ON SCHEMA public TO PUBLIC;
 REVOKE ALL ON SCHEMA public   FROM vekst_app;
 REVOKE ALL ON DATABASE vekst  FROM vekst_app;
 
+-- DROP OWNED BY requires membership in the role, not merely admin over it.
+-- A superuser has that implicitly, which is why this line worked while
+-- vekst_migrator was the initdb superuser; under the plain, non-superuser
+-- owner change 1.1 provisions (design D0) it fails with "permission denied
+-- to drop objects" (42501). Postgres 16 split ADMIN from SET/INHERIT, so
+-- CREATEROLE's implicit admin over a role it created does not carry
+-- membership either. The grant is transient: it disappears with the role on
+-- the next line.
+GRANT vekst_app TO CURRENT_USER;
+
 DROP OWNED BY vekst_app;
 DROP ROLE IF EXISTS vekst_app;

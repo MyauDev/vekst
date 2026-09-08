@@ -1,17 +1,23 @@
-# The overlay changes the host and nothing else. The path routing stays in the
-# base so every environment inherits identical routing -- design D6.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: vekst
-spec:
-  rules:
-    - host: vekst.localhost
-      http:
-        paths:
-          - path: /rpc
-            pathType: Prefix
-            backend: { service: { name: core, port: { name: http } } }
-          - path: /
-            pathType: Prefix
-            backend: { service: { name: web, port: { name: http } } }
+# The overlay changes the host and NOTHING else.
+#
+# It used to say that in a comment while restating the whole path list, and a
+# strategic-merge patch replaces a list rather than merging into it. So the
+# rendered local Ingress carried only the two paths written here -- and when
+# `/auth` was added to the base, the local cluster silently kept serving it from
+# the web container. Sign-in worked nowhere, and the manifest that broke it
+# looked correct.
+#
+# A JSON 6902 patch addresses one field. The path routing now genuinely lives in
+# the base, and an environment cannot drift from it by omission -- which is what
+# the platform-foundation requirement "Routing is not redefined per environment"
+# has always asked for.
+#
+# The host is plain "localhost", not "vekst.localhost": Google refuses to
+# register a redirect URI whose host is a subdomain of localhost, exempting only
+# localhost itself and localhost IPs, so no local redirect URI could be
+# registered otherwise. One host for the document, /rpc and /auth is what makes
+# the session cookie first-party and means no CORS header is needed. See
+# add-identity design D6.
+- op: add
+  path: /spec/rules/0/host
+  value: localhost

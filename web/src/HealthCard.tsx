@@ -9,14 +9,14 @@ import { HealthService } from "./gen/vekst/v1/health_pb";
  * The values below travelled browser -> Connect -> core -> gRPC -> classifier
  * and back, through types nobody wrote by hand.
  */
-export function HealthCard({ transport }: { transport: Transport }) {
+export function HealthCard({ transport }: Readonly<{ transport: Transport }>) {
   const { data, error, isPending } = useQuery({
     queryKey: ["health"],
     queryFn: () => createClient(HealthService, transport).check({}),
   });
 
-  if (isPending) return <p className="text-slate-500">Checking…</p>;
-  if (error) return <p className="text-red-600">core unreachable: {error.message}</p>;
+  if (isPending) return <p className="text-text-muted">Checking…</p>;
+  if (error) return <p className="text-danger">core unreachable: {error.message}</p>;
 
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 font-mono text-sm">
@@ -34,11 +34,11 @@ export function HealthCard({ transport }: { transport: Transport }) {
   );
 }
 
-function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+function Row({ label, value, muted }: Readonly<{ label: string; value: string; muted?: boolean }>) {
   return (
     <>
-      <dt className="text-slate-500">{label}</dt>
-      <dd className={muted ? "text-amber-600" : "text-slate-900"}>{value}</dd>
+      <dt className="text-text-muted">{label}</dt>
+      <dd className={muted ? "text-warn" : "text-text"}>{value}</dd>
     </>
   );
 }

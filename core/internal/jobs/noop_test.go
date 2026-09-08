@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/MyauDev/vekst/core/internal/db"
 )
 
 // testPool skips the test when no live database is configured, rather than
@@ -27,12 +29,29 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// testDatabase is the same skip, for the *db.DB that New now takes: workers
+// reach application data through its one transaction entry point, and River's
+// driver takes the pool from it.
+func testDatabase(t *testing.T) *db.DB {
+	t.Helper()
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		t.Skip("DATABASE_URL not set; skipping a test that needs a live, migrated Postgres")
+	}
+	d, err := db.New(context.Background(), db.Config{URL: url})
+	if err != nil {
+		t.Fatalf("db.New: %v", err)
+	}
+	t.Cleanup(d.Close)
+	return d
+}
+
 // Task 4.5: a job enqueued in a transaction that commits runs.
 func TestInsertTxCommitted(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()
 
-	client, err := New(pool)
+	client, err := New(testDatabase(t))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -91,7 +110,7 @@ func TestInsertTxRolledBack(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()
 
-	client, err := New(pool)
+	client, err := New(testDatabase(t))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

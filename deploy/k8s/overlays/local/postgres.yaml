@@ -2,12 +2,18 @@
 # deployment overlay can inherit a database with no rehearsed backup and restore
 # procedure -- design D1.
 #
-# POSTGRES_USER is vekst_migrator, not a generic superuser: that role is
-# provisioned by the environment (design Q1), and the postgres image's
-# POSTGRES_USER becomes exactly that -- the initdb user, owning the database
-# and schema public, which migration 00001's REVOKE/ALTER DEFAULT PRIVILEGES
-# statements require. core itself never authenticates as this role; it uses
-# vekst_app, created by migration 00001 and read from the vekst-db-app Secret.
+# POSTGRES_USER is a throwaway superuser, NOT vekst_migrator. The postgres
+# image's POSTGRES_USER is the initdb user, which is a superuser -- and a
+# superuser bypasses row-level security unconditionally, FORCE ROW LEVEL
+# SECURITY included. Provisioning vekst_migrator that way would make the
+# isolation this schema is built on decorative here, while every managed
+# Postgres hands out a plain database owner instead (design D0).
+#
+# vekst_migrator is created by deploy/db/provision-migrator.sql, mounted into
+# initdb below -- the same file CI runs, so the two cannot drift. It is the
+# environment's job (design Q1); this is what "the environment" means locally.
+# core itself never authenticates as either role; it uses vekst_app, created
+# by migration 00001 and read from the vekst-db-app Secret.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,24 +31,39 @@ spec:
         - name: postgres
           image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
           env:
-            - { name: POSTGRES_DB, value: vekst }
-            - { name: POSTGRES_USER, value: vekst_migrator }
+            # Not `vekst`: the provisioning script creates that database and
+            # makes vekst_migrator its owner, which is what confers ownership
+            # of schema public (Postgres 15+ owns it by pg_database_owner).
+            - { name: POSTGRES_DB, value: postgres }
+            - { name: POSTGRES_USER, value: ci_superuser }
             # Development only. A real environment takes this from a Secret,
             # which is the provisioning change's job (design Q1/Q2).
-            - { name: POSTGRES_PASSWORD, value: vekst_migrator }
+            - { name: POSTGRES_PASSWORD, value: ci_superuser }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
           ports:
             - { name: postgres, containerPort: 5432 }
           readinessProbe:
-            exec: { command: ["pg_isready", "-U", "vekst", "-d", "vekst"] }
+            # pg_isready reports whether the server accepts connections at
+            # all; it exits 0 even for a database that does not exist, so this
+            # is not what guarantees `vekst` is there. That ordering comes from
+            # the image's entrypoint, which runs everything in
+            # /docker-entrypoint-initdb.d against a local socket and only then
+            # opens the listener -- so by the time this probe can pass, the
+            # provisioning script has already run.
+            exec: { command: ["pg_isready", "-U", "vekst_migrator", "-d", "vekst"] }
             periodSeconds: 5
           volumeMounts:
             - { name: data, mountPath: /var/lib/postgresql/data }
+            # Anything in this directory runs once, as POSTGRES_USER, when the
+            # data directory is first initialised.
+            - { name: initdb, mountPath: /docker-entrypoint-initdb.d, readOnly: true }
       volumes:
         # emptyDir: `make down` deletes the cluster, and the environment must be
         # reproducible from manifests alone.
         - name: data
           emptyDir: {}
+        - name: initdb
+          configMap: { name: postgres-initdb }
 ---
 apiVersion: v1
 kind: Service
