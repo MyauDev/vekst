@@ -51,6 +51,20 @@ def _condition_holds(txn: dict, c: dict) -> bool:
     if field == "knp":
         return (txn.get("knp") or "") == want
 
+    if field == "operation_type":
+        # PKO BP labels every row with its own operation type. Weaker evidence
+        # than a regulated code — the bank chose the vocabulary — but it needs
+        # no text at all, and it is exact.
+        return (txn.get("typ") or "") == want
+
+    if field == "counterparty_account":
+        # Matched against the parsed field, never against the packed
+        # `Dane operacji` blob. The blob also carries `Rachunek:` — the
+        # customer's *own* account — and a substring search over it confuses
+        # the two, which silently turned 22 social-insurance payments into
+        # currency conversions.
+        return normalize_description(want) in normalize_description(txn.get("acct", ""))
+
     if field == "counterparty_key":
         return counterparty_key(txn.get("cp", ""), txn.get("tax", ""), txn.get("acct", ""))[0] == want
 

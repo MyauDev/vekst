@@ -61,3 +61,12 @@
 60;KZ;country:KZ;knp;eq;859;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
 61;KZ;country:KZ;knp;eq;911;Expense;0403;OPEX > PAYROLL TAX to distribute
 62;KZ;country:KZ;knp;eq;912;Expense;050104;OIE > OTHER EXPENSE > Tax fines
+63;PL;bank:pkobp;operation_type;eq;Prowizja;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+64;PL;bank:pkobp;operation_type;eq;Opłata;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+65;PL;bank:pkobp;operation_type;eq;Opłata za użytkowanie karty;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+66;PL;bank:pkobp;operation_type;eq;Przelew do ZUS;Expense;0403;OPEX > PAYROLL TAX to distribute
+67;PL;bank:pkobp;operation_type;eq;Przelew do US VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
+68;PL;bank:pkobp;operation_type;eq;Uznanie;Income;060101;FR > FXR > Currency exchange
+69;PL;bank:pkobp;operation_type;eq;Obciążenie;Expense;060101;FR > FXR > Currency exchange
+70;PL;country:PL;description;contains_all;WARTOŚĆ VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
+71;PL;country:PL;description;contains_all;ZALICZKA NA CIT;Expense;07;CIT

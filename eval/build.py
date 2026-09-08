@@ -230,3 +230,49 @@ def build_kz_template(cats):
         out.append({"country": "KZ", "scope": "country:KZ", "field": "knp", "op": "eq",
                     "value": code, "direction": direction, "path": path})
     return out
+
+
+# --------------------------------------------------------------------------
+# Poland template: the bank's own operation type, plus a little Polish tax
+# vocabulary.
+# --------------------------------------------------------------------------
+# PKO BP labels every row with `Typ operacji`. It is not regulated the way КНП
+# is -- the bank chose the words -- but seven type/direction pairs classify
+# with no exception across 735 rows, and they need no text at all.
+#
+# Poland is the weakest of the three templates on purpose, and the reason is in
+# the source rather than in the rules: card payments are 214 of the 735 rows and
+# the accountant categorised almost none of them, while incoming revenue is
+# identified by who paid, which is vendor memory rather than a country rule.
+OPERATION_TYPE = {
+    ("Prowizja", "Expense"): ("OPEX", "Administration", "Finance", "FI Services", "Bank commission"),
+    ("Opłata", "Expense"): ("OPEX", "Administration", "Finance", "FI Services", "Bank commission"),
+    ("Opłata za użytkowanie karty", "Expense"):
+        ("OPEX", "Administration", "Finance", "FI Services", "Bank commission"),
+    ("Przelew do ZUS", "Expense"): ("OPEX", "PAYROLL TAX to distribute"),   # social insurance
+    ("Przelew do US VAT", "Expense"): ("OIE", "OTHER EXPENSE", "Other taxes", "VAT"),
+    # Both legs of the bank's own currency conversion.
+    ("Uznanie", "Income"): ("FR", "FXR", "Currency exchange"),
+    ("Obciążenie", "Expense"): ("FR", "FXR", "Currency exchange"),
+}
+
+# Polish tax vocabulary, true of any company filing there.
+PL_TEXT = [
+    ("WARTOŚĆ VAT", "Expense", ("OIE", "OTHER EXPENSE", "Other taxes", "VAT")),
+    ("ZALICZKA NA CIT", "Expense", ("CIT",)),                       # advance corporate income tax
+]
+
+
+def build_pl_template(cats):
+    out = []
+    for (typ, direction), path in OPERATION_TYPE.items():
+        if path not in cats:
+            raise KeyError(f"operation type {typ!r} points at a missing category: {path}")
+        out.append({"country": "PL", "scope": "bank:pkobp", "field": "operation_type",
+                    "op": "eq", "value": typ, "direction": direction, "path": path})
+    for value, direction, path in PL_TEXT:
+        if path not in cats:
+            raise KeyError(f"{value!r} points at a missing category: {path}")
+        out.append({"country": "PL", "scope": "country:PL", "field": "description",
+                    "op": "contains_all", "value": value, "direction": direction, "path": path})
+    return out

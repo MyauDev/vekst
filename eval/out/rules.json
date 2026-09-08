@@ -1427,6 +1427,213 @@
      }
     ]
    }
+  },
+  {
+   "priority": 63,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Prowizja"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 64,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Opłata"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 65,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "0401010204",
+   "category_path": "OPEX > Administration > Finance > FI Services > Bank commission",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Opłata za użytkowanie karty"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 66,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "0403",
+   "category_path": "OPEX > PAYROLL TAX to distribute",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Przelew do ZUS"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 67,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "05010305",
+   "category_path": "OIE > OTHER EXPENSE > Other taxes > VAT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Przelew do US VAT"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 68,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Uznanie"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "income"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 69,
+   "country": "PL",
+   "scope": "bank:pkobp",
+   "category_code": "060101",
+   "category_path": "FR > FXR > Currency exchange",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "operation_type",
+      "op": "eq",
+      "value": "Obciążenie"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 70,
+   "country": "PL",
+   "scope": "country:PL",
+   "category_code": "05010305",
+   "category_path": "OIE > OTHER EXPENSE > Other taxes > VAT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "WARTOŚĆ VAT"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
+  },
+  {
+   "priority": 71,
+   "country": "PL",
+   "scope": "country:PL",
+   "category_code": "07",
+   "category_path": "CIT",
+   "matcher": {
+    "source_kind": "bank",
+    "normalize_version": "v1",
+    "all": [
+     {
+      "field": "description",
+      "op": "contains_all",
+      "value": "ZALICZKA NA CIT"
+     },
+     {
+      "field": "direction",
+      "op": "eq",
+      "value": "expense"
+     }
+    ]
+   }
   }
  ]
 }

@@ -17,7 +17,10 @@ import csv
 import json
 import os
 
-from build import COMPUTED, OUT, TAXONOMY_VERSION, build_by_template, build_kz_template, build_taxonomy
+from collections import Counter
+
+from build import (COMPUTED, OUT, TAXONOMY_VERSION, build_by_template, build_kz_template,
+                   build_pl_template, build_taxonomy)
 from norm import NORMALIZE_VERSION, normalize_description
 
 
@@ -36,7 +39,7 @@ def _matcher(rule):
 def prepare():
     """Taxonomy plus the deduplicated, prioritised rule list."""
     cats, customers = build_taxonomy()
-    rules = build_by_template(cats) + build_kz_template(cats)
+    rules = build_by_template(cats) + build_kz_template(cats) + build_pl_template(cats)
 
     # Rule and transaction both pass through normalisation, so two rules that
     # differ only by a bank's prefix are one rule.
@@ -122,17 +125,25 @@ INSERT INTO categories (taxonomy_version, code, parent_code, scope, org_id, name
 """
 
 RULES_HEADER = """-- L1 template rules. Not one of these belongs to a customer.
--- BY: {by} rules on payment text. KZ: {kz} rules on КНП, the state payment-purpose
--- code, which every Kazakh bank row carries.
+--   BY {by} rules on payment text
+--   KZ {kz} rules on КНП, the state payment-purpose code on every Kazakh bank row
+--   PL {pl} rules, mostly on the bank's own `Typ operacji`
 --
 -- Measured against real statements for 2023-2024 by eval/run_eval.py:
---   BY  87.5% of rows / 85.2% of amount    KZ  86.1% of rows / 99.5% of amount
---   19 disagreements with the accountant's own labelling across 4508 rows.
+--   BY  87.5% of rows / 85.2% of amount   accuracy 94.8%, 15 disagreements
+--   KZ  86.1% of rows / 99.5% of amount   accuracy 92.4%,  4 disagreements
+--   PL  38.6% of rows / 42.5% of amount   accuracy 99.6%,  1 disagreement
+--   20 disagreements with the accountant's own labelling across 4508 rows.
+--
+-- Poland's coverage is low because of the source, not the rules: card payments
+-- are 214 of its 735 rows and were never categorised, and its revenue is
+-- identified by who paid -- vendor memory, not a country rule.
 --
 -- Columns beyond docs/ARCHITECTURE.md 5.5:
 --   org_id  uuid NULL  -- NULL = a template rule, shared by every organisation
---   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' | 'org'
--- Without them there is nowhere to store the rules that do 87% of the work.
+--   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' |
+--                      -- 'country:PL' | 'bank:pkobp' | 'org'
+-- Without them there is nowhere to store the rules that do most of the work.
 BEGIN;
 INSERT INTO classification_rules (org_id, scope, priority, matcher, category_code,
                                   taxonomy_version, active) VALUES
@@ -156,9 +167,9 @@ def write_seeds(cats, rules):
                 f"{_sql(name)}, 1, false, true, true, {_sql(formula)}, false)")
         f.write(",\n".join(rows) + "\nON CONFLICT (taxonomy_version, code) DO NOTHING;\nCOMMIT;\n")
 
-    by = sum(1 for r in rules if r["country"] == "BY")
+    n = Counter(r["country"] for r in rules)
     with open(os.path.join(OUT, "seed_rules.sql"), "w", encoding="utf-8") as f:
-        f.write(RULES_HEADER.format(by=by, kz=len(rules) - by))
+        f.write(RULES_HEADER.format(by=n["BY"], kz=n["KZ"], pl=n["PL"]))
         rows = [
             f"  (NULL, {_sql(r['scope'])}, {r['priority']}, "
             f"{_sql(json.dumps(_matcher(r), ensure_ascii=False))}, "
@@ -177,12 +188,13 @@ def main():
 
     leaves = sum(1 for c in cats.values() if c["leaf"])
     globals_ = sum(1 for c in cats.values() if c["scope"] == "global")
-    by = sum(1 for r in rules if r["country"] == "BY")
+    per_country = Counter(r["country"] for r in rules)
     print(f"taxonomy   {len(cats)} nodes (+{len(COMPUTED)} computed), {leaves} leaves, "
           f"{globals_} global / {len(cats) - globals_} org")
     print(f"customers  {len(customers)} lifted out of the tree into a dimension")
-    print(f"rules      {len(rules)} ({by} BY + {len(rules) - by} KZ), "
-          f"{collapsed} collapsed by normalisation")
+    print(f"rules      {len(rules)} ("
+          + " + ".join(f"{n} {c}" for c, n in sorted(per_country.items()))
+          + f"), {collapsed} collapsed by normalisation")
     print(f"written to {OUT}")
 
 

@@ -89,12 +89,19 @@ def load_rules(country: str) -> list[dict]:
     for row in rows[1:]:
         if not any(v not in (None, "") for v in row):
             continue
+        path = [cell(row, f"PL{i}") for i in range(1, 6)]
+        # The Polish file ends with two rows that carry a stray cell but no
+        # matcher and no category. Left in, they match every transaction and
+        # assign nothing, so everything below them looks unclassified — which
+        # is how 85% of card payments came to read as unlabelled.
+        if not any(p for p in path):
+            continue
         out.append({
             # Poland names the matched field differently; it holds the same thing.
             "purp": cell(row, "Назначение") or cell(row, "Dane operacji"),
             "cp": cell(row, "Корреспондент.Название"),
             "dir": cell(row, "Income/Expense"),
-            "path": [cell(row, f"PL{i}") for i in range(1, 6)],
+            "path": path,
         })
     return out
 
@@ -197,6 +204,11 @@ def pl_txns() -> list[dict]:
                 "cp": d.get("Nazwa i adres Kontrahenta", "") or merchant,
                 "tax": "", "acct": d.get("Rachunek kontrahenta", ""),
                 "purp": d.get("Tytuł", ""), "knp": "",
+                # The bank's own operation type. Not regulated the way КНП is,
+                # but it separates a fee from a transfer from a card payment
+                # without reading any text, and it is the only field here that
+                # classifies anything on its own.
+                "typ": str(sh.cell_value(i, 3)).strip(),
                 "dir": "Income" if amt > 0 else "Expense",
                 "amt": abs(amt),
             })

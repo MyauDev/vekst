@@ -41,12 +41,28 @@ def reference_labeller(country: str, cats: dict):
     """The accountant's rules, applied in the order they sit in the file."""
     rules = load_rules(country)
 
+    def haystack(rule_value: str, txn) -> str:
+        """Compare a rule's value against the field its own prefix names.
+
+        The Polish file packs several fields into one cell, so a plain search
+        over the whole cell matches the wrong one: `Rachunek kontrahenta:`
+        (the counterparty) and `Rachunek:` (the customer's own account) both
+        hold account numbers, and searching the blob labelled 22 payments to
+        the social-insurance office as currency conversions.
+        """
+        low = rule_value.lower()
+        if low.startswith("rachunek kontrahenta"):
+            return _up(txn.get("acct", ""))
+        if low.startswith(("tytuł", "tytul")):
+            return _up(txn.get("purp", ""))
+        return _up(txn.get("purp", "")) + " || " + _up(txn.get("cp", ""))
+
     def label(txn):
         for r in rules:
             if r["cp"] and _up(r["cp"]) not in _up(txn.get("cp", "")):
                 continue
             parts = [p.strip() for p in _up(r["purp"]).split(";") if p.strip()]
-            if parts and not all(p in _up(txn.get("purp", "")) for p in parts):
+            if parts and not all(p in haystack(r["purp"], txn) for p in parts):
                 continue
             if r["dir"] and r["dir"] != txn["dir"]:
                 continue

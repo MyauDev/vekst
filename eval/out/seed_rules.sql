@@ -1,15 +1,23 @@
 -- L1 template rules. Not one of these belongs to a customer.
--- BY: 41 rules on payment text. KZ: 21 rules on КНП, the state payment-purpose
--- code, which every Kazakh bank row carries.
+--   BY 41 rules on payment text
+--   KZ 21 rules on КНП, the state payment-purpose code on every Kazakh bank row
+--   PL 9 rules, mostly on the bank's own `Typ operacji`
 --
 -- Measured against real statements for 2023-2024 by eval/run_eval.py:
---   BY  87.5% of rows / 85.2% of amount    KZ  86.1% of rows / 99.5% of amount
---   19 disagreements with the accountant's own labelling across 4508 rows.
+--   BY  87.5% of rows / 85.2% of amount   accuracy 94.8%, 15 disagreements
+--   KZ  86.1% of rows / 99.5% of amount   accuracy 92.4%,  4 disagreements
+--   PL  38.6% of rows / 42.5% of amount   accuracy 99.6%,  1 disagreement
+--   20 disagreements with the accountant's own labelling across 4508 rows.
+--
+-- Poland's coverage is low because of the source, not the rules: card payments
+-- are 214 of its 735 rows and were never categorised, and its revenue is
+-- identified by who paid -- vendor memory, not a country rule.
 --
 -- Columns beyond docs/ARCHITECTURE.md 5.5:
 --   org_id  uuid NULL  -- NULL = a template rule, shared by every organisation
---   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' | 'org'
--- Without them there is nowhere to store the rules that do 87% of the work.
+--   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' |
+--                      -- 'country:PL' | 'bank:pkobp' | 'org'
+-- Without them there is nowhere to store the rules that do most of the work.
 BEGIN;
 INSERT INTO classification_rules (org_id, scope, priority, matcher, category_code,
                                   taxonomy_version, active) VALUES
@@ -74,5 +82,14 @@ INSERT INTO classification_rules (org_id, scope, priority, matcher, category_cod
   (NULL, 'country:KZ', 59, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "knp", "op": "eq", "value": "858"}, {"field": "direction", "op": "eq", "value": "income"}]}', '0101', 'v1', true),
   (NULL, 'country:KZ', 60, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "knp", "op": "eq", "value": "859"}, {"field": "direction", "op": "eq", "value": "income"}]}', '0101', 'v1', true),
   (NULL, 'country:KZ', 61, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "knp", "op": "eq", "value": "911"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '0403', 'v1', true),
-  (NULL, 'country:KZ', 62, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "knp", "op": "eq", "value": "912"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '050104', 'v1', true);
+  (NULL, 'country:KZ', 62, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "knp", "op": "eq", "value": "912"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '050104', 'v1', true),
+  (NULL, 'bank:pkobp', 63, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Prowizja"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '0401010204', 'v1', true),
+  (NULL, 'bank:pkobp', 64, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Opłata"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '0401010204', 'v1', true),
+  (NULL, 'bank:pkobp', 65, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Opłata za użytkowanie karty"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '0401010204', 'v1', true),
+  (NULL, 'bank:pkobp', 66, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Przelew do ZUS"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '0403', 'v1', true),
+  (NULL, 'bank:pkobp', 67, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Przelew do US VAT"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '05010305', 'v1', true),
+  (NULL, 'bank:pkobp', 68, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Uznanie"}, {"field": "direction", "op": "eq", "value": "income"}]}', '060101', 'v1', true),
+  (NULL, 'bank:pkobp', 69, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "operation_type", "op": "eq", "value": "Obciążenie"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '060101', 'v1', true),
+  (NULL, 'country:PL', 70, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "description", "op": "contains_all", "value": "WARTOŚĆ VAT"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '05010305', 'v1', true),
+  (NULL, 'country:PL', 71, '{"source_kind": "bank", "normalize_version": "v1", "all": [{"field": "description", "op": "contains_all", "value": "ZALICZKA NA CIT"}, {"field": "direction", "op": "eq", "value": "expense"}]}', '07', 'v1', true);
 COMMIT;
