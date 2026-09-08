@@ -30,6 +30,13 @@
 # in it.
 /deploy/db/rls-exempt-tables.txt   @MyauDev/admin
 
+# The shared+tenant list (change 3.1 design D2a). It means the opposite of the
+# file above: a table listed here holds tenant rows AND rows belonging to
+# nobody. Listing one does not relax the coverage test -- it swaps one exact
+# requirement for a stricter pair -- but deciding that a table has unowned rows
+# at all is a security decision.
+/deploy/db/rls-shared-tenant-tables.txt   @MyauDev/admin
+
 # The transaction seam and the tenant identifier. db.InTx is the one place a
 # tenant context is set, and db.OrgID is the type no other package can
 # construct -- a change to either is a change to what "acting for a tenant"
@@ -51,3 +58,8 @@
 # exceptions to "row-level security decides what is visible" (design D3), and
 # a second of either is a security decision, not a refactor.
 /core/migrations/00004_tenancy.sql   @MyauDev/admin
+
+# The taxonomy migration: the first table that is shared and tenant at once,
+# its split read/write policies, and the constraint trigger that stands in for
+# a composite foreign key a shared parent cannot satisfy (change 3.1).
+/core/migrations/00005_classification_taxonomy.sql   @MyauDev/admin

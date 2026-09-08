@@ -187,7 +187,7 @@ invented data. If the pipeline did not compute it, it does not count.
 | 2.4 | `add-import-profiles` — the profile model and its application. No mapping UI yet | `file-ingestion` | A | 1 |
 | 2.5 | `add-transaction-ledger` — canonical rows, one per payment or posting, `document_ref`, money, currency, `counterparty_key` | `transaction-ledger` | A | 2 |
 | 2.6 | `add-dedup` — D1 file hash, D2 in-batch, D3 cross-batch, internal-transfer pairs | `dedup-and-matching` | A | 1.5 |
-| 3.1 | `add-classification-taxonomy` — category tree, `is_pnl`, `pnl_section`, non-P&L classes, account-code maps, versioned | `classification-taxonomy` | B | 1.5 |
+| 3.1 | `add-classification-taxonomy` — category tree, `is_pnl`, `pnl_section`, non-P&L classes, versioned. **Delivered 2026-09-08**, migration 005: 41 shared nodes + 5 computed lines, split read/write policies, a constraint trigger where a composite key cannot reach. The 60 per-organisation leaves are an industry template, not seeded — a shared row belongs to nobody and these belong to whoever adopts them | `classification-taxonomy` | B | 1.5 |
 | 3.2 | `add-classification-engine` — the `Classifier` interface plus L0, L0.5, L1, L2, in Go. Deterministic, fixture-tested | `classification-engine` | B | 2.5 |
 | 3.3 | `add-review-queue` — below-threshold items by amount, grouped by counterparty, keyboard-first, approval writes vendor memory | `review-queue` | B | 3 |
 | 4.1 | `add-management-pnl` — sections, periods, totals, percent of revenue, non-P&L exclusions, basis label from `source_kind` | `report-mgmt-pnl` | B | 2 |
@@ -291,8 +291,8 @@ remaining report templates · mobile client · AI comments on already-highlighte
 
 | ID | Decision | Blocks | Due |
 | --- | --- | --- | --- |
-| D-1 | The classification category list | 3.1, 3.2, 4.1 | **Closed 2026-09-08.** 101 categories in `eval/out/taxonomy.csv`, seeded by `eval/out/seed_categories.sql`. Built from the founder's P&L structure and the three categorisation files; see `eval/README.md`. Track B is unblocked |
-| D-2 | The 7 real export files in `/core/testdata` | 2.2, 2.3 — **Track A stalls without them** | **27 August** |
+| D-1 | The classification category list | 3.1, 3.2, 4.1 | **Closed 2026-09-08.** 101 categories in `eval/out/taxonomy.csv`; the 46 shared ones are seeded by migration 005 and the other 60 are an industry template awaiting the change that creates an organisation. Built from the founder's P&L structure and the three categorisation files, measured against 4,508 real transactions; see `eval/README.md`. Track B is unblocked |
+| D-2 | The 7 real export files in `/core/testdata` | 2.2, 2.3 | **Partly closed 2026-09-08.** Four redacted Priorbank fixtures are in `core/testdata`, both column layouts, with the balance check passing on all four. Kazakh and Polish exports are parsed by `eval/sources.py` but have no Go parser yet. Redacted rather than real: the originals name people and carry tax identifiers |
 | D-3 | The predefined output table structure | 4.1 | 15 September |
 | D-4 | Does the Demo split VAT out of gross? | 3.1, 4.1 | Default: no. Report gross and say so |
 | D-5 | FX rate source | 2.5 | Default: ECB daily reference rates, cached, rate on the booking date |

@@ -62,11 +62,11 @@ change that creates an organisation.
 
 ## 4. Drift — Track B
 
-- [ ] 4.1 CI check: re-running `eval/emit.py` produces no diff, so the committed seed and the generator cannot disagree
-- [ ] 4.2 CI check: every `category_code` in `eval/out/seed_rules.sql` exists in `eval/out/seed_categories.sql` — change 3.2 depends on it and should not discover a dangling code at apply time
+- [x] 4.1 CI **cannot** re-run `eval/emit.py`: its input is `../docCl`, deliberately outside the repository. `scripts/check-taxonomy-seed.sh` checks what is checkable without it, and catches the failure that actually matters — migration 005 embeds a copy of the seed, and this proves the copy has not drifted
+- [x] 4.2 Same script: every `category_code` in `seed_rules.sql` is seeded, is a leaf, and is not a computed line. Verified to fail on both — a broken copy and a dangling code — rather than only to pass
 
 ## 5. Close
 
-- [ ] 5.1 Update `docs/IMPLEMENTATION_PLAN.md` §7: D-1 is closed and 3.1 is delivered
-- [ ] 5.2 Add `/core/internal/db/query/taxonomy.sql` to `CODEOWNERS` under Track B
-- [ ] 5.3 Update the capability spec and run the full suite
+- [x] 5.1 `docs/IMPLEMENTATION_PLAN.md`: 3.1 marked delivered, D-1 closed, D-2 marked partly closed — four redacted Priorbank fixtures landed with the parser
+- [x] 5.2 CODEOWNERS. The original task is obsolete: ownership moved to `@MyauDev/admin` and `/core/internal/db/` already covers the query file. What did need entries: `deploy/db/rls-shared-tenant-tables.txt`, because deciding a table has unowned rows is a security decision, and migration 005 itself
+- [x] 5.3 Capability spec updated — it carried the depth-based split in a heading and now states the rule that replaced it. Full suite run against a live Postgres
