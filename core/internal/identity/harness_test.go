@@ -110,11 +110,45 @@ func newHarness(t *testing.T) *harness {
 // runs in InSystemTx, which by definition has none.
 func (h *harness) cleanTables() {
 	h.t.Helper()
+
+	// Refuse to run against a database holding accounts this harness did not
+	// create. DATABASE_URL is whatever the environment says, and pointing it at
+	// a development database is one shell variable away -- which happened on
+	// 2026-09-08 and locked a real Google account out of the local cluster.
+	//
+	// The lockout is worth understanding, because the schema is designed to
+	// prevent exactly it. An identity is (provider, subject); users.email is
+	// descriptive and UNIQUE. Delete a person's user_identities row and leave
+	// their users row, and sign-in can no longer find them by subject, so it
+	// provisions instead -- and provisioning collides with their own surviving
+	// email. CLAUDE.md puts it plainly: the rule exists to keep "a UNIQUE
+	// violation off the login path where it would lock out a valid account".
+	// Half-deleting puts it straight back on.
+	var foreign int
+	if err := h.database.InSystemTx(context.Background(), func(ctx context.Context, tx pgx.Tx) error {
+		return tx.QueryRow(ctx,
+			"SELECT count(*) FROM users WHERE email IS NOT NULL AND email NOT LIKE '%@example.test'",
+		).Scan(&foreign)
+	}); err != nil {
+		h.t.Fatalf("checking the database is safe to clear: %v", err)
+	}
+	if foreign > 0 {
+		h.t.Fatalf("DATABASE_URL points at a database holding %d account(s) this harness "+
+			"did not create; refusing to clear it. Point DATABASE_URL at a throwaway "+
+			"database -- these tests delete every row in sessions, auth_flows and the "+
+			"test users' identities.", foreign)
+	}
+
 	err := h.database.InSystemTx(context.Background(), func(ctx context.Context, tx pgx.Tx) error {
 		for _, stmt := range []string{
 			"DELETE FROM sessions",
 			"DELETE FROM auth_flows",
-			"DELETE FROM user_identities",
+			// Scoped to the same users the next statement removes. Deleting
+			// every identity while deleting only test users is what orphans an
+			// account: the binding goes, the row stays, and nothing can sign in
+			// as it or re-create it.
+			"DELETE FROM user_identities WHERE user_id IN " +
+				"(SELECT id FROM users WHERE email LIKE '%@example.test' OR email IS NULL)",
 			"DELETE FROM users WHERE email LIKE '%@example.test' OR email IS NULL",
 		} {
 			if _, err := tx.Exec(ctx, stmt); err != nil {
