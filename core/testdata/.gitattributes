@@ -1,0 +1,5 @@
+# Fixtures are byte-exact copies of a bank's own export, down to the encoding.
+# A Priorbank CSV is windows-1251 with LF endings; letting git rewrite either
+# would change what the parser is tested against, and charset detection is one
+# of the things being tested.
+* -text
