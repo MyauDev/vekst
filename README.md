@@ -166,6 +166,79 @@ superuser that owns nothing); `vekst_app`'s password is `vekst_app` locally if
 you want to connect as it instead — `psql "postgres://vekst_app:vekst_app@localhost:5432/vekst"`
 after `kubectl port-forward svc/postgres 5432:5432`.
 
+**Selecting from a tenant table needs a tenant context.** Every tenant table has
+a policy restricting it to `app_current_org()`, and `FORCE ROW LEVEL SECURITY`
+means `vekst_migrator` is subject to it too. Without a context, a select raises
+rather than returning nothing:
+
+```
+vekst=> SELECT * FROM entities;
+ERROR:  unrecognized configuration parameter "app.org_id"
+CONTEXT:  PL/pgSQL function app_current_org() line 5 at assignment
+```
+
+That is deliberate — zero rows would be indistinguishable from a customer who
+has no data, and a report would render it as such.
+
+You will meet a second wording for the same condition, on a connection that has
+*already* served a tenant transaction:
+
+```
+ERROR:  app.org_id is not set
+HINT:  open the transaction through db.InTx, which sets the tenant context
+```
+
+Both are SQLSTATE `42704`. A transaction-local setting is reverted when the
+transaction ends, but reverting does not unregister the parameter — it is left
+holding the empty string, which would otherwise surface as `22P02 invalid input
+syntax for type uuid: ""`. `app_current_org()` normalises that to `42704` so
+that one condition has one code; the message differs only because the first
+case is raised by `current_setting` itself. Since `core` runs on a connection
+pool, the second is the common one in production.
+
+In psql, set the context inside a transaction, the way `db.InTx` does:
+
+```sql
+BEGIN;
+SELECT set_config('app.org_id', '<an organisation uuid>', true);
+SELECT * FROM entities;     -- that organisation's rows, and no others
+COMMIT;                     -- the context is reverted here
+```
+
+To find an organisation id in the first place, read the one table whose tenant
+key is its own primary key — which still needs a context, so it is a chicken and
+egg by design. Use the migration role and suspend the policy for the length of
+one transaction instead:
+
+```sql
+BEGIN;
+ALTER TABLE organizations NO FORCE ROW LEVEL SECURITY;
+SELECT id, name FROM organizations;
+ROLLBACK;                   -- FORCE is restored by the rollback
+```
+
+That idiom — `NO FORCE`, act, restore, inside one transaction — is also how a
+migration backfills a tenant column. Forgetting the restore is not silent: it
+lands in `pg_class.relforcerowsecurity`, which the RLS coverage test asserts, so
+CI fails on the same pull request.
+
+**Running the database-backed tests** needs one more credential than the
+application does. `core/internal/migrate` creates a disposable database per
+test, and `vekst_migrator` deliberately cannot create databases — it holds
+`CREATEROLE` and ownership, nothing more. Point `DATABASE_URL_ADMIN` at a
+throwaway superuser for that, and nothing else:
+
+```sh
+DATABASE_URL_MIGRATOR=postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable \
+DATABASE_URL_ADMIN=postgres://<superuser>@localhost:5432/postgres?sslmode=disable \
+  go test ./core/internal/migrate/...
+```
+
+Creating a database is something only the test harness does; production
+provisions one, out of band, once. Adding `CREATEDB` to
+`provision-migrator.sql` would widen the contract every hosted environment has
+to satisfy for something no hosted environment does.
+
 ## Layout
 
 ```

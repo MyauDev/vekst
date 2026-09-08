@@ -356,11 +356,19 @@ jobs:
       # -coverpkg widened to also credit core/migrations (the package its
       # tests actually exercise via goose's registered Go migration) -- then
       # both profiles are merged into the one file the scan step reads.
+      #
+      # It gets DATABASE_URL_ADMIN as well: its harness creates a disposable
+      # database per test, and vekst_migrator deliberately cannot, holding only
+      # CREATEROLE and ownership (deploy/db/provision-migrator.sql). Granting it
+      # CREATEDB here would widen the contract every hosted environment has to
+      # satisfy for something only the tests do, so the throwaway superuser --
+      # which exists in CI and nowhere else -- does the CREATE and DROP.
       - name: go coverage
         run: |
           go test $(go list ./core/... | grep -v internal/migrate) \
             -coverprofile=coverage.out -covermode=atomic
           DATABASE_URL_MIGRATOR="postgres://vekst_migrator:vekst_migrator@localhost:5433/vekst?sslmode=disable" \
+          DATABASE_URL_ADMIN="postgres://ci_superuser:ci_superuser@localhost:5433/postgres?sslmode=disable" \
             go test ./core/internal/migrate/... \
             -coverprofile=coverage.migrate.out -covermode=atomic \
             -coverpkg=./core/internal/migrate/...,./core/migrations/...

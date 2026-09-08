@@ -14,16 +14,16 @@ export function SignedIn({ user, onSignOut }: { user: User; onSignOut: () => voi
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <p className="text-sm text-slate-500">{t("signedIn.greeting")}</p>
-        <p className="font-medium text-slate-900">{user.email || user.name || user.id}</p>
+        <p className="text-sm text-text-muted">{t("signedIn.greeting")}</p>
+        <p className="font-medium text-text">{user.email || user.name || user.id}</p>
       </div>
 
-      <p className="text-sm text-slate-500">{t("signedIn.noOrganisation")}</p>
+      <p className="text-sm text-text-muted">{t("signedIn.noOrganisation")}</p>
 
       <button
         type="button"
         onClick={onSignOut}
-        className="inline-flex w-fit items-center rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
+        className="inline-flex w-fit items-center rounded border border-border-strong px-4 py-2 text-sm font-medium text-text hover:bg-surface-sunken"
       >
         {t("signedIn.signOut")}
       </button>

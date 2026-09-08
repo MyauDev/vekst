@@ -103,6 +103,7 @@ lint: ## Lint every language
 	./scripts/check-db-entry-point.sh
 	./scripts/check-identity-queries.sh
 	./scripts/check-codeowners.sh
+	./scripts/check-web-tokens.sh
 	cd classifier && uv run ruff check . && uv run mypy .
 	cd web && npx tsc --noEmit
 

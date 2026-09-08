@@ -31,9 +31,21 @@ status=0
 
 # 1. No other query file may name these tables. Reading them from elsewhere is
 #    how an unfiltered join or a forgotten predicate gets written.
+#
+#    Comments are stripped first, the same way check 2 below does it. The rule
+#    is about statements, not prose: a file whose comment explains *why* it
+#    deliberately does not join users -- which is precisely the reasoning worth
+#    writing down -- was failing this check, and the only way to satisfy it was
+#    to delete the explanation. A check that punishes the documentation of its
+#    own rule teaches people to remove it.
 for table in $IDENTITY_TABLES; do
-  offenders=$(grep -rlEi "\\b${table}\\b" --include='*.sql' "$QUERY_DIR" \
-    | grep -v "^${IDENTITY_FILE}$" || true)
+  offenders=""
+  for f in "$QUERY_DIR"/*.sql; do
+    [ "$f" = "$IDENTITY_FILE" ] && continue
+    if sed 's/--.*$//' "$f" | grep -qEi "\\b${table}\\b"; then
+      offenders="${offenders}${f}"$'\n'
+    fi
+  done
   if [ -n "$offenders" ]; then
     echo "::error::identity table '${table}' is named outside ${IDENTITY_FILE}:"
     echo "$offenders"

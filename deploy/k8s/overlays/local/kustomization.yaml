@@ -12,7 +12,12 @@ resources:
   - ../../../db
 
 patches:
+  # A JSON 6902 patch, not a strategic merge: merging into spec.rules would
+  # replace the base's path list and drop whatever this file does not repeat.
   - path: ingress-host.yaml
+    target:
+      kind: Ingress
+      name: vekst
   - path: core-dev.yaml
   - path: web-dev.yaml
 

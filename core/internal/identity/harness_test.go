@@ -93,6 +93,18 @@ func newHarness(t *testing.T) *harness {
 
 // cleanTables gives each test an empty slate. These four tables are global, so
 // tests would otherwise collide through them.
+//
+// The users delete is scoped by email, and has to be. `DELETE FROM users` took
+// every user in the database, including ones other packages' tests had just
+// created -- a race that was invisible until change 1.1 gave memberships a
+// foreign key to users, at which point it stopped silently deleting their rows
+// and started failing with 23503 instead. Scoping it is the fix for both: this
+// package owns the @example.test domain, and users with no address at all,
+// which only sign-in produces (a provider that asserts no email).
+//
+// It cannot instead delete users that no membership references: memberships is
+// a tenant table, so reading it without a tenant context raises -- and this
+// runs in InSystemTx, which by definition has none.
 func (h *harness) cleanTables() {
 	h.t.Helper()
 	err := h.database.InSystemTx(context.Background(), func(ctx context.Context, tx pgx.Tx) error {
@@ -100,7 +112,7 @@ func (h *harness) cleanTables() {
 			"DELETE FROM sessions",
 			"DELETE FROM auth_flows",
 			"DELETE FROM user_identities",
-			"DELETE FROM users",
+			"DELETE FROM users WHERE email LIKE '%@example.test' OR email IS NULL",
 		} {
 			if _, err := tx.Exec(ctx, stmt); err != nil {
 				return err
@@ -196,11 +208,16 @@ func (h *harness) whoami(c *http.Client) (int, string) {
 	return resp.StatusCode, strings.TrimSpace(string(b))
 }
 
+// countUsers counts the accounts this package owns, scoped the same way
+// cleanTables deletes them and for the same reason: users is global and shared
+// with every other package's tests against the same database, so an unscoped
+// count asserts on rows this package did not create and cannot control.
 func (h *harness) countUsers() int {
 	h.t.Helper()
 	var n int
 	err := h.database.InSystemTx(context.Background(), func(ctx context.Context, tx pgx.Tx) error {
-		return tx.QueryRow(ctx, "SELECT count(*) FROM users").Scan(&n)
+		return tx.QueryRow(ctx,
+			"SELECT count(*) FROM users WHERE email LIKE '%@example.test' OR email IS NULL").Scan(&n)
 	})
 	if err != nil {
 		h.t.Fatalf("counting users: %v", err)

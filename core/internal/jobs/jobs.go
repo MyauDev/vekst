@@ -8,11 +8,17 @@
 // its tenant identifier from its own job arguments and never from ambient
 // state -- a job payload is untrusted input for tenancy purposes, the same
 // way an HTTP handler trusts only the authenticated session and never a
-// package-level global. Change 1.1 adds the `SET LOCAL app.org_id` call
-// inside core/internal/db.InTx that a worker's fn must invoke from those
-// arguments; there is no tenant concept in this change's data model yet for
-// that rule to be enforced against, so today it is documented here, not
-// guarded by a test.
+// package-level global. db.OrgIDFromJobArgs is the only door that turns those
+// arguments into a tenant identifier, db.InTx is the only thing that sets the
+// context, and TenantProbeWorker is the worked example both are asserted
+// against.
+//
+// The corollary is the one every future worker has to hold on to: **job
+// arguments are not tenant-isolated.** River's tables have no org_id and no
+// policy, so anything able to read river_job reads every tenant's payloads.
+// Arguments therefore carry identifiers -- an organisation, a row id -- and
+// never customer financial data. The worker reads the row itself, under its
+// own tenant context, where the policy applies.
 //
 // Every worker reaches application data only through core/internal/db's one
 // transaction entry point, never against the pool directly -- the same
@@ -31,9 +37,10 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+
+	"github.com/MyauDev/vekst/core/internal/db"
 )
 
 // Client wraps River's client. Its zero value is not usable; construct one
@@ -56,16 +63,21 @@ type WorkerRegistrar interface {
 	Register(*river.Workers) []*river.PeriodicJob
 }
 
-func New(pool *pgxpool.Pool, registrars ...WorkerRegistrar) (*Client, error) {
+// New takes the *db.DB rather than a bare pool so that workers can reach
+// application data through the one transaction entry point, and River's own
+// driver can still have the raw pool it needs for polling and leader election
+// -- two different needs that used to be served by passing only the second.
+func New(database *db.DB, registrars ...WorkerRegistrar) (*Client, error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &NoopWorker{})
+	river.AddWorker(workers, &TenantProbeWorker{database: database})
 
 	var periodic []*river.PeriodicJob
 	for _, r := range registrars {
 		periodic = append(periodic, r.Register(workers)...)
 	}
 
-	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+	c, err := river.NewClient(riverpgxv5.New(database.Pool()), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 10},
 		},

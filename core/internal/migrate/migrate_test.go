@@ -2,7 +2,7 @@ package migrate
 
 import "testing"
 
-// RequiredVersion must see the SQL migrations (00001, 00003) and the Go
+// RequiredVersion must see the SQL migrations (00001, 00003, 00004) and the Go
 // migration (00002_river.go, registered via init()) alike -- design Q5's
 // whole point is that this number is derived, never declared, so it cannot
 // silently disagree with the files it is supposed to describe.
@@ -17,7 +17,7 @@ func TestRequiredVersionSeesEverySQLAndGoMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RequiredVersion: %v", err)
 	}
-	if got != 3 {
-		t.Fatalf("RequiredVersion() = %d, want 3 (00001 + 00003 SQL, 00002 Go)", got)
+	if got != 4 {
+		t.Fatalf("RequiredVersion() = %d, want 4 (00001 + 00003 + 00004 SQL, 00002 Go)", got)
 	}
 }

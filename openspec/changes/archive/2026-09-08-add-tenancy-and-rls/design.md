@@ -27,8 +27,7 @@ CREATE TABLE entities (
     legal_name    text,
     tax_id        text,
     created_at    timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (id),
-    UNIQUE (org_id, id)                          -- the target of every composite FK below
+    PRIMARY KEY (org_id, id)                     -- the target of every composite FK below
 );
 
 CREATE TABLE accounts (
@@ -39,8 +38,7 @@ CREATE TABLE accounts (
     currency     text        NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
     external_ref text,
     created_at   timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (id),
-    UNIQUE (org_id, id),
+    PRIMARY KEY (org_id, id),
     FOREIGN KEY (org_id, entity_id) REFERENCES entities (org_id, id) ON DELETE RESTRICT,
     UNIQUE (org_id, entity_id, external_ref)
 );
@@ -93,15 +91,49 @@ and both reviewers. That belongs with the change that first stores an amount.
 
 ```sql
 CREATE FUNCTION app_current_org() RETURNS uuid
-    LANGUAGE sql STABLE
-    AS $fn$ SELECT current_setting('app.org_id')::uuid $fn$;
+    LANGUAGE plpgsql STABLE
+    AS $fn$
+DECLARE
+    v text;
+BEGIN
+    v := current_setting('app.org_id');   -- raises 42704 if never registered
+    IF v = '' THEN                        -- registered, then reset by COMMIT
+        RAISE EXCEPTION 'app.org_id is not set'
+            USING ERRCODE = '42704',
+                  HINT = 'open the transaction through db.InTx, which sets the tenant context';
+    END IF;
+    RETURN v::uuid;
+END
+$fn$;
 ```
 
-`current_setting` is called with **one** argument on purpose. If `app.org_id` was never set,
-it raises `undefined_object` (42704). The two-argument form would return NULL, every policy
-would evaluate to false, and a query outside a tenant transaction would return **zero rows
-with no error** — which a report renders as "this customer has no revenue". `ARCHITECTURE.md`
-§7 already requires the opposite: "A repository call outside that transaction must fail."
+`current_setting` is called with **one** argument on purpose. The two-argument form returns
+NULL when `app.org_id` is unset, every policy would evaluate to false, and a query outside a
+tenant transaction would return **zero rows with no error** — which a report renders as "this
+customer has no revenue". `ARCHITECTURE.md` §7 already requires the opposite: "A repository
+call outside that transaction must fail."
+
+**There are two ways to have no tenant context, and the body exists to give them one code.**
+This was found while implementing task 1.9, against Postgres 16:
+
+| Connection state | Bare `current_setting(...)::uuid` | Frequency |
+| --- | --- | --- |
+| never carried a context | `42704` undefined_object | first use of a pooled connection |
+| carried one, transaction ended | `22P02` `invalid input syntax for type uuid: ""` | **every reuse after that** |
+
+`set_config(..., true)` is reverted when the transaction ends, but reverting does not
+*unregister* the parameter — it is left holding the empty string. Since `core` runs on a
+connection pool, the second row is the ordinary production path, and its error says "bad UUID
+syntax" rather than "no tenant context". Two codes for one condition means every caller that
+wants to recognise it has to know both and know why there are two, so the empty string is
+raised as `42704` instead.
+
+The change of language costs nothing that matters here. A no-argument `STABLE` function is
+folded to a constant during selectivity estimation whether its body is SQL or PL/pgSQL, so the
+fail-closed guarantee still holds on an **empty** table — an `EXPLAIN` of a select on one
+raises before a single tuple is read. That case is worth stating because a per-row qual would
+have returned zero rows silently, and the tenant who would have found it is the one running a
+report before importing anything.
 
 ### 1.2 Every table, its column and its policy
 
@@ -194,11 +226,26 @@ is expressible; the FK can only resolve inside the row's own organisation.
 louder oracle than the FK, because it discloses a value rather than an identifier: a
 duplicate-key error on `UNIQUE (external_ref)` tells tenant A that some invisible tenant
 already holds that reference. Every uniqueness constraint on a tenant table is therefore
-scoped by `org_id` as its leading column. The tables here already comply —
-`entities UNIQUE (org_id, id)`, `accounts UNIQUE (org_id, id)` and
-`UNIQUE (org_id, entity_id, external_ref)`, `memberships PRIMARY KEY (org_id, user_id)` — and
-the surrogate `PRIMARY KEY (id)` columns are `gen_random_uuid()` values, which disclose
-nothing because a collision is not reachable by guessing.
+scoped by `org_id` as its leading column — **primary keys included**.
+
+An earlier draft of this section exempted the surrogate `PRIMARY KEY (id)` on `entities` and
+`accounts`, on the grounds that a `gen_random_uuid()` collision is not reachable by guessing.
+That is true and it is still the wrong place to stop. The exemption asks a reader to hold two
+rules where the documentation states one, it makes the safety of a primary key depend on how
+its default happens to be generated, and it collapses entirely for the first tenant table
+whose key is not random — an imported source identifier, a customer-supplied reference. Task
+1.8's catalog check enumerates constraints rather than spot-checking them, and an enumeration
+with a carve-out in it is the kind of rule that gets extended by analogy.
+
+So `entities` and `accounts` are `PRIMARY KEY (org_id, id)`, which is also the target every
+composite foreign key points at — the separate `UNIQUE (org_id, id)` is then redundant and is
+gone. `memberships` was already `PRIMARY KEY (org_id, user_id)`. `organizations` is the one
+table keyed by `id` alone, because the organisation *is* the tenant.
+
+The cost is that `id` alone is no longer unique across organisations. Nothing depends on it:
+every query runs under a tenant context, so the policy supplies `org_id` and the primary-key
+index still serves a lookup by `id`, and every foreign key between tenant tables is composite
+by this same rule.
 
 This is the rule 2.1 onward will actually be tempted to break: `import_profiles` wants
 `UNIQUE (name)` and must have `UNIQUE (org_id, name)`. Both halves — composite FKs and
@@ -327,9 +374,25 @@ tenant-isolated**, so they carry identifiers, never customer financial data.
 ### D6 — The coverage test asserts isolation, not the existence of a policy
 
 A Go test, run in CI against the migrated scratch database, reads
-`deploy/db/rls-exempt-tables.txt` and checks every other table in `public`. A new tenant table
-with no policy fails here on the pull request that adds it — which is the point, and why 0.2
-seeded the allowlist before the test existed to read it.
+`deploy/db/rls-exempt-tables.txt` and checks every other relation in `public`. A new tenant
+table with no policy fails here on the pull request that adds it — which is the point, and why
+0.2 seeded the allowlist before the test existed to read it.
+
+**Relation, not table, and the distinction is load-bearing.** "Every table in `public`" was the
+original wording and it names the wrong unit; the check enumerates
+`relkind IN ('r', 'p', 'm', 'f')`. Two kinds cannot be protected by a policy at all, and
+neither shows up where one would look for it — verified against Postgres 16 while implementing
+this:
+
+| Kind | Why the obvious enumeration misses it |
+| --- | --- |
+| `m` materialized view | Row-level security cannot be enabled on one, and 00001's `ALTER DEFAULT PRIVILEGES` grants `vekst_app` `SELECT` on it the moment it is created. It appears in **none** of `information_schema.tables` (Postgres omits materialized views entirely), `pg_tables`, or `pg_class` filtered on `relkind = 'r'` — so the most idiomatic implementation of "every table" is the blindest one. A matview over a tenant table returned another organisation's rows to `vekst_app` with no tenant context set. |
+| `p` partitioned table | Holds no rows itself, so a `relkind = 'r'` filter drops it — and with it the policy that governs every read through the parent. |
+| `r` partition (`relispartition`) | Inherits neither its parent's RLS flags nor its policies. With the context set to org A, selecting from the parent returned 0 rows and selecting from the partition directly returned org B's row. A partition therefore needs its own policy, and is reported when it lacks one. |
+| `f` foreign table | Policies are not enforced on the remote side. |
+
+A materialized view is a hard failure rather than something to be given a policy, because there
+is no policy to give it. The remedy is to materialize into an ordinary table that has one.
 
 "Has at least one row in `pg_policies`" is too weak to be that gate. All of these pass it and
 none of them isolates anything:
@@ -573,7 +636,7 @@ inherit the `InTx` signature rather than negotiate its own. `proto/` is untouche
 | `vekst_membership_reader` acquires a second policy, a second function, or `LOGIN` | D6 enumerates role-scoped policies and `SECURITY DEFINER` functions and asserts there is exactly one of each; the role is in `CODEOWNERS`. |
 | A handler binds a transaction to an organisation the caller does not belong to | D7: `OrgID` cannot be constructed outside `core/internal/db`, and `OrgIDForSession` is the only door that starts from a session. |
 | A migration's `NO FORCE` window (D8) is left open | `relforcerowsecurity` is asserted by D6 on the same pull request. |
-| `vekst_app` re-sets `app.org_id` mid-transaction and escapes its own tenant | A custom GUC in a user-defined namespace cannot be locked down with `GRANT … ON PARAMETER`, so there is no database-side guard. The application-side one is that every statement is generated by `sqlc` from checked-in queries — there is no dynamic SQL for a value to reach — and `InTx` is the only place that calls `set_config`. Worth restating in review whenever raw SQL is proposed. |
+| `vekst_app` re-sets `app.org_id` mid-transaction and escapes its own tenant | A custom GUC in a user-defined namespace cannot be locked down with `GRANT … ON PARAMETER`, so there is no database-side guard. The application-side one is that every statement is either generated by `sqlc` from checked-in queries or a checked-in string literal with bound parameters — there is no dynamic SQL for a value to reach — and `InTx` is the only place that calls `set_config`. This is now enforced rather than reviewed: `scripts/check-db-entry-point.sh` fails a build where `set_config`, `SET LOCAL` or `SET app.` appears outside `tx.go`, or where `app.org_id` reaches SQL through `Sprintf` or concatenation. Exactly two statements are hand-written, both inside `core/internal/db` — the only package permitted to issue one — and both are string literals with bound parameters: `InTx`'s own `set_config`, which is the subject of this row, and `OrgIDForSession`'s call to `orgs_for_user` (D3), which sqlc cannot generate. |
 | An `UPDATE` filtered out by policy reports success | D9: writes intended to affect one row check the affected count and error on zero. |
 
 ## 6. Call-outs

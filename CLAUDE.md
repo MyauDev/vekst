@@ -61,9 +61,39 @@ base-currency amount — is change 2.5.
 **Every tenant table carries `org_id`, an RLS policy, and `FORCE ROW LEVEL
 SECURITY`.** Tenancy is `organizations` → `entities` → `accounts`; `entity_id`
 exists from the first migration even though v1 creates one entity per
-organisation. Two database roles: `vekst_migrator` owns the schema, `vekst_app`
-owns nothing and has no `BYPASSRLS`. Tenant context is `SET LOCAL app.org_id`
-inside the request transaction.
+organisation. `organizations` is the one exception to the `org_id` rule — its
+own `id` is the tenant key. Two database roles: `vekst_migrator` owns the schema,
+`vekst_app` owns nothing; **neither is a superuser and neither has `BYPASSRLS`**,
+because either attribute makes `FORCE` decorative. Tenant context is set
+transaction-locally inside the request transaction, in `db.InTx` and nowhere
+else.
+
+The rule reaches further than ordinary tables. A **materialized view** cannot
+have RLS at all and is granted to `vekst_app` automatically by 00001's default
+privileges; a **partition** inherits neither its parent's RLS flags nor its
+policies, so a direct read of one bypasses the parent's. Both are failures in
+the coverage test, not oversights to discover later.
+
+**`db.InTx` takes an organisation, and `db.OrgID` cannot be built outside
+`core/internal/db`.** Required means it cannot be forgotten; unconstructable
+means it cannot be invented. RLS is containment, not authorization: it
+guarantees a transaction bound to org X touches only X's rows, and cannot know
+whether the caller was entitled to bind to X. Every `OrgID` comes from one of
+three named constructors — a resolved session, a job's own arguments, or the
+creation of a new organisation — and `scripts/check-db-entry-point.sh` commits
+a call-site count for the two that do not start from a session.
+
+**Referential-integrity checks are scoped by `org_id`.** Postgres does not apply
+RLS to them — unique and primary key constraints as much as foreign keys — so a
+foreign key between tenant tables is composite, and *every* uniqueness
+constraint takes `org_id` as its leading column, primary keys included. An
+unscoped constraint is a cross-tenant oracle no policy can close.
+
+**Tenant context is fail-closed, and a single-row write that affects no rows is
+an error.** A query with no tenant context raises `42704`; it never returns zero
+rows, which a report would render as "this customer has no revenue". RLS filters
+`UPDATE` and `DELETE` silently, so writes meant to touch one row go through
+`db.ExactlyOneRow`, which turns a zero count into `ErrNoRowsAffected`.
 
 **The classifier never receives database credentials.** Not a connection string,
 not a driver, not indirectly. `core` reads the tenant's context under RLS and
@@ -131,10 +161,13 @@ under RLS for the ids and then fetch users by key; do not add a join.
 **A background job sets its own tenant context.** River's tables carry no
 `org_id` and no RLS, so a worker takes its tenant identifier from its job
 arguments — never from ambient state, the same way a handler trusts only the
-authenticated session and never a global. `deploy/db/rls-exempt-tables.txt` is
-the checked-in, both-reviewers-required record of which tables are River's or
-goose's infrastructure rather than tenant data; change 1.1's RLS coverage test
-reads it instead of embedding its own exceptions.
+authenticated session and never a global. `db.OrgIDFromJobArgs` is that door.
+The corollary: **job arguments are not tenant-isolated**, so they carry
+identifiers and never customer financial data — the worker reads the row itself,
+under its own tenant context. `deploy/db/rls-exempt-tables.txt` is the
+checked-in, both-reviewers-required record of which tables are River's or
+goose's infrastructure rather than tenant data; the RLS coverage test reads it
+instead of embedding its own exceptions.
 
 ## Conventions
 

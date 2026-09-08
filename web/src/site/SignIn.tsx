@@ -1,4 +1,4 @@
-import { authErrorMessage, t } from "./i18n";
+import { authErrorMessage, t } from "../i18n";
 
 /**
  * The sign-in screen: one button, which leaves the single-page app entirely.
@@ -15,18 +15,18 @@ export function SignIn({ authError }: { authError?: string | null }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-medium text-slate-900">{t("signIn.heading")}</h2>
-      <p className="text-sm text-slate-500">{t("signIn.blurb")}</p>
+      <h2 className="text-lg font-medium text-text">{t("signIn.heading")}</h2>
+      <p className="text-sm text-text-muted">{t("signIn.blurb")}</p>
 
       {message && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {message}
         </p>
       )}
 
       <a
         href="/auth/google/start"
-        className="inline-flex w-fit items-center rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
+        className="inline-flex w-fit items-center rounded border border-border-strong px-4 py-2 text-sm font-medium text-text hover:bg-surface-sunken"
       >
         {t("signIn.google")}
       </a>

@@ -26,6 +26,7 @@ type Querier interface {
 	// Sessions outlive their expiry by a retention window so a recently expired
 	// session is still visible to an operator asking what happened.
 	DeleteExpiredSessions(ctx context.Context, expiresAt pgtype.Timestamptz) (int64, error)
+	DeleteMembership(ctx context.Context, userID pgtype.UUID) (int64, error)
 	// Queries for the four identity tables: users, user_identities, sessions and
 	// auth_flows.
 	//
@@ -52,11 +53,51 @@ type Querier interface {
 	// revoked or expired session simply matches nothing.
 	FindLiveSessionWithUser(ctx context.Context, tokenSha256 []byte) (FindLiveSessionWithUserRow, error)
 	FindUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	GetAccount(ctx context.Context, id pgtype.UUID) (Account, error)
+	// id alone, with no org_id beside it. entities is keyed (org_id, id) and the
+	// policy supplies the org_id half, so this cannot resolve outside the caller's
+	// own organisation however the identifier was obtained.
+	GetEntity(ctx context.Context, id pgtype.UUID) (Entity, error)
+	// No WHERE clause: the policy admits exactly one row, the caller's own. A
+	// predicate here could only ever narrow that to zero.
+	GetOrganization(ctx context.Context) (Organization, error)
+	InsertAccount(ctx context.Context, arg InsertAccountParams) (Account, error)
 	InsertAuthFlow(ctx context.Context, arg InsertAuthFlowParams) (pgtype.UUID, error)
+	InsertEntity(ctx context.Context, arg InsertEntityParams) (Entity, error)
 	// Insert-once, with no ON CONFLICT clause. Repointing a subject at another
 	// user is account takeover; vekst_app has no UPDATE privilege here, so this
 	// cannot become an upsert without a migration that CODEOWNERS would catch.
 	InsertIdentity(ctx context.Context, arg InsertIdentityParams) error
+	// The creator's own membership, written in the same transaction that creates
+	// the organisation (design D4). role is stored and nothing checks it yet --
+	// enforcement is Product's, per the proposal's non-goals.
+	InsertMembership(ctx context.Context, arg InsertMembershipParams) (Membership, error)
+	// Queries for the four tenant tables: organizations, entities, accounts and
+	// memberships.
+	//
+	// Not one statement here carries an org_id predicate, and that is the point.
+	// Every one of these tables has a FORCE'd row-level-security policy restricting
+	// it to app_current_org() (migration 00004), and db.InTx sets that context as
+	// the transaction's first statement. The policy supplies the filter.
+	//
+	// A hand-written `WHERE org_id = $1` would be worse than redundant: it would
+	// return the right rows whether or not the policy existed, so the day someone
+	// creates a table and forgets the policy, these queries keep working and
+	// nothing fails. The absence of the predicate is what makes a missing policy
+	// show up immediately -- as a query that raises 42704 rather than one that
+	// quietly reads every tenant's rows.
+	//
+	// Writes that are meant to touch exactly one row are :execrows, never :exec.
+	// Row-level security filters UPDATE and DELETE silently -- a write whose target
+	// the policy does not admit affects zero rows and raises nothing -- so the
+	// affected-row count is the only signal that "the correction was saved" was a
+	// lie. db.ExactlyOneRow turns a zero count into a named error (design D9).
+	// Creating a tenant, under that tenant's own policy (design D4). The policy on
+	// organizations is `id = app_current_org()`, so this needs the tenant context
+	// to already name the row being inserted -- which is exactly what
+	// OrgIDForNewOrg and InTx arrange. WITH CHECK passes because the identifiers
+	// match, and no privileged path is needed to create an organisation.
+	InsertOrganization(ctx context.Context, arg InsertOrganizationParams) (Organization, error)
 	// token_sha256 is the SHA-256 of 32 random bytes; the raw value lives only in
 	// the cookie and is never stored, so a read of this table yields nothing a
 	// browser could present.
@@ -66,10 +107,23 @@ type Querier interface {
 	// translates into the email_taken code -- the constraint is the check, so two
 	// concurrent first sign-ins on one address cannot both succeed.
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
+	ListAccounts(ctx context.Context) ([]Account, error)
+	ListAccountsForEntity(ctx context.Context, entityID pgtype.UUID) ([]Account, error)
+	ListEntities(ctx context.Context) ([]Entity, error)
+	// The current organisation's members. This deliberately does not join users:
+	// users is global and outside row-level security, and
+	// scripts/check-identity-queries.sh keeps the four identity tables reachable
+	// from one query file only. A member list showing names and addresses is a
+	// browser-facing read, which arrives with 2.1 and brings that decision with it.
+	ListMemberships(ctx context.Context) ([]Membership, error)
 	// Sign-out marks the row revoked rather than deleting it, so the session is
 	// auditable afterwards and the expiry job is what finally removes it.
 	RevokeSession(ctx context.Context, tokenSha256 []byte) error
 	TouchSession(ctx context.Context, id pgtype.UUID) error
+	UpdateAccountName(ctx context.Context, arg UpdateAccountNameParams) (int64, error)
+	UpdateEntityName(ctx context.Context, arg UpdateEntityNameParams) (int64, error)
+	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) (int64, error)
+	UpdateOrganizationName(ctx context.Context, name string) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

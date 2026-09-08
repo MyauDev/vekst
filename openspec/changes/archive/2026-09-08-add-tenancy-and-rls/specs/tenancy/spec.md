@@ -119,9 +119,17 @@ SHALL carry `org_id` as its leading column.
 
 ### Requirement: Every tenant table is proved to isolate, not merely to have a policy
 
-The system SHALL verify in CI that every table outside the checked-in exemption allowlist has
-row-level security enabled and forced, and has a policy that applies to all roles, restricts a
-column of that table to the current tenant, and covers writes as well as reads. That column
+The system SHALL verify in CI that every relation outside the checked-in exemption allowlist
+has row-level security enabled and forced, and has a policy that applies to all roles,
+restricts a column of that table to the current tenant, and covers writes as well as reads.
+
+The check SHALL enumerate relations by kind rather than assuming every one is an ordinary
+table, because two kinds cannot be protected by a policy and neither appears in the obvious
+listings. A materialized view SHALL be reported: row-level security cannot be enabled on one,
+and the schema's default privileges grant the application role access to it on creation. A
+partition SHALL be required to carry its own policy: a partition inherits neither the
+row-level-security flags nor the policies of its parent, so reading it directly bypasses
+them. That column
 SHALL be `org_id`, except on the organisations table itself, where it is the primary key. A
 policy that exists without restricting rows to the current tenant SHALL NOT satisfy the check.
 The allowlist SHALL remain the only place a *table* exemption is recorded; the enumerated
@@ -157,12 +165,28 @@ should never be a second of either.
 - **WHEN** a table has row-level security enabled and a policy, but not forced
 - **THEN** the coverage test fails on it
 
+#### Scenario: A materialized view over tenant data fails the build
+
+- **WHEN** a materialized view exists in the schema and is not allowlisted
+- **THEN** the coverage test fails on it, naming it as a materialized view
+- **AND** it does so even though the view appears in none of the schema's table listings
+
+#### Scenario: A partition without its own policy fails the build
+
+- **WHEN** a partition of a tenant table exists whose own row-level security is not enabled
+  and forced, while its parent's is
+- **THEN** the coverage test fails on it
+- **AND** the failure states that the parent's policy does not govern a direct read of the
+  partition
+
 #### Scenario: The coverage test can fail
 
 - **WHEN** each condition the test asserts is reproduced in turn in a scratch database — a
-  table with no policy, an all-roles policy that is unconditionally true, a read-only policy,
-  a table that is enabled but not forced, a second role-scoped policy, and a second
-  `SECURITY DEFINER` function — and the coverage test runs
+  table with no policy, an all-roles policy that is unconditionally true, a policy on the
+  wrong column, a read-only policy, a table that is enabled but not forced, a second
+  role-scoped policy, a second `SECURITY DEFINER` function, a materialized view, a partition
+  without its own policy, and an application role holding `BYPASSRLS` — and the coverage test
+  runs
 - **THEN** the test reports the offending object in every case
 - **AND** the test is therefore known to detect each condition it asserts
 

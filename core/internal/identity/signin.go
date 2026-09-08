@@ -35,10 +35,24 @@ const (
 // supportedLocales mirrors the CHECK constraint on users.locale.
 var supportedLocales = map[string]bool{"en": true, "ru": true}
 
-// postSignInPath is where a completed sign-in lands. A fixed path, never a
-// caller-supplied return URL: that parameter is how a redirect flow becomes an
-// open redirect.
-const postSignInPath = "/"
+// postSignInPath is where a completed sign-in lands, and signInPath is where a
+// failed one lands. Both are fixed paths, never a caller-supplied return URL:
+// that parameter is how a redirect flow becomes an open redirect.
+//
+// They are two paths because the browser has two surfaces. "/" is the public
+// landing page and reads no session at all -- deliberately, so it stays
+// separable into a static bundle -- so a completed sign-in returning there
+// would show a signed-in person a page inviting them to sign in, which is
+// exactly what it did until 2026-09-08. "/app" is the authenticated surface and
+// resolves the session itself.
+//
+// A failure goes to the sign-in screen rather than the landing page, because
+// that is the only screen that renders the auth_error code as a sentence. Sent
+// to "/" the code would be in the URL and invisible on the page.
+const (
+	postSignInPath = "/app"
+	signInPath     = "/signin"
+)
 
 func randomToken() (string, error) {
 	b := make([]byte, 32)
@@ -52,7 +66,7 @@ func randomToken() (string, error) {
 // code. 303 rather than 302 so the browser issues a GET regardless of the
 // method that failed.
 func (s *Service) fail(w http.ResponseWriter, r *http.Request, code string) {
-	http.Redirect(w, r, postSignInPath+"?auth_error="+url.QueryEscape(code), http.StatusSeeOther)
+	http.Redirect(w, r, signInPath+"?auth_error="+url.QueryEscape(code), http.StatusSeeOther)
 }
 
 // handleStart creates the pending flow and sends the browser to Google.

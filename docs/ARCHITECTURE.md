@@ -358,11 +358,11 @@ transfers. They are excluded from every P&L line.
 ## 5.5 Core tables (first cut)
 
 ```
-organizations(id, name, country, base_currency, created_at, deleted_at)
-entities(id, org_id, name, legal_name, tax_id, base_currency)        -- one per org in Demo
+organizations(id, name, country, base_currency, created_at)          -- id IS the tenant key
+entities(org_id, id, name, legal_name, tax_id, created_at)           -- one per org in Demo
 users(id, email, name, locale, created_at)
-memberships(org_id, user_id, role)                                   -- owner|admin|approver|viewer
-accounts(id, org_id, entity_id, name, currency, external_ref)
+memberships(org_id, user_id, role, created_at)                       -- owner|admin|approver|viewer
+accounts(org_id, id, entity_id, name, currency, external_ref, created_at)
 
 import_batches(id, org_id, entity_id, uploaded_by, source_kind,      -- ledger | bank
                status, file_key, file_sha256, row_count)
@@ -397,7 +397,28 @@ audit_events(id, org_id, actor_id, action, target, payload_jsonb, at)  -- APPEND
 
 Every table above carries `org_id`, an RLS policy, and `FORCE ROW LEVEL SECURITY`.
 `users` is the only exception — it is global, and access to it is mediated by
-`memberships`.
+`memberships`. `organizations` carries no `org_id` because its own `id` is the
+tenant key, and its policy names `id` accordingly.
+
+The first four rows are as migration `00004` actually creates them, and three
+things differ from this sketch's earlier form. Each was decided in change
+`add-tenancy-and-rls`; none is free to drift back.
+
+- **`org_id` leads the primary key** on `entities` and `accounts`. Referential
+  integrity checks — unique and primary key constraints as much as foreign keys
+  — bypass row-level security, so a uniqueness constraint that does not carry
+  `org_id` is a cross-tenant oracle no policy can close. See §7.
+- **No `deleted_at`.** Soft delete is not designed yet, so the column would
+  land with nothing setting it, nothing reading it, and no policy excluding
+  soft-deleted rows. It arrives with the change that defines what it means.
+- **`base_currency` on `organizations` only.** Two unconstrained copies of the
+  reporting currency can disagree with no error, and a report would then convert
+  against whichever copy the query happened to read. The organisation is the
+  reporting boundary; when a holding customer needs per-entity reporting
+  currency, that change adds the column *and* the rule for which one wins.
+
+`country` and the currency codes are `text` with a shape `CHECK`, not `char(n)`:
+`char(n)` is blank-padded, and the padding travels into Go as part of the string.
 
 ---
 
@@ -441,15 +462,47 @@ Unchanged from v1, and now enforced across a language boundary:
   cross-tenant existence oracle, and a global `UNIQUE` on a tenant table is a louder one,
   disclosing a value rather than an identifier. So foreign keys between tenant tables are
   composite and carry `org_id`, and every uniqueness constraint takes `org_id` as its leading
-  column. This is not obvious and will be re-litigated otherwise.
+  column — **primary keys included**. `entities` and `accounts` are keyed `(org_id, id)`, not
+  `(id)`. Exempting a surrogate key because a `gen_random_uuid()` collision is unguessable was
+  considered and rejected: it makes the safety of a primary key depend on how its default
+  happens to be generated, and it collapses for the first tenant table whose key is an
+  imported source identifier. This is not obvious and will be re-litigated otherwise.
 - **A migration that backfills a tenant table must open a window.** Under a non-superuser owner
   `FORCE` applies to migrations too, so an unqualified `UPDATE` raises. The idiom is
   `ALTER TABLE t NO FORCE ROW LEVEL SECURITY`, the backfill, then `FORCE` again, all in one
   transaction — visible in the migration diff, and a forgotten restore lands in
   `pg_class.relforcerowsecurity`, which the coverage test asserts.
-- Tenant context is set with `SET LOCAL app.org_id` inside the request transaction. A
-  repository call outside that transaction must fail.
-- A CI test lists tenant tables without an RLS policy and fails the build.
+- **RLS is containment, not authorization.** It guarantees that a transaction bound to org X
+  touches only X's rows. It cannot know whether the caller was entitled to bind to X — a
+  forged identifier taken off the wire would be isolated perfectly, to the organisation the
+  attacker named. So the tenant identifier is a type that cannot be constructed outside
+  `core/internal/db`: every value comes from one of three named constructors, and the two that
+  do not start from an authenticated session have their call sites counted in CI.
+- Tenant context is set transaction-locally inside the request transaction, in `db.InTx` and
+  nowhere else, with the identifier bound rather than interpolated. A repository call outside
+  that transaction must fail, and does: `app_current_org()` raises `42704` rather than
+  returning NULL, which would have made every policy false and returned zero rows — a result a
+  report renders as "this customer has no revenue". The raise holds on an empty table too,
+  because a no-argument `STABLE` function is folded during planning, before any row is read.
+- **RLS filters `UPDATE` and `DELETE` silently.** A write whose target the policy does not
+  admit affects zero rows and raises nothing, so a single-row write reports a zero count as an
+  error. "The correction was saved" when it was not is the same class of bug as a report
+  showing another company's figures.
+- A CI test asserts that every table outside the checked-in allowlist *isolates* — enabled,
+  forced, and carrying a policy that applies to all roles, restricts that table's tenant key
+  to `app_current_org()`, and covers writes. "Has a policy" is far too weak: `USING (true)`,
+  the wrong column, and read-only all pass it.
+- **The check enumerates by `relkind`, and that is load-bearing.** A materialized view cannot
+  have RLS at all, is granted to `vekst_app` automatically by 00001's default privileges, and
+  is invisible to `information_schema.tables`, to `pg_tables`, and to `pg_class` filtered on
+  `relkind = 'r'`. A partition inherits neither its parent's RLS flags nor its policies, so a
+  direct read of one bypasses the parent's. Both were verified against Postgres 16 and both
+  are hard failures.
+- Two deliberate exceptions exist and are asserted by count, not by allowlist, because the
+  correct number of each is one: a policy scoped to the `NOLOGIN` role `vekst_membership_reader`
+  on `memberships`, and the `SECURITY DEFINER` function `orgs_for_user` it owns. A second of
+  either fails the build. `SECURITY DEFINER` alone would not have worked — a definer function
+  runs as its owner, and under `FORCE` the owner is subject to the policy too.
 
 ---
 

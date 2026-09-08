@@ -129,7 +129,7 @@ func run() error {
 			identity.CodeNotConfigured)
 	}
 
-	jobsClient, err := jobs.New(database.Pool(), ident)
+	jobsClient, err := jobs.New(database, ident)
 	if err != nil {
 		return err
 	}

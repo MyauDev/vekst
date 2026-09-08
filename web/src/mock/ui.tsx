@@ -184,7 +184,7 @@ export function Rail({
           letterSpacing: "-0.015em",
         }}
       >
-        Vekst
+        Veekst
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "12px 8px" }}>
         {items.map((item) => {
