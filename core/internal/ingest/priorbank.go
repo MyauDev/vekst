@@ -14,6 +14,10 @@ import (
 // Statement is one account's export: what the bank declared about the period,
 // and the rows it contained.
 type Statement struct {
+	// Format is the parser that produced this, recorded on the batch so a
+	// question about a report can be traced to the reader that answered it.
+	Format string
+
 	Account  string
 	Currency string
 	Holder   string
@@ -42,8 +46,39 @@ type Row struct {
 	CounterpartyAccount string
 	Description         string
 
+	// RegulatedCode is a payment-purpose code assigned by someone other than
+	// the payer: КНП in Kazakhstan, a 1C account number in a ledger export.
+	// Priorbank carries none, so this is empty for every Belarusian row --
+	// present anyway, because a code is stronger evidence than free text and
+	// adding the column later means migrating transactions.
+	RegulatedCode string
+
 	Debit  money.Money
 	Credit money.Money
+}
+
+func init() { Register(priorbankParser{}) }
+
+// priorbankParser adapts ParsePriorbank to the Parser interface.
+type priorbankParser struct{}
+
+func (priorbankParser) Name() string { return "priorbank-by" }
+
+func (priorbankParser) Parse(raw []byte) (*Statement, error) { return ParsePriorbank(raw) }
+
+// Detect looks for the bank's own name in the preamble together with the
+// header row. Either alone is too loose: another Belarusian bank could use the
+// same Russian column names, and the word "Приорбанк" appears in the payment
+// purpose of every bank-fee row in a statement from anywhere.
+func (priorbankParser) Detect(raw []byte) bool {
+	if len(raw) > 4096 {
+		raw = raw[:4096]
+	}
+	text, err := Decode(raw, DetectCharset(raw))
+	if err != nil {
+		return false
+	}
+	return strings.Contains(text, "Приорбанк") && strings.Contains(text, "Дата док")
 }
 
 // ParsePriorbank reads a Priorbank (Belarus) CSV export.
