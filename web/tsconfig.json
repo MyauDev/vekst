@@ -5,7 +5,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["vitest/globals", "node"],
+    // vite/client types `import.meta.env`, which the dev-only token-sheet route
+    // is gated on. An explicit `types` array means it is not picked up otherwise.
+    "types": ["vitest/globals", "node", "vite/client"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,

@@ -1,3 +1,489 @@
-/* Tailwind v4 is CSS-first: no tailwind.config.js.
-   The design token layer is change 5.1's work, not this one. */
+/*
+ * Vekst — the token layer.
+ *
+ * Tailwind v4 is CSS-first: there is no tailwind.config.js. Values and their
+ * reasons are in docs/DESIGN.md §3–§9; this file is that document made real,
+ * with the amendments recorded in .design/web-app-shell/DECISIONS.md §7–§8:
+ * the chrome is monochrome, the accent is ink rather than blue, and there are
+ * two complete palettes rather than one.
+ *
+ * Two registers share this one layer (DESIGN.md §1). Register A is the landing
+ * page; Register B is the application. They differ in which type sizes and
+ * spacing steps they use, never in which tokens exist.
+ *
+ * THE RULE THIS FILE EXISTS TO ENFORCE: no component writes a literal colour.
+ * `text-slate-900` in a component is a defect. Dark mode costs half a day only
+ * while that stays true, which is what scripts/check-web-tokens.sh is for.
+ */
+
 @import "tailwindcss";
+
+/*
+ * `dark:` follows the explicit choice as well as the system preference.
+ * Rarely needed -- the tokens below already swap -- but an image, a mask or a
+ * shadow occasionally has to know.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------------------------------------------------------------------------
+ * 1. The raw palette.
+ *
+ * These are not used by components. They exist so the semantic names in §2 can
+ * point at something that changes per theme. Components use the semantic name.
+ *
+ * Hue 95 at chroma 0.002–0.008 is a warm neutral, not a pure grey. Pure grey
+ * (chroma 0) reads cold and cheap at these lightnesses; the warmth is below the
+ * threshold of being a colour and above the threshold of being noticed.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --vk-surface:          oklch(99%  0.002 95);
+  --vk-surface-raised:   oklch(100% 0     0);
+  --vk-surface-sunken:   oklch(97%  0.003 95);
+  --vk-overlay:          oklch(100% 0     0);
+
+  /* Text */
+  --vk-text:             oklch(24%  0.008 95);
+  --vk-text-muted:       oklch(48%  0.008 95);
+  --vk-text-subtle:      oklch(56%  0.006 95);
+  --vk-text-inverse:     oklch(99%  0.002 95);
+
+  /* Lines */
+  --vk-border:           oklch(91%  0.004 95);
+  --vk-border-strong:    oklch(84%  0.005 95);
+
+  /* Action. Ink, not blue -- DECISIONS.md §7. */
+  --vk-accent:           oklch(24%  0.008 95);
+  --vk-accent-hover:     oklch(16%  0.008 95);
+  --vk-accent-text:      oklch(99%  0.002 95);
+  --vk-focus:            oklch(24%  0.008 95);
+
+  /* State. The only hue in the interface. */
+  --vk-ok:               oklch(44%  0.110 150);
+  --vk-ok-surface:       oklch(96%  0.020 150);
+  --vk-warn:             oklch(47%  0.110  75);
+  --vk-warn-surface:     oklch(96%  0.030  75);
+  --vk-danger:           oklch(50%  0.170  27);
+  --vk-danger-surface:   oklch(96%  0.025  27);
+
+
+  /* ---- Charts. See docs/DESIGN.md §13. Validated, not chosen by eye. ----
+   * Slot order is the colourblind-safety mechanism and is never reordered.
+   * Re-stepped for THIS product's surfaces rather than adopted from a reference:
+   * every slot clears 3:1, so no chart leans on the relief rule to be legible.
+   * Light: worst adjacent CVD ΔE 9.4, tritan 9.7, normal-vision ΔE 17.8. */
+  --vk-series-1: #0E76E4;  /* blue    4.32:1 */
+  --vk-series-2: #F65D13;  /* orange  3.15:1 */
+  --vk-series-3: #2AA374;  /* aqua    3.09:1 */
+  --vk-series-4: #BE831E;  /* yellow  3.15:1 */
+  --vk-series-5: #EB5D98;  /* magenta 3.12:1 */
+  --vk-series-6: #1F811C;  /* green   4.84:1 */
+  --vk-series-7: #4C27C0;  /* violet  8.64:1 */
+  --vk-series-8: #F90F2D;  /* red     3.96:1 */
+  --vk-series-other: #a5a4a2;
+
+  /* Diverging: blue ↔ orange, neutral midpoint. NOT blue ↔ red — §6 forbids
+   * red for a negative figure, and every loss month would be one. */
+  --vk-diverge-pos-4: #184f95;
+  --vk-diverge-pos-3: #2a78d6;
+  --vk-diverge-pos-2: #5598e7;
+  --vk-diverge-pos-1: #86b6ef;
+  --vk-diverge-mid:   #ECEBE8;
+  --vk-diverge-neg-1: #FF9067;
+  --vk-diverge-neg-2: #F16223;
+  --vk-diverge-neg-3: #C94905;
+  --vk-diverge-neg-4: #883004;
+
+  /* Chart chrome. Ink is text, never a series colour. */
+  --vk-chart-grid:     #E8E8E5;
+  --vk-chart-axis:     #CBCAC7;
+  --vk-chart-deemph:   #A5A4A2;
+
+  /* Overlay shadows. Overlays only -- never for hierarchy (DESIGN.md §5). */
+  --vk-shadow-panel: 0 1px 2px oklch(24% 0.008 95 / 0.06),
+                     0 8px 24px oklch(24% 0.008 95 / 0.10);
+  --vk-shadow-menu:  0 1px 2px oklch(24% 0.008 95 / 0.08),
+                     0 4px 12px oklch(24% 0.008 95 / 0.12);
+}
+
+/*
+ * Dark. Chosen steps, not an inversion -- WORKFLOW.md §5.3 requires this and
+ * the skill agrees: an inverted palette puts pure white on pure black, which
+ * halates.
+ *
+ * The surface is oklch(18%) = #121210, a warm near-black. Not #000: at this
+ * size of text, white on true black blooms, and the figures in a P&L are the
+ * one thing that must stay crisp.
+ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --vk-surface:          oklch(18% 0.004 95);
+  --vk-surface-raised:   oklch(21% 0.004 95);
+  --vk-surface-sunken:   oklch(15% 0.004 95);
+  --vk-overlay:          oklch(21% 0.004 95);
+
+  --vk-text:             oklch(93% 0.004 95);
+  --vk-text-muted:       oklch(72% 0.005 95);
+  --vk-text-subtle:      oklch(62% 0.005 95);
+  --vk-text-inverse:     oklch(18% 0.004 95);
+
+  --vk-border:           oklch(28% 0.005 95);
+  --vk-border-strong:    oklch(37% 0.006 95);
+
+  /* The accent inverts with the ground: ink on white becomes white on ink. */
+  --vk-accent:           oklch(93%  0.004 95);
+  --vk-accent-hover:     oklch(100% 0     0);
+  --vk-accent-text:      oklch(18%  0.004 95);
+  --vk-focus:            oklch(80%  0.006 95);
+
+  --vk-ok:               oklch(76% 0.105 150);
+  --vk-ok-surface:       oklch(28% 0.038 150);
+  --vk-warn:             oklch(80% 0.110  75);
+  --vk-warn-surface:     oklch(29% 0.048  75);
+  --vk-danger:           oklch(70% 0.140  27);
+  --vk-danger-surface:   oklch(30% 0.062  27);
+
+
+  /* Charts — the same eight hues, re-stepped for this surface with the light
+   * palette's lightness structure preserved. A flat palette (every slot at the
+   * band ceiling) separates worse: lightness variation does real work.
+   * Worst adjacent CVD ΔE 9.6, tritan 10.1, normal-vision ΔE 18.9. All ≥ 3:1. */
+  --vk-series-1: #1480F8;  /* blue    4.91:1 */
+  --vk-series-2: #F05907;  /* orange  5.52:1 */
+  --vk-series-3: #05A672;  /* aqua    6.03:1 */
+  --vk-series-4: #BE8109;  /* yellow  5.68:1 */
+  --vk-series-5: #EB4F94;  /* magenta 5.45:1 */
+  --vk-series-6: #179809;  /* green   4.94:1 */
+  --vk-series-7: #6855DE;  /* violet  3.51:1 */
+  --vk-series-8: #EB4848;  /* red     4.98:1 */
+  --vk-series-other: #646360;
+
+  --vk-diverge-pos-4: #358EFD;
+  --vk-diverge-pos-3: #1177E7;
+  --vk-diverge-pos-2: #0763C4;
+  --vk-diverge-pos-1: #0050A2;
+  --vk-diverge-mid:   #2E2E2B;
+  --vk-diverge-neg-1: #8C3001;
+  --vk-diverge-neg-2: #AB3D04;
+  --vk-diverge-neg-3: #CB4B08;
+  --vk-diverge-neg-4: #EA5B18;
+
+  --vk-chart-grid:     #2A2926;
+  --vk-chart-axis:     #41403C;
+  --vk-chart-deemph:   #646360;
+
+  /* Darker and more opaque: a light shadow is invisible on a dark ground. */
+  --vk-shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.40),
+                     0 8px 24px oklch(0% 0 0 / 0.55);
+  --vk-shadow-menu:  0 1px 2px oklch(0% 0 0 / 0.45),
+                     0 4px 12px oklch(0% 0 0 / 0.60);
+}
+
+/* The system preference, unless the reader has explicitly chosen light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --vk-surface:          oklch(18% 0.004 95);
+    --vk-surface-raised:   oklch(21% 0.004 95);
+    --vk-surface-sunken:   oklch(15% 0.004 95);
+    --vk-overlay:          oklch(21% 0.004 95);
+
+    --vk-text:             oklch(93% 0.004 95);
+    --vk-text-muted:       oklch(72% 0.005 95);
+    --vk-text-subtle:      oklch(62% 0.005 95);
+    --vk-text-inverse:     oklch(18% 0.004 95);
+
+    --vk-border:           oklch(28% 0.005 95);
+    --vk-border-strong:    oklch(37% 0.006 95);
+
+    --vk-accent:           oklch(93%  0.004 95);
+    --vk-accent-hover:     oklch(100% 0     0);
+    --vk-accent-text:      oklch(18%  0.004 95);
+    --vk-focus:            oklch(80%  0.006 95);
+
+    --vk-ok:               oklch(76% 0.105 150);
+    --vk-ok-surface:       oklch(28% 0.038 150);
+    --vk-warn:             oklch(80% 0.110  75);
+    --vk-warn-surface:     oklch(29% 0.048  75);
+    --vk-danger:           oklch(70% 0.140  27);
+    --vk-danger-surface:   oklch(30% 0.062  27);
+
+  /* Charts — the same eight hues, re-stepped for this surface with the light
+   * palette's lightness structure preserved. A flat palette (every slot at the
+   * band ceiling) separates worse: lightness variation does real work.
+   * Worst adjacent CVD ΔE 9.6, tritan 10.1, normal-vision ΔE 18.9. All ≥ 3:1. */
+    --vk-series-1: #1480F8;  /* blue    4.91:1 */
+    --vk-series-2: #F05907;  /* orange  5.52:1 */
+    --vk-series-3: #05A672;  /* aqua    6.03:1 */
+    --vk-series-4: #BE8109;  /* yellow  5.68:1 */
+    --vk-series-5: #EB4F94;  /* magenta 5.45:1 */
+    --vk-series-6: #179809;  /* green   4.94:1 */
+    --vk-series-7: #6855DE;  /* violet  3.51:1 */
+    --vk-series-8: #EB4848;  /* red     4.98:1 */
+    --vk-series-other: #646360;
+
+    --vk-diverge-pos-4: #358EFD;
+    --vk-diverge-pos-3: #1177E7;
+    --vk-diverge-pos-2: #0763C4;
+    --vk-diverge-pos-1: #0050A2;
+    --vk-diverge-mid:   #2E2E2B;
+    --vk-diverge-neg-1: #8C3001;
+    --vk-diverge-neg-2: #AB3D04;
+    --vk-diverge-neg-3: #CB4B08;
+    --vk-diverge-neg-4: #EA5B18;
+
+    --vk-chart-grid:     #2A2926;
+    --vk-chart-axis:     #41403C;
+    --vk-chart-deemph:   #646360;
+
+    --vk-shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.40),
+                       0 8px 24px oklch(0% 0 0 / 0.55);
+    --vk-shadow-menu:  0 1px 2px oklch(0% 0 0 / 0.45),
+                       0 4px 12px oklch(0% 0 0 / 0.60);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. The semantic layer. This is what components use.
+ *
+ * `@theme inline` rather than `@theme`: the utilities must emit
+ * `var(--vk-surface)` so the value resolves at the element and follows the
+ * theme. A plain `@theme` would resolve once against :root and dark mode would
+ * silently do nothing.
+ * ------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-surface:         var(--vk-surface);
+  --color-surface-raised:  var(--vk-surface-raised);
+  --color-surface-sunken:  var(--vk-surface-sunken);
+  --color-overlay:         var(--vk-overlay);
+
+  --color-text:            var(--vk-text);
+  --color-text-muted:      var(--vk-text-muted);
+  --color-text-subtle:     var(--vk-text-subtle);
+  --color-text-inverse:    var(--vk-text-inverse);
+
+  --color-border:          var(--vk-border);
+  --color-border-strong:   var(--vk-border-strong);
+
+  --color-accent:          var(--vk-accent);
+  --color-accent-hover:    var(--vk-accent-hover);
+  --color-accent-text:     var(--vk-accent-text);
+  --color-focus:           var(--vk-focus);
+
+  --color-ok:              var(--vk-ok);
+  --color-ok-surface:      var(--vk-ok-surface);
+  --color-warn:            var(--vk-warn);
+  --color-warn-surface:    var(--vk-warn-surface);
+  --color-danger:          var(--vk-danger);
+  --color-danger-surface:  var(--vk-danger-surface);
+
+  /*
+   * Figures. Deliberately not ok/danger -- DESIGN.md §6.
+   * An expense line is negative every month. Painting it red trains the reader
+   * to ignore red, and red is what marks a rejected batch.
+   */
+  --color-figure:          var(--vk-text);
+  --color-figure-negative: var(--vk-text);
+  --color-figure-blocked:  var(--vk-text-subtle);
+
+  --color-series-1:      var(--vk-series-1);
+  --color-series-2:      var(--vk-series-2);
+  --color-series-3:      var(--vk-series-3);
+  --color-series-4:      var(--vk-series-4);
+  --color-series-5:      var(--vk-series-5);
+  --color-series-6:      var(--vk-series-6);
+  --color-series-7:      var(--vk-series-7);
+  --color-series-8:      var(--vk-series-8);
+  --color-series-other:    var(--vk-series-other);
+  --color-diverge-pos-4:   var(--vk-diverge-pos-4);
+  --color-diverge-pos-3:   var(--vk-diverge-pos-3);
+  --color-diverge-pos-2:   var(--vk-diverge-pos-2);
+  --color-diverge-pos-1:   var(--vk-diverge-pos-1);
+  --color-diverge-mid:     var(--vk-diverge-mid);
+  --color-diverge-neg-1:   var(--vk-diverge-neg-1);
+  --color-diverge-neg-2:   var(--vk-diverge-neg-2);
+  --color-diverge-neg-3:   var(--vk-diverge-neg-3);
+  --color-diverge-neg-4:   var(--vk-diverge-neg-4);
+  --color-chart-grid:      var(--vk-chart-grid);
+  --color-chart-axis:      var(--vk-chart-axis);
+  --color-chart-deemph:    var(--vk-chart-deemph);
+
+  --shadow-panel:          var(--vk-shadow-panel);
+  --shadow-menu:           var(--vk-shadow-menu);
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. Type, space, shape, motion. These do not change between themes.
+ * ------------------------------------------------------------------------- */
+
+@theme {
+  /*
+   * One family: Inter. The reason is Cyrillic (DESIGN.md §4) -- the Demo ships
+   * en and ru, and a font with an incomplete Cyrillic set fails half the
+   * interface in the language nobody tests first.
+   *
+   * Self-hosted, not from a CDN (DECISIONS.md §2.1). The files are not in the
+   * repository yet; until they are, the fallback stack below renders and the
+   * layout is unaffected. Uncomment §5 when they land.
+   */
+  --font-sans: "Inter", "Inter Variable", system-ui, -apple-system, "Segoe UI",
+               "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /*
+   * Register B — the application. Caps at 24px (DESIGN.md §1).
+   * Line heights are paired here; §3 of DESIGN.md gave sizes and no leading,
+   * which left every component to invent its own.
+   */
+  --text-2xs: 0.6875rem;              /* 11px — table meta, provenance */
+  --text-2xs--line-height: 1.45;
+  --text-xs: 0.75rem;                 /* 12px — dates, counts, column meta */
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.8125rem;               /* 13px — table numerals */
+  --text-sm--line-height: 1.4;
+  --text-base: 0.875rem;              /* 14px — product body */
+  --text-base--line-height: 1.5;
+  --text-md: 1rem;                    /* 16px */
+  --text-md--line-height: 1.5;
+  --text-lg: 1.25rem;                 /* 20px — screen heading */
+  --text-lg--line-height: 1.3;
+  --text-lg--letter-spacing: -0.01em;
+  --text-xl: 1.5rem;                  /* 24px — product maximum */
+  --text-xl--line-height: 1.25;
+  --text-xl--letter-spacing: -0.015em;
+
+  /*
+   * Register A — the landing page. Up to 48px (DESIGN.md §1).
+   * These three sizes must never appear behind sign-in.
+   */
+  --text-2xl: 1.875rem;               /* 30px */
+  --text-2xl--line-height: 1.2;
+  --text-2xl--letter-spacing: -0.02em;
+  --text-3xl: 2.25rem;                /* 36px */
+  --text-3xl--line-height: 1.15;
+  --text-3xl--letter-spacing: -0.022em;
+  --text-4xl: 3rem;                   /* 48px — Register A maximum */
+  --text-4xl--line-height: 1.05;
+  --text-4xl--letter-spacing: -0.025em;
+
+  /*
+   * 4px base. DESIGN.md §5's app scale — 2, 4, 6, 8, 12, 16, 24, 32 — is
+   * 0.5, 1, 1.5, 2, 3, 4, 6, 8 in these units.
+   *
+   * The rule "nothing above 32 inside the app" cannot live here: Tailwind v4
+   * generates spacing utilities dynamically, so `p-96` still compiles. It is
+   * enforced in scripts/check-web-tokens.sh instead, which is the only place
+   * it can be.
+   */
+  --spacing: 0.25rem;
+
+  --radius-control: 3px;
+  --radius-panel: 6px;
+
+  /*
+   * Motion. Register B: the drill-down panel, and nothing else (DESIGN.md §5).
+   * NEVER animate a figure -- a number that counts up looks like it is still
+   * computing, and this product's whole claim is that the number is final.
+   * Register A may use the slower steps.
+   */
+  --ease-panel: cubic-bezier(0.2, 0, 0, 1);
+  --ease-entrance: cubic-bezier(0, 0, 0.2, 1);
+  --duration-panel: 120ms;
+  --duration-slow: 320ms;
+
+  /* Rail collapses below lg — see INFORMATION_ARCHITECTURE.md §2. */
+  --breakpoint-sm: 375px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  --container-prose: 68ch;
+  --container-landing: 72rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. The floor.
+ * ------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * A visible focus ring on every interactive element, 2px, 1px offset
+   * (DESIGN.md §9). The review queue is keyboard-first; a hidden ring makes it
+   * unusable. The offset is what keeps an ink ring legible on an ink button.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+  }
+
+  /*
+   * Every figure aligns by digit. DESIGN.md §4: "This is not a preference."
+   */
+  [data-numeric],
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Motion is a preference, and honouring it is not optional. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /*
+   * Print must produce a readable P&L in black and white (DESIGN.md §9).
+   * Force the light ground: a dark-mode print is a page of toner.
+   */
+  @media print {
+    :root,
+    [data-theme="dark"] {
+      --vk-surface: white;
+      --vk-surface-raised: white;
+      --vk-surface-sunken: white;
+      --vk-text: black;
+      --vk-text-muted: #333;
+      --vk-text-subtle: #555;
+      --vk-border: #999;
+      --vk-border-strong: #666;
+      --vk-shadow-panel: none;
+      --vk-shadow-menu: none;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. Self-hosted Inter.
+ *
+ * `--font-sans` names Inter first and falls back to the system stack, so the
+ * layout is correct either way and only the letterforms change when the files
+ * land. The `@font-face` block that declares them is NOT commented out here --
+ * commented-out code in a stylesheet is a thing nobody dares delete and nobody
+ * can run. It lives in `add-web-experience` task 9.6, which is what adds the
+ * two woff2 subsets under `web/public/fonts/`.
+ * ------------------------------------------------------------------------- */

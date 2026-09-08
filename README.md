@@ -50,13 +50,44 @@ make dev     # creates the k3d cluster if absent, then starts Tilt
 
 Then open either:
 
-- **http://vekst.localhost:8081** — through the cluster Ingress. `/rpc` is routed
+- **http://localhost:8081** — through the cluster Ingress. `/rpc` is routed
   to `core` and everything else to `web`, which is exactly what a deployment does.
 - **http://localhost:5173** — Tilt's port-forward straight to the web pod. Here
   Vite's dev proxy forwards `/rpc` to the `core` Service instead.
 
 Both work and both are same-origin. The second exists because it is what the
 Tilt UI links to; the first is the one that matches production.
+
+### Signing in (optional)
+
+The stack runs without sign-in configured: everything serves, and only the
+`/auth/*` routes answer with `auth_not_configured`. To enable Google sign-in you
+need a Google Cloud OAuth client.
+
+1. Create an OAuth 2.0 Client ID (type: Web application) in a Google Cloud
+   project.
+2. Register `http://localhost:8081/auth/google/callback` as an authorised
+   redirect URI. Google refuses a host that is a subdomain of `localhost`, which
+   is why this overlay serves plain `localhost` rather than `vekst.localhost`.
+3. Copy the placeholder Secret and fill it in — the copy is git-ignored:
+
+   ```sh
+   cd deploy/k8s/overlays/local
+   cp google-oidc.yaml google-oidc.secret.yaml
+   # set client_id and client_secret in the copy
+   ```
+
+4. Re-run `make dev`. Tilt applies the copy instead of the committed
+   placeholders and prints which one it used.
+
+`core` refuses to start if it finds `REPLACE_ME` in either credential: a
+placeholder reaching a running service fails opaquely at Google, far from its
+cause. Empty values are different, and are the supported "not configured" state.
+
+**Obtaining a session for manual testing.** Sign in through the browser at
+<http://localhost:8081>, then read the `vekst_session` cookie from devtools. The
+database stores only its SHA-256, so the cookie value is the only copy — there
+is deliberately no way to recover a working token from the `sessions` table.
 
 `make dev` switches your kubectl context to `k3d-vekst`. The Tiltfile also pins
 `allow_k8s_contexts`, so a stray kubeconfig cannot point this at a real cluster —
@@ -90,6 +121,32 @@ meaningful rather than advisory (`CLAUDE.md`, openspec design D1):
 | `vekst_migrator` | the schema; applies migrations | the migration Job only, via `DATABASE_URL_MIGRATOR` |
 | `vekst_app` | nothing — DML rights only, `NOBYPASSRLS` | `core` itself, via `DATABASE_URL` |
 
+**Neither is a superuser.** A superuser bypasses row-level security
+unconditionally, `FORCE` included, so a superuser `vekst_migrator` would turn
+tenant isolation into decoration — and only in development and CI, since every
+managed Postgres hands out a plain database owner. CI asserts both roles have
+`rolsuper` and `rolbypassrls` false.
+
+### What the environment must provision
+
+`vekst_migrator` exists *before* any migration runs — it is the role they are
+applied as — so nothing in `core/migrations` can create it. That falls to the
+environment, and the contract is one file:
+
+```sh
+psql "$SUPERUSER_URL" -v ON_ERROR_STOP=1 -f deploy/db/provision-migrator.sql
+```
+
+It creates `vekst_migrator` with `CREATEROLE` and nothing else, and database
+`vekst` owned by it — which is what confers ownership of schema `public`,
+since Postgres 15 and later derive that from the database owner. Migration
+`00001` creates `vekst_app` itself and refuses to run as anyone else.
+
+Run it as a throwaway superuser: the container's initdb user locally, or the
+managed service's administrative role. Nothing uses that superuser again. The
+local cluster mounts this same file into Postgres's initdb directory and CI
+runs it as a step, so the two cannot drift.
+
 `core` never holds `vekst_migrator` credentials. Migrations are Go's
 `goose`, embedded into the `vekst-core` binary (`core/migrations`) — the
 binary that migrates and the binary that serves are the same binary, so
@@ -104,10 +161,83 @@ migrations directly.
 kubectl exec -it deploy/postgres -- psql -U vekst_migrator -d vekst
 ```
 
-`vekst_migrator` (not `vekst_app`) because that Deployment's own credentials
-are what's mounted there; `vekst_app`'s password is `vekst_app` locally if
+`vekst_migrator` (not the container's `POSTGRES_USER`, which is a throwaway
+superuser that owns nothing); `vekst_app`'s password is `vekst_app` locally if
 you want to connect as it instead — `psql "postgres://vekst_app:vekst_app@localhost:5432/vekst"`
 after `kubectl port-forward svc/postgres 5432:5432`.
+
+**Selecting from a tenant table needs a tenant context.** Every tenant table has
+a policy restricting it to `app_current_org()`, and `FORCE ROW LEVEL SECURITY`
+means `vekst_migrator` is subject to it too. Without a context, a select raises
+rather than returning nothing:
+
+```
+vekst=> SELECT * FROM entities;
+ERROR:  unrecognized configuration parameter "app.org_id"
+CONTEXT:  PL/pgSQL function app_current_org() line 5 at assignment
+```
+
+That is deliberate — zero rows would be indistinguishable from a customer who
+has no data, and a report would render it as such.
+
+You will meet a second wording for the same condition, on a connection that has
+*already* served a tenant transaction:
+
+```
+ERROR:  app.org_id is not set
+HINT:  open the transaction through db.InTx, which sets the tenant context
+```
+
+Both are SQLSTATE `42704`. A transaction-local setting is reverted when the
+transaction ends, but reverting does not unregister the parameter — it is left
+holding the empty string, which would otherwise surface as `22P02 invalid input
+syntax for type uuid: ""`. `app_current_org()` normalises that to `42704` so
+that one condition has one code; the message differs only because the first
+case is raised by `current_setting` itself. Since `core` runs on a connection
+pool, the second is the common one in production.
+
+In psql, set the context inside a transaction, the way `db.InTx` does:
+
+```sql
+BEGIN;
+SELECT set_config('app.org_id', '<an organisation uuid>', true);
+SELECT * FROM entities;     -- that organisation's rows, and no others
+COMMIT;                     -- the context is reverted here
+```
+
+To find an organisation id in the first place, read the one table whose tenant
+key is its own primary key — which still needs a context, so it is a chicken and
+egg by design. Use the migration role and suspend the policy for the length of
+one transaction instead:
+
+```sql
+BEGIN;
+ALTER TABLE organizations NO FORCE ROW LEVEL SECURITY;
+SELECT id, name FROM organizations;
+ROLLBACK;                   -- FORCE is restored by the rollback
+```
+
+That idiom — `NO FORCE`, act, restore, inside one transaction — is also how a
+migration backfills a tenant column. Forgetting the restore is not silent: it
+lands in `pg_class.relforcerowsecurity`, which the RLS coverage test asserts, so
+CI fails on the same pull request.
+
+**Running the database-backed tests** needs one more credential than the
+application does. `core/internal/migrate` creates a disposable database per
+test, and `vekst_migrator` deliberately cannot create databases — it holds
+`CREATEROLE` and ownership, nothing more. Point `DATABASE_URL_ADMIN` at a
+throwaway superuser for that, and nothing else:
+
+```sh
+DATABASE_URL_MIGRATOR=postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable \
+DATABASE_URL_ADMIN=postgres://<superuser>@localhost:5432/postgres?sslmode=disable \
+  go test ./core/internal/migrate/...
+```
+
+Creating a database is something only the test harness does; production
+provisions one, out of band, once. Adding `CREATEDB` to
+`provision-migrator.sql` would widen the contract every hosted environment has
+to satisfy for something no hosted environment does.
 
 ## Layout
 

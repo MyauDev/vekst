@@ -1,7 +1,15 @@
-# One host, path routing. /rpc goes to core, everything else to web, so the
-# document and the RPC share an origin and no CORS header is ever required --
-# design D6. Defined here in the base so every environment inherits identical
-# routing; an overlay changes only the host.
+# One host, path routing. /rpc and /auth go to core, everything else to web, so
+# the document, the RPC and the sign-in flow share an origin and no CORS header
+# is ever required -- design D6. Defined here in the base so every environment
+# inherits identical routing; an overlay changes only the host.
+#
+# /auth is the one non-Connect browser surface (CLAUDE.md): /auth/google/start,
+# /auth/google/callback and /auth/logout, registered in
+# core/internal/identity/identity.go. A Connect handler cannot answer with a 302
+# and the callback is a browser navigation, so these three cannot be RPCs and
+# need their own rule here. Without it they fall through to the `/` rule and are
+# answered by the static web container, which does not serve them -- sign-in
+# then fails in every environment.
 #
 # There is deliberately no rule for the classifier. It is internal.
 apiVersion: networking.k8s.io/v1
@@ -13,6 +21,12 @@ spec:
     - http:
         paths:
           - path: /rpc
+            pathType: Prefix
+            backend:
+              service:
+                name: core
+                port: { name: http }
+          - path: /auth
             pathType: Prefix
             backend:
               service:

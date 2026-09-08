@@ -8,9 +8,32 @@
 # see openspec design D4, confirmed against github.com/riverqueue/river
 # v0.47.0's `main` migration line. Task 4.7b asserts this list is exactly
 # the set of tables present after this change's migrations run.
+#
+# The four identity tables come from core/migrations/00003 (change 1.2
+# add-identity). None of them belongs to an organisation, and the reason
+# differs per table -- see that change's design 1.1:
+#
+#   users            Global by design (ARCHITECTURE.md 5.5). A person may
+#                    belong to several organisations; access is mediated by
+#                    memberships, which 1.1 adds.
+#   user_identities  A person's provider accounts. Same scope as users.
+#   sessions         A session belongs to a person, not to an organisation.
+#                    Tenant context is chosen per request, after
+#                    authentication.
+#   auth_flows       Exists before anyone is authenticated. It cannot have an
+#                    owner.
+#
+# Because RLS is not protecting these four, the mitigations live elsewhere:
+# REVOKE UPDATE on user_identities (00003), the narrowness check in
+# scripts/check-identity-queries.sh, and the core/internal/identity package
+# comment.
+auth_flows
 goose_db_version
 river_migration
 river_job
 river_leader
 river_queue
 river_notification
+sessions
+user_identities
+users

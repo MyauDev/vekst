@@ -1,0 +1,81 @@
+/*
+ * Mock-only token layer.
+ *
+ * Plain custom properties on purpose: this file must not touch the app's
+ * Tailwind entry (`src/index.css`). Change 5.1a lifts these same values into
+ * that file as a Tailwind v4 `@theme` block, where they become
+ * `--color-surface`, `--color-text` and so on.
+ *
+ * Values and reasons: docs/DESIGN.md §3. Contrast ratios: §9.
+ */
+:root {
+  --vk-surface: oklch(99% 0.002 95);
+  --vk-surface-raised: oklch(100% 0 0);
+  --vk-surface-sunken: oklch(97% 0.003 95);
+
+  --vk-text: oklch(24% 0.008 95);
+  --vk-text-muted: oklch(48% 0.008 95);
+  --vk-text-subtle: oklch(56% 0.006 95);
+  --vk-text-inverse: oklch(99% 0.002 95);
+
+  --vk-border: oklch(91% 0.004 95);
+  --vk-border-strong: oklch(84% 0.005 95);
+  --vk-hairline: oklch(94% 0.004 95);
+
+  --vk-accent: oklch(48% 0.13 250);
+  --vk-accent-hover: oklch(42% 0.13 250);
+  --vk-accent-surface: oklch(96% 0.03 250);
+  --vk-focus: oklch(55% 0.16 250);
+
+  --vk-ok: oklch(52% 0.11 150);
+  --vk-ok-surface: oklch(96% 0.02 150);
+  --vk-warn: oklch(54% 0.12 75);
+  --vk-warn-surface: oklch(96% 0.03 75);
+  --vk-danger: oklch(52% 0.17 27);
+  --vk-danger-surface: oklch(96% 0.025 27);
+
+  --vk-radius-control: 3px;
+  --vk-radius-panel: 6px;
+
+  --vk-font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --vk-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--vk-font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  background: var(--vk-surface);
+  color: var(--vk-text);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+/* The review queue is keyboard-first. A hidden focus ring makes it unusable. */
+:focus-visible {
+  outline: 2px solid var(--vk-focus);
+  outline-offset: 1px;
+}
+
+.vk-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.vk-mono {
+  font-family: var(--vk-font-mono);
+  font-variant-numeric: tabular-nums;
+}

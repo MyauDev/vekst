@@ -13,21 +13,38 @@ import (
 // core/internal/jobs tests also use. Up and Down here drop and recreate the
 // whole schema, and `go test ./...` runs different packages' tests
 // concurrently by default; sharing a database with those tests would race.
-func testMigratorURL(t *testing.T) string {
+//
+// The CREATE and DROP go through DATABASE_URL_ADMIN, a throwaway superuser,
+// rather than through vekst_migrator. vekst_migrator deliberately holds only
+// CREATEROLE and ownership of its database (deploy/db/provision-migrator.sql):
+// it is not a superuser, because a superuser bypasses row-level security
+// unconditionally and CI would then prove nothing about a managed Postgres
+// (design D0). Creating a database is something only this test harness does --
+// production provisions one, out of band, once -- so it is the harness that
+// carries the credential for it, and the documented contract stays the two
+// privileges a hosted environment actually has to grant.
+//
+// The new database is owned by vekst_migrator: Postgres 15 and later make
+// schema public owned by pg_database_owner, so that ownership is what gives
+// migration 00001's REVOKE and ALTER DEFAULT PRIVILEGES something to act on.
+// Without the OWNER clause the superuser would own it and 00001 would fail.
+func testMigratorURL(t *testing.T, dbName string) string {
 	t.Helper()
 	base := os.Getenv("DATABASE_URL_MIGRATOR")
 	if base == "" {
 		t.Skip("DATABASE_URL_MIGRATOR not set; skipping a test that needs a live Postgres")
 	}
-
-	const dbName = "vekst_migrate_updown_test"
+	adminURL := os.Getenv("DATABASE_URL_ADMIN")
+	if adminURL == "" {
+		t.Skip("DATABASE_URL_ADMIN not set; skipping a test that needs to create a database")
+	}
 
 	u, err := url.Parse(base)
 	if err != nil {
 		t.Fatalf("parsing DATABASE_URL_MIGRATOR: %v", err)
 	}
 
-	admin, err := sql.Open("pgx", base)
+	admin, err := sql.Open("pgx", adminURL)
 	if err != nil {
 		t.Fatalf("opening admin connection: %v", err)
 	}
@@ -47,7 +64,7 @@ func testMigratorURL(t *testing.T) string {
 	if _, err := admin.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
 		t.Fatalf("dropping stale test database: %v", err)
 	}
-	if _, err := admin.Exec("CREATE DATABASE " + dbName); err != nil {
+	if _, err := admin.Exec("CREATE DATABASE " + dbName + " OWNER vekst_migrator"); err != nil {
 		t.Fatalf("creating test database: %v", err)
 	}
 
@@ -61,16 +78,24 @@ func testMigratorURL(t *testing.T) string {
 // the registered Go migration, the only test coverage core/migrations/
 // 00002_river.go's upRiver/downRiver get.
 func TestUpDownUp(t *testing.T) {
-	url := testMigratorURL(t)
+	url := testMigratorURL(t, "vekst_migrate_updown_test")
 	ctx := context.Background()
 
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up: %v", err)
 	}
-	assertTableCount(t, url, 6) // goose_db_version + 5 River tables
+	// goose_db_version + 5 River tables + 4 identity tables (00003) + 4
+	// tenancy tables (00004).
+	assertTableCount(t, url, 14)
 
-	// Down twice: 00002 (River) then 00001 (roles), matching the two
-	// migrations actually registered.
+	// Down four times: 00004 (tenancy), 00003 (identity), 00002 (River),
+	// 00001 (roles), matching the four migrations actually registered.
+	if err := Down(ctx, url); err != nil {
+		t.Fatalf("Down (tenancy): %v", err)
+	}
+	if err := Down(ctx, url); err != nil {
+		t.Fatalf("Down (identity): %v", err)
+	}
 	if err := Down(ctx, url); err != nil {
 		t.Fatalf("Down (River): %v", err)
 	}
@@ -86,7 +111,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 6)
+	assertTableCount(t, url, 14)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {

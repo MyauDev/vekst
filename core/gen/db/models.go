@@ -8,9 +8,78 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Account struct {
+	ID          pgtype.UUID
+	OrgID       pgtype.UUID
+	EntityID    pgtype.UUID
+	Name        string
+	Currency    string
+	ExternalRef pgtype.Text
+	CreatedAt   pgtype.Timestamptz
+}
+
+type AuthFlow struct {
+	ID           pgtype.UUID
+	State        string
+	Nonce        string
+	CodeVerifier string
+	CreatedAt    pgtype.Timestamptz
+	ExpiresAt    pgtype.Timestamptz
+}
+
+type Entity struct {
+	ID        pgtype.UUID
+	OrgID     pgtype.UUID
+	Name      string
+	LegalName pgtype.Text
+	TaxID     pgtype.Text
+	CreatedAt pgtype.Timestamptz
+}
+
 type GooseDbVersion struct {
 	ID        int64
 	VersionID int64
 	IsApplied bool
 	Tstamp    pgtype.Timestamp
+}
+
+type Membership struct {
+	OrgID     pgtype.UUID
+	UserID    pgtype.UUID
+	Role      string
+	CreatedAt pgtype.Timestamptz
+}
+
+type Organization struct {
+	ID           pgtype.UUID
+	Name         string
+	Country      string
+	BaseCurrency string
+	CreatedAt    pgtype.Timestamptz
+}
+
+type Session struct {
+	ID          pgtype.UUID
+	TokenSha256 []byte
+	UserID      pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+	ExpiresAt   pgtype.Timestamptz
+	LastSeenAt  pgtype.Timestamptz
+	RevokedAt   pgtype.Timestamptz
+	UserAgent   pgtype.Text
+}
+
+type User struct {
+	ID        pgtype.UUID
+	Email     pgtype.Text
+	Name      pgtype.Text
+	Locale    string
+	CreatedAt pgtype.Timestamptz
+}
+
+type UserIdentity struct {
+	Provider  string
+	Subject   string
+	UserID    pgtype.UUID
+	CreatedAt pgtype.Timestamptz
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/MyauDev/vekst/core/gen/vekst/v1/vektv1connect"
 	"github.com/MyauDev/vekst/core/internal/buildinfo"
 	"github.com/MyauDev/vekst/core/internal/config"
+	"github.com/MyauDev/vekst/core/internal/identity"
 )
 
 // Server owns the HTTP listener and its lifecycle.
@@ -28,7 +30,7 @@ type Server struct {
 
 // New builds the router and the HTTP server. It performs no I/O. database is
 // never nil from change 0.2 onward: core always connects to Postgres.
-func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker) *Server {
+func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker, ident *identity.Service) *Server {
 	s := &Server{
 		http: &http.Server{
 			Addr:              cfg.Addr,
@@ -42,6 +44,12 @@ func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, da
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
 
+	// Resolve the session for every request, and reject nothing here: the
+	// probes and the auth routes must answer without one, and what requires a
+	// session is the interceptor's decision. A nil ident (sign-in not
+	// configured) passes everything through anonymously.
+	r.Use(ident.Middleware)
+
 	// Liveness. Deliberately dependency-free: it answers "is this process
 	// broken", not "is the system healthy". A liveness probe that checks a
 	// dependency turns a recoverable outage into a crash loop.
@@ -54,9 +62,28 @@ func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, da
 	// Readiness. Checks the database and the schema version -- design D6.
 	r.Get("/readyz", s.readyz)
 
+	// The OIDC redirect flow: three plain HTTP routes, because a Connect
+	// handler cannot answer with a 302 and the callback arrives as a browser
+	// navigation. The one exception to "the browser talks to core over
+	// Connect", and one about transport rather than contract -- no application
+	// data crosses them (add-identity design D1).
+	ident.Routes(r)
+
 	// The browser API. Connect over HTTP, mounted under /rpc so the Ingress can
 	// route by path prefix and the browser stays same-origin (design D6).
-	path, handler := vektv1connect.NewHealthServiceHandler(&healthHandler{classifier: classifier, log: log})
+	//
+	// HealthService/Check is exempt from authentication: it is a Connect RPC
+	// behind /rpc rather than an HTTP probe path, and change 0.2's spec
+	// requires it to answer with no database and no credential.
+	authOpt := connect.WithInterceptors(identity.NewInterceptor(
+		vektv1connect.HealthServiceCheckProcedure,
+	))
+
+	path, handler := vektv1connect.NewHealthServiceHandler(
+		&healthHandler{classifier: classifier, log: log}, authOpt)
+	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
+
+	path, handler = vektv1connect.NewIdentityServiceHandler(&identityHandler{}, authOpt)
 	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
 
 	s.http.Handler = r
