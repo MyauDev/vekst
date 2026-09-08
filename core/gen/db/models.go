@@ -27,6 +27,24 @@ type AuthFlow struct {
 	ExpiresAt    pgtype.Timestamptz
 }
 
+type Category struct {
+	ID                 pgtype.UUID
+	TaxonomyVersion    string
+	OrgID              pgtype.UUID
+	Scope              string
+	Code               string
+	ParentID           pgtype.UUID
+	Level              int16
+	Name               string
+	PnlSection         pgtype.Text
+	IsPnl              bool
+	IsLeaf             bool
+	IsComputed         bool
+	Formula            pgtype.Text
+	RequiresAllocation bool
+	CreatedAt          pgtype.Timestamptz
+}
+
 type Entity struct {
 	ID        pgtype.UUID
 	OrgID     pgtype.UUID
