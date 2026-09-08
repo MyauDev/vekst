@@ -67,9 +67,15 @@ describe("the gate on Register B", () => {
     renderAt("/app/reports/pnl", { user: signedInUser });
     await screen.findByText(t("report.title"));
 
-    // In, corrected, read. The rail is a map, not a ranking.
-    const links = screen.getAllByRole("link").map((a) => a.textContent);
-    expect(links).toEqual([t("nav.imports"), t("nav.review"), t("nav.reports")]);
+    // In, corrected, read. The rail is a map, not a ranking. Asserted on the
+    // destinations rather than the text, because Review carries a count and the
+    // text is therefore "Review2" -- which is the badge working, not a defect.
+    const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(links).toEqual(["/app/imports", "/app/review", "/app/reports/pnl"]);
+
+    // The count is the only badge in the interface, and it belongs to Review.
+    const review = screen.getAllByRole("link")[1]!;
+    expect(review.textContent).toMatch(new RegExp(`^${t("nav.review")}\\d+$`));
   });
 
   it("shows the entity slot with a dash rather than an invented name", async () => {

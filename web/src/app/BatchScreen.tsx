@@ -10,10 +10,8 @@
  * practical: a person fixing the file opens it in a spreadsheet and goes to a
  * line. A parsed index names no line they can see.
  */
-import { useRef } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { getBatch } from "../data/imports";
 import type { BatchDetail, ValidationError } from "../data/imports";
@@ -44,39 +42,39 @@ function download(batch: BatchDetail, locale: Locale) {
   URL.revokeObjectURL(url);
 }
 
-function Errors({ errors, locale }: { errors: readonly ValidationError[]; locale: Locale }) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  // Windowed: a rejected file can carry one error per line, and a file has as
-  // many lines as the bank felt like exporting.
-  const virtual = useVirtualizer({
-    count: errors.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
-    overscan: 10,
-  });
+/**
+ * The error list. Capped, not windowed.
+ *
+ * A rejected file can carry one error per line, and the first instinct was to
+ * virtualise. That is the wrong tool here: nobody fixes five thousand errors by
+ * scrolling a box. They open the file and go to a line, which is why the list is
+ * keyed by the original line number and why the download beside it is the real
+ * answer at that size. Rendering a bounded head and saying so is both simpler
+ * and more honest than a scroll region that implies the screen is the workspace.
+ */
+const SHOWN = 200;
 
+function Errors({ errors, locale }: { errors: readonly ValidationError[]; locale: Locale }) {
+  const shown = errors.slice(0, SHOWN);
   return (
-    <div ref={parentRef} className="max-h-96 overflow-y-auto">
-      <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
-        {virtual.getVirtualItems().map((item) => {
-          const e = errors[item.index]!;
-          return (
-            <div
-              key={`${e.fileLine}-${e.code}`}
-              className="absolute inset-x-0 flex h-8 items-baseline gap-4 border-b border-border text-sm"
-              style={{ transform: `translateY(${item.start}px)` }}
-            >
-              <span className="tabular w-16 shrink-0 text-right text-text-subtle">
-                {e.fileLine}
-              </span>
-              <span className="min-w-0 flex-1">{t(`error.${e.code}` as MessageKey, locale)}</span>
-              {e.detail ? (
-                <span className="shrink-0 font-mono text-2xs text-text-muted">{e.detail}</span>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+    <div className="max-h-96 overflow-y-auto">
+      {shown.map((e) => (
+        <div
+          key={`${e.fileLine}-${e.code}`}
+          className="flex h-8 items-baseline gap-4 border-b border-border text-sm"
+        >
+          <span className="tabular w-16 shrink-0 text-right text-text-subtle">{e.fileLine}</span>
+          <span className="min-w-0 flex-1">{t(`error.${e.code}` as MessageKey, locale)}</span>
+          {e.detail ? (
+            <span className="shrink-0 font-mono text-2xs text-text-muted">{e.detail}</span>
+          ) : null}
+        </div>
+      ))}
+      {errors.length > SHOWN ? (
+        <p className="py-3 text-xs text-text-muted">
+          {errors.length - SHOWN}+ — {t("batch.errors.download", locale)}
+        </p>
+      ) : null}
     </div>
   );
 }

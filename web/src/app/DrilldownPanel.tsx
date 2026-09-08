@@ -8,10 +8,8 @@
  * §5 allows a shadow here: this is a true overlay, which is the only place one
  * is permitted. 120ms, and it is the only motion in the application.
  */
-import { useRef } from "react";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { getDrilldown } from "../data/report";
 import type { DrilldownRow } from "../data/report";
@@ -27,47 +25,39 @@ function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): s
   return exp === undefined ? NO_DATA : formatMinorUnits(m.minorUnits, exp, locale);
 }
 
+/**
+ * The transactions behind one figure. A scroll region, not a virtual list.
+ *
+ * One category in one month is tens of rows, occasionally hundreds — below the
+ * point where windowing pays for itself, and windowing has a real cost: it needs
+ * a measured viewport, so it renders nothing until layout arrives. The review
+ * queue in section 7 is the list that genuinely needs it, and that is where
+ * `@tanstack/react-virtual` earns its place.
+ */
 function Rows({ rows, locale }: { rows: readonly DrilldownRow[]; locale: Locale }) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  // Windowed. Five rows here, but a real cell can carry hundreds and the review
-  // queue thousands -- FRONTEND_PLAN gap 7. Virtualising once, in the component
-  // that owns the list, is cheaper than discovering the need on a customer file.
-  const virtual = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
-    overscan: 8,
-  });
-
   return (
-    <div ref={parentRef} className="max-h-96 overflow-y-auto">
-      <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
-        {virtual.getVirtualItems().map((item) => {
-          const row = rows[item.index]!;
-          return (
-            <div
-              key={row.id}
-              className="absolute inset-x-0 flex h-8 items-center gap-3 border-b border-border text-xs"
-              style={{ transform: `translateY(${item.start}px)` }}
-            >
-              <span className="tabular w-20 shrink-0 text-text-muted">{row.bookedOn}</span>
-              <span className="min-w-0 flex-1 truncate">{row.description}</span>
-              <span className="w-20 shrink-0 text-text-muted">{row.categoryLabel}</span>
-              {/* The engine layer and the confidence are what make a
-                  classification auditable -- DESIGN.md §2 forbids removing them. */}
-              <span className="w-8 shrink-0 text-2xs uppercase tracking-wider text-text-subtle">
-                {row.layer}
-              </span>
-              <span className="tabular w-10 shrink-0 text-right text-2xs text-text-subtle">
-                {Math.round(row.confidence * 100)}%
-              </span>
-              <span className="tabular w-24 shrink-0 text-right text-figure">
-                {fmt(row.amount, locale)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+    <div className="max-h-96 overflow-y-auto">
+      {rows.map((row) => (
+        <div
+          key={row.id}
+          className="flex h-8 items-center gap-3 border-b border-border text-xs"
+        >
+          <span className="tabular w-20 shrink-0 text-text-muted">{row.bookedOn}</span>
+          <span className="min-w-0 flex-1 truncate">{row.description}</span>
+          <span className="w-20 shrink-0 text-text-muted">{row.categoryLabel}</span>
+          {/* The engine layer and the confidence are what make a classification
+              auditable -- DESIGN.md §2 forbids removing them. */}
+          <span className="w-8 shrink-0 text-2xs uppercase tracking-wider text-text-subtle">
+            {row.layer}
+          </span>
+          <span className="tabular w-10 shrink-0 text-right text-2xs text-text-subtle">
+            {Math.round(row.confidence * 100)}%
+          </span>
+          <span className="tabular w-24 shrink-0 text-right text-figure">
+            {fmt(row.amount, locale)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

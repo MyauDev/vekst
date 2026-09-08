@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Code, ConnectError, createClient, type Transport } from "@connectrpc/connect";
 
 import { IdentityService } from "../gen/vekst/v1/identity_pb";
+import { reviewSummary } from "../data/review";
 import { t } from "../i18n";
 import { NO_DATA } from "../money";
 import { defaultRange } from "../ui/period";
@@ -43,6 +44,10 @@ export function AppLayout({
     queryFn: () => createClient(IdentityService, transport).getCurrentUser({}),
     retry: false,
   });
+  // The rail's badge is the only one in the interface, and it has to follow the
+  // queue rather than a number fetched once: approving a group empties it, and a
+  // badge that still says 2 is a badge nobody trusts again.
+  const review = useQuery({ queryKey: ["reviewSummary"], queryFn: reviewSummary });
 
   if (isPending) {
     return (
@@ -71,6 +76,7 @@ export function AppLayout({
     <div className="flex min-h-dvh">
       <Rail
         locale={locale}
+        awaitingReview={review.data?.groups ?? 0}
         account={
           <div className="flex flex-col gap-1">
             <span className="truncate text-2xs text-text-muted">

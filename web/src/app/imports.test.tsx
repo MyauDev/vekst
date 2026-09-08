@@ -1,11 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { makeRouter } from "../router";
 import { stubTransport, signedInUser } from "../testTransport";
 import { t } from "../i18n";
+import { resetFixtures } from "../data/imports";
+
+beforeEach(resetFixtures);
 
 function renderAt(path: string) {
   const router = makeRouter(
@@ -24,9 +27,9 @@ function renderAt(path: string) {
 describe("the import list", () => {
   it("shows each batch with its state and source", async () => {
     renderAt("/app/imports");
-    await screen.findByRole("heading", { name: t("imports.title") });
-
-    expect(screen.getByText("nordea-2026-08.csv")).toBeDefined();
+    // Wait for a row, not the heading: the heading renders outside the query,
+    // so waiting on it resolves against the loading state and asserts nothing.
+    expect(await screen.findByText("nordea-2026-08.csv")).toBeDefined();
     expect(screen.getAllByText(t("state.batch.imported")).length).toBeGreaterThan(0);
     expect(screen.getByText(t("state.batch.rejected"))).toBeDefined();
   });
@@ -49,7 +52,7 @@ describe("a rejected batch", () => {
     // file lines are 3, 47, 118, 119 and 204 while their parsed indices are
     // 0..4 -- so a screen showing indices would render 0 and 1, and this fails.
     renderAt("/app/imports/b-ledger-h1");
-    await screen.findByRole("heading", { name: "ledger-h1-2026.xlsx" });
+    await screen.findByText(t("batch.errors.title"));
 
     for (const line of ["3", "47", "118", "204"]) {
       expect(screen.getByText(line), `file line ${line}`).toBeDefined();

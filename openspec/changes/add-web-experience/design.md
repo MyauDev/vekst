@@ -240,3 +240,35 @@ The coupling is now asserted from the web tests, which read the two constants
 out of `signin.go` rather than restating them — the same move as the Ingress
 prefix test and the currency exponent test. A constant copied into a test drifts
 from the constant it copies.
+
+## D14. Windowing goes where the list is actually long
+
+`@tanstack/react-virtual` was installed for `FRONTEND_PLAN.md` gap 7 and then
+reached for twice more — the drill-down's transactions and a rejected batch's
+validation errors. Both were wrong, and the tests are how it surfaced: a virtual
+list needs a measured viewport, and in jsdom nothing is ever laid out, so both
+lists rendered **zero rows while their tests passed**. The drill-down test had
+been asserting the panel's heading and its provenance line, never a row.
+
+`initialRect` does not save it: the option applies only until the scroll element
+is measured, and a measurement of 0×0 wins immediately.
+
+Fixing that by mocking `getBoundingClientRect` globally would be mocking layout
+in order to test layout-dependent code — the test would then pass on a shim
+rather than on the component.
+
+So the lists were sized honestly instead:
+
+| List | Size | Treatment |
+| --- | --- | --- |
+| Drill-down transactions | One category in one month — tens, occasionally hundreds | A scroll region |
+| Validation errors | Up to one per line of a rejected file | Capped at 200, with the download beside it |
+| Review queue (§7) | Twelve months of first-time bank data — thousands | **Virtualised.** This is the list gap 7 was about |
+
+The error list is the interesting one. Windowing implies the screen is where the
+work happens, and it is not: the list is keyed by the original file line
+precisely because someone fixes those errors in the file. At five thousand
+errors the honest affordance is the download, which was already there.
+
+`@tanstack/react-virtual` stays a dependency — §7 needs it, and that is where it
+earns its place.

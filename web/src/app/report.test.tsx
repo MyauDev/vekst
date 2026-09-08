@@ -111,6 +111,17 @@ describe("the drill-down is a route, not a state flag", () => {
     expect(await screen.findByText(t("drilldown.unavailable"))).toBeDefined();
   });
 
+  it("lists the transactions with the layer and confidence that make them auditable", async () => {
+    // Never asserted until now: the list was windowed, and a virtual list renders
+    // nothing without a measured viewport -- so this passed by never looking.
+    renderAt("/app/reports/pnl/cell/logistics/2026-03?from=2026-01&to=2026-08");
+    await screen.findByText(t("drilldown.close"));
+
+    expect(await screen.findByText(/DHL EXPRESS INVOICE 88214/)).toBeDefined();
+    expect(screen.getByText("L0")).toBeDefined();
+    expect(screen.getAllByText(/%$/).length).toBeGreaterThan(0);
+  });
+
   it("shows the provenance triple that makes the figure reproducible", async () => {
     renderAt("/app/reports/pnl/cell/logistics/2026-03?from=2026-01&to=2026-08");
     await screen.findByText(t("drilldown.close"));

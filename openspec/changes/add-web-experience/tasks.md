@@ -131,7 +131,9 @@ hard-edged swatches, and type carrying the hierarchy.
 - [x] 4.7 The panel names which figure it is. A shared link arrives with no memory of the click
 - [x] 4.8 Transactions with category, engine layer, confidence and match evidence; and the
       `taxonomy_version` + `ruleset_version` + `engine_version` triple
-- [x] 4.9 Windowed transaction list
+- [x] 4.9 ~~Windowed~~ **scrolling** transaction list. One category in one month is tens of
+      rows — below where windowing pays for itself, and windowing costs a measured viewport,
+      so it renders nothing until layout arrives. See design D14
 - [x] 4.10 Test: the back button closes the panel and leaves the report mounted
 - [x] 4.11 Test: a link with no `from`/`to` renders the year-to-date default
 - [x] 4.12 Test: a report renders correctly in both palettes and prints on a light ground
@@ -167,28 +169,30 @@ hard-edged swatches, and type carrying the hierarchy.
 
 ## 6. Imports — A
 
-- [ ] 6.1 `/app/imports` — batch list with state, `source_kind`, period, row count, time
-- [ ] 6.2 Upload asking for `ledger` or `bank` before the file is read. The tag decides the
+- [x] 6.1 `/app/imports` — batch list with state, `source_kind`, period, row count, time
+- [x] 6.2 Upload asking for `ledger` or `bank` before the file is read. The tag decides the
       accounting basis and is not optional
-- [ ] 6.3 The counts: rows imported, duplicates skipped, internal transfers found, matches
+- [x] 6.3 The counts: rows imported, duplicates skipped, internal transfers found, matches
       proposed. `DESIGN.md` §2 — these may never be removed
-- [ ] 6.4 `/app/imports/$batchId` — the outcome and its reason at the top
-- [ ] 6.5 The validation error list, keyed by **original file line number**, never the parsed
-      row index. This is an invariant in `CLAUDE.md`, not a preference. Downloadable, windowed
-- [ ] 6.6 Test: the error list renders original line numbers for a fixture whose parsed indices
+- [x] 6.4 `/app/imports/$batchId` — the outcome and its reason at the top
+- [x] 6.5 The validation error list, keyed by **original file line number**, never the parsed
+      row index. This is an invariant in `CLAUDE.md`, not a preference. Downloadable, and
+      **capped rather than windowed** — nobody fixes five thousand errors by scrolling a box,
+      and the download is the real answer at that size. See design D14
+- [x] 6.6 Test: the error list renders original line numbers for a fixture whose parsed indices
       differ from them
 
 ## 7. Review — B
 
-- [ ] 7.1 `/app/review` — one counterparty group at a time, by amount then repeat count
-- [ ] 7.2 The keyboard legend, always visible, never behind a help control. Unlumen `Kbd`
-- [ ] 7.3 Digits pick a category, `Enter` approves the group, `T` internal transfer, `N` not in
+- [x] 7.1 `/app/review` — one counterparty group at a time, by amount then repeat count
+- [x] 7.2 The keyboard legend, always visible, never behind a help control. Unlumen `Kbd`
+- [x] 7.3 Digits pick a category, `Enter` approves the group, `T` internal transfer, `N` not in
       the P&L, arrows move, `Esc` clears
-- [ ] 7.4 36px rows — larger than the tables, because this screen takes keyboard focus
-- [ ] 7.5 Windowed. Twelve months of first-time bank data is thousands of rows and
+- [x] 7.4 36px rows — larger than the tables, because this screen takes keyboard focus
+- [x] 7.5 Windowed. Twelve months of first-time bank data is thousands of rows and
       `@tanstack/react-virtual` is not installed (`FRONTEND_PLAN.md` gap 7)
-- [ ] 7.6 The rail's Review count follows the queue
-- [ ] 7.7 Test: the queue is fully operable from the keyboard with no pointer events
+- [x] 7.6 The rail's Review count follows the queue
+- [x] 7.7 Test: the queue is fully operable from the keyboard with no pointer events
 
 ## 8. Charts — A + B
 

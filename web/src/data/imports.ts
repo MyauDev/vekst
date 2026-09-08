@@ -90,6 +90,13 @@ const BATCHES: readonly BatchDetail[] = [
 /** Uploads made this session, newest first. Replaced wholesale by the RPC. */
 const uploaded: BatchDetail[] = [];
 
+/** Returns the fixtures to their initial state. See the note in `review.ts`:
+ *  module-level mutable state is a property of the fixture layer, not of the
+ *  product, and it leaks between anything that shares the module. */
+export function resetFixtures() {
+  uploaded.length = 0;
+}
+
 export async function listBatches(): Promise<readonly Batch[]> {
   return [...uploaded, ...BATCHES];
 }
