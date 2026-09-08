@@ -167,19 +167,23 @@ jobs:
             exit 1
           fi
 
-      # Task 4.7b: deploy/db/rls-exempt-tables.txt matches the tables these
-      # migrations actually create, so a table nobody listed fails here --
-      # not later, as an unexplained failure of the 1.1 coverage test.
-      - name: RLS-exemption allowlist matches actual tables
-        run: |
-          actual=$(psql "$DATABASE_URL_MIGRATOR" -tAc \
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1")
-          expected=$(grep -v '^#' deploy/db/rls-exempt-tables.txt | grep -v '^$' | sort)
-          if [ "$actual" != "$expected" ]; then
-            echo "::error::deploy/db/rls-exempt-tables.txt does not match the tables migrations create"
-            diff <(echo "$expected") <(echo "$actual") || true
-            exit 1
-          fi
+      # There was a step here asserting that deploy/db/rls-exempt-tables.txt
+      # equalled every table in the schema. That held only while every table was
+      # goose's or River's infrastructure, and add-tenancy-and-rls ended it: the
+      # four tenant tables it creates carry policies and must never appear on an
+      # exemption list, because a line there asserts "no tenant's data can ever
+      # land in this table". The step failed for exactly the reason it should
+      # have passed.
+      #
+      # It is not repaired here, because the property it reached for is already
+      # owned -- and owned better -- by TestRLSCoverageOfTheRealSchema in
+      # core/internal/migrate, which the SonarQube job runs on every pull
+      # request with DATABASE_URL_ADMIN set. That test checks RLS enabled AND
+      # forced, the tenant column, a policy that actually restricts rows rather
+      # than merely existing, write coverage, and the materialized-view and
+      # partition cases that carry no policy of their own; task 5.5 in it also
+      # fails on a stale allowlist entry. Two checks of one rule that can
+      # disagree is worse than one check that cannot.
 
       # Tasks 4.5/4.6 and InTx's own commit/rollback behavior: real
       # transaction semantics against the now-migrated database above. These
