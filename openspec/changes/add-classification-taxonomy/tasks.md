@@ -46,19 +46,19 @@ change that creates an organisation.
 
 ## 2. Generated queries — Track B
 
-- [ ] 2.1 `core/internal/db/query/taxonomy.sql`: `EffectiveTaxonomy` and `ClassifiableCategories`
-- [ ] 2.2 Run `make gen`; confirm the codegen drift job stays green
+- [x] 2.1 `core/internal/db/query/taxonomy.sql`: `EffectiveTaxonomy` and `ClassifiableCategories`
+- [x] 2.2 Run `make gen`; confirm the codegen drift job stays green
 
 ## 3. Tests — Track B
 
-- [ ] 3.1 **Cross-tenant isolation:** organisation A cannot read organisation B's leaves, and sees every shared row
-- [ ] 3.2 **Cross-tenant write:** A cannot insert, update or delete a row owned by B, and the failure is a policy denial rather than a not-found
-- [ ] 3.3 **Shared rows are read-only to the application:** `vekst_app` cannot insert, update or delete a row with `org_id IS NULL`, under either policy
-- [ ] 3.4 **Parent trigger:** a leaf may hang under a shared parent; a leaf may not hang under another organisation's parent, and the error is identical whether that parent exists or not
-- [ ] 3.5 **Seed ordering:** the migration applies to an empty database; a variant that enables `FORCE` before seeding fails, proving the ordering is load-bearing
-- [ ] 3.6 **Computed lines:** `ClassifiableCategories` returns no row where `is_computed`, so no rule can ever target GM, NM, CM, IBT or NI
-- [ ] 3.7 **Seed integrity:** every seeded row's `parent_id` resolves, every leaf is childless, and the 66 leaves and 20 shared nodes match what `eval/emit.py` reports
-- [ ] 3.8 **`requires_allocation`:** both payroll buckets carry it and nothing else does
+- [x] 3.1 **Cross-tenant isolation:** organisation A cannot read organisation B's leaves, and sees every shared row
+- [x] 3.2 **Cross-tenant write:** A cannot insert, update or delete a row owned by B, and the failure is a policy denial rather than a not-found
+- [x] 3.3 **Shared rows are read-only to the application:** `vekst_app` cannot insert, update or delete a row with `org_id IS NULL`, under either policy
+- [x] 3.4 **Parent trigger:** a leaf may hang under a shared parent; a leaf may not hang under another organisation's parent, and the error is identical whether that parent exists or not
+- [x] 3.5 **Seed ordering:** asserted directly rather than by building a deliberately broken migration — once the policies exist, even `vekst_migrator` is refused a shared row, which is what makes the ordering load-bearing
+- [x] 3.6 **Computed lines:** `ClassifiableCategories` returns no row where `is_computed`, so no rule can ever target GM, NM, CM, IBT or NI
+- [x] 3.7 **Seed integrity:** every seeded row's `parent_id` resolves, every leaf is childless, and the 66 leaves and 20 shared nodes match what `eval/emit.py` reports
+- [x] 3.8 **`requires_allocation`:** both payroll buckets carry it and nothing else does
 
 ## 4. Drift — Track B
 
