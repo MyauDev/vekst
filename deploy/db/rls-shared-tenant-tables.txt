@@ -1,0 +1,28 @@
+# Tables that are shared and tenant at once.
+#
+# A line here is a security decision and needs both reviewers, the same as
+# rls-exempt-tables.txt — but it means something different, and the difference
+# matters.
+#
+#   rls-exempt-tables.txt   "this table holds no tenant data at all"
+#   this file               "this table holds tenant data AND rows that belong
+#                            to nobody, and both must be handled exactly"
+#
+# Listing a table here does not relax the coverage test. It swaps one exact
+# requirement for a stricter pair: the table must carry a read policy admitting
+# a shared row *or* mine, and a separate write policy admitting only mine.
+# One FOR ALL policy spanning both is a failure, because it would let the
+# application rewrite a row every customer reads.
+#
+# Do not add a table here to make a test pass. The question to answer first is
+# whether the unowned rows belong in this table at all: an industry template a
+# customer adopts is not shared data, it is a copy waiting to be made, and it
+# belongs in its own store.
+
+# categories — the top of the tree is accounting structure and must be
+# identical for every customer, or GM = NET SALES - CS stops meaning one thing.
+# Its leaves are a business's own. Forty-one nodes are shared, sixty are not,
+# and the split is forced rather than chosen: a template rule cannot point at a
+# per-organisation row, so anything a shared rule targets is itself shared.
+# See openspec/changes/add-classification-taxonomy/design.md D2(a).
+categories

@@ -68,6 +68,10 @@ func checkRLSCoverage(db *sql.DB, allowlistPath string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading the allowlist: %w", err)
 	}
+	sharedTenant, err := exemptTables(sharedTenantPath())
+	if err != nil {
+		return nil, fmt.Errorf("reading the shared-tenant list: %w", err)
+	}
 
 	// relkind matters, and enumerating only ordinary tables ('r') is the
 	// mistake this query exists to avoid:
@@ -170,7 +174,11 @@ func checkRLSCoverage(db *sql.DB, allowlistPath string) ([]string, error) {
 				"%s has row-level security enabled but not FORCEd, so the table owner is exempt", r.name))
 		}
 
-		f, err := checkPolicies(db, r.name)
+		check := checkPolicies
+		if sharedTenant[r.name] {
+			check = checkSharedTenantPolicies
+		}
+		f, err := check(db, r.name)
 		if err != nil {
 			return nil, err
 		}
@@ -372,7 +380,99 @@ func checkRoleAttributes(db *sql.DB) ([]string, error) {
 	return findings, nil
 }
 
+// sharedTenantPath is the checked-in list of tables that are shared and tenant
+// at once, relative to this package.
+func sharedTenantPath() string {
+	return filepath.Join("..", "..", "..", "deploy", "db", "rls-shared-tenant-tables.txt")
+}
+
 // allowlistPath is the checked-in exemption list, relative to this package.
 func allowlistPath() string {
 	return filepath.Join("..", "..", "..", "deploy", "db", "rls-exempt-tables.txt")
+}
+
+// checkSharedTenantPolicies judges a table listed in
+// deploy/db/rls-shared-tenant-tables.txt: one that holds tenant rows and rows
+// belonging to nobody at the same time.
+//
+// This is not a relaxation of checkPolicies. It is a stricter, more specific
+// requirement, and it exists because the general rule -- every policy restricts
+// with `(org_id = app_current_org())` -- cannot express a row that is shared on
+// purpose, while any looser general rule would let an unowned row appear in a
+// table where nobody meant one.
+//
+// The required pair:
+//
+//	read   FOR SELECT  USING ((org_id IS NULL) OR (org_id = app_current_org()))
+//	write  FOR ALL     USING (org_id = app_current_org())
+//	                   WITH CHECK (org_id = app_current_org())
+//
+// A single FOR ALL policy spanning both is the failure this guards against: it
+// would let vekst_app rewrite a row every customer reads -- GM's formula, say --
+// and the report would be wrong for everyone at once rather than for one
+// tenant.
+func checkSharedTenantPolicies(db *sql.DB, table string) ([]string, error) {
+	rows, err := db.Query(`
+		SELECT p.polname, p.polcmd,
+		       pg_get_expr(p.polqual, p.polrelid),
+		       coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')
+		  FROM pg_policy p
+		  JOIN pg_class c ON c.oid = p.polrelid
+		  JOIN pg_namespace n ON n.oid = c.relnamespace
+		 WHERE n.nspname = 'public' AND c.relname = $1 AND p.polroles = '{0}'`, table)
+	if err != nil {
+		return nil, fmt.Errorf("reading policies on %s: %w", table, err)
+	}
+	defer rows.Close()
+
+	col := tenantColumnFor(table)
+	wantOwn := fmt.Sprintf("(%s = app_current_org())", col)
+	wantShared := fmt.Sprintf("((%s IS NULL) OR (%s = app_current_org()))", col, col)
+
+	var findings []string
+	var reads, writes int
+	for rows.Next() {
+		var name, cmd, using, withCheck string
+		if err := rows.Scan(&name, &cmd, &using, &withCheck); err != nil {
+			return nil, err
+		}
+		switch cmd {
+		case "r": // FOR SELECT
+			reads++
+			if using != wantShared {
+				findings = append(findings, fmt.Sprintf(
+					"%s: read policy %q restricts rows with %q, want %q",
+					table, name, using, wantShared))
+			}
+			if withCheck != "" {
+				findings = append(findings, fmt.Sprintf(
+					"%s: read policy %q carries a WITH CHECK; a shared row must not be writable "+
+						"through the read policy", table, name))
+			}
+		case "*", "a", "w": // FOR ALL, INSERT, UPDATE
+			writes++
+			if using != wantOwn || (withCheck != "" && withCheck != wantOwn) {
+				findings = append(findings, fmt.Sprintf(
+					"%s: write policy %q must restrict and check with %q, got USING %q and WITH CHECK %q -- "+
+						"a shared row is written by migration and by nothing else",
+					table, name, wantOwn, using, withCheck))
+			}
+		default:
+			findings = append(findings, fmt.Sprintf(
+				"%s: policy %q covers %q, which this table's shape does not account for",
+				table, name, cmd))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if reads != 1 || writes != 1 {
+		findings = append(findings, fmt.Sprintf(
+			"%s is listed as shared+tenant and needs exactly one read policy and one write "+
+				"policy applying to all roles; found %d and %d. Splitting them is the point: "+
+				"one policy covering both would admit an unowned row to a writer",
+			table, reads, writes))
+	}
+	return findings, nil
 }

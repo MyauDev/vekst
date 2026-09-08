@@ -180,10 +180,11 @@ def build_taxonomy():
         cats[t] = {
             "code": code[t],
             "level": len(t),
-            # Levels 1-2 are shared and versioned by us; 3+ belong to the
-            # organisation. Scope is stored, not derived from depth, so an
-            # exception like Twoj StartUp can exist without breaking the rule.
-            "scope": "org" if (len(t) >= 3 or t in ORG_SCOPED) else "global",
+            # Assigned later by assign_scopes: it depends on which categories
+            # the rules turn out to target, and the rules are built from this
+            # tree. Leaving it unset keeps that order honest instead of
+            # guessing from depth.
+            "scope": None,
             "name": NODE_RENAME_AT.get(t, t[-1]),
             "leaf": t in leaves,
             "is_pnl": t[0] not in NON_PNL,
@@ -191,6 +192,44 @@ def build_taxonomy():
             "rules": nodes[t],
         }
     return cats, customers
+
+
+def assign_scopes(cats: dict, rules: list) -> None:
+    """Decide which categories are shared and which belong to an organisation.
+
+    A shared rule cannot point at a per-organisation row: every organisation
+    holds its own id for its own copy of "Bank commission", and one rule cannot
+    name all of them. So the split is not a judgement about how specific a line
+    feels. It is forced:
+
+      global  the accounting skeleton (levels 1-2), anything a template rule
+              targets, and every ancestor of those -- a leaf does not hang in
+              mid-air
+      org     everything else: the industry template a customer starts from and
+              then edits. Merch for employees, MarTech Tools, HH,
+              IT Park - membership
+
+    An earlier version said "levels 1-2 are shared, 3+ are not". Depth turned
+    out to be a poor proxy: 14 of the 19 categories the templates target sit at
+    levels 3 to 5, and every one of them -- Bank commission, VAT, Currency
+    exchange, Office rent -- is universal rather than particular to a business.
+    """
+    by_code = {c["code"]: path for path, c in cats.items()}
+    shared = {path for path, c in cats.items() if c["level"] <= 2}
+    for r in rules:
+        code = cats[r["path"]]["code"]
+        # Two characters per level, so every prefix of a code is an ancestor.
+        for i in range(2, len(code) + 1, 2):
+            if (ancestor := by_code.get(code[:i])) is not None:
+                shared.add(ancestor)
+    # One node the derivation gets wrong: "OPEX > Twoj StartUp" sits at level 2
+    # and so looks like skeleton, but it is a Polish foundation's name. No
+    # template rule targets it, so demoting it costs nothing and keeps a
+    # supplier out of the shared tree.
+    shared -= ORG_SCOPED
+
+    for path, c in cats.items():
+        c["scope"] = "global" if path in shared else "org"
 
 
 # --------------------------------------------------------------------------
