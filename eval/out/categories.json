@@ -107,7 +107,7 @@
    "Finance"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Finance",
   "leaf": false,
   "is_pnl": true,
@@ -153,7 +153,7 @@
    "FI Services"
   ],
   "level": 4,
-  "scope": "org",
+  "scope": "global",
   "name": "FI Services",
   "leaf": false,
   "is_pnl": true,
@@ -169,7 +169,7 @@
    "1С Cloud"
   ],
   "level": 5,
-  "scope": "org",
+  "scope": "global",
   "name": "1С Cloud",
   "leaf": true,
   "is_pnl": true,
@@ -217,7 +217,7 @@
    "Bank commission"
   ],
   "level": 5,
-  "scope": "org",
+  "scope": "global",
   "name": "Bank commission",
   "leaf": true,
   "is_pnl": true,
@@ -263,7 +263,7 @@
    "GM"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "General Management",
   "leaf": false,
   "is_pnl": true,
@@ -309,7 +309,7 @@
    "GM Services"
   ],
   "level": 4,
-  "scope": "org",
+  "scope": "global",
   "name": "GM Services",
   "leaf": false,
   "is_pnl": true,
@@ -341,7 +341,7 @@
    "Communication"
   ],
   "level": 5,
-  "scope": "org",
+  "scope": "global",
   "name": "Communication",
   "leaf": true,
   "is_pnl": true,
@@ -437,7 +437,7 @@
    "Office rent"
   ],
   "level": 5,
-  "scope": "org",
+  "scope": "global",
   "name": "Office rent",
   "leaf": true,
   "is_pnl": true,
@@ -560,7 +560,7 @@
    "Legal"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Legal",
   "leaf": false,
   "is_pnl": true,
@@ -575,7 +575,7 @@
    "Leg. Services"
   ],
   "level": 4,
-  "scope": "org",
+  "scope": "global",
   "name": "Leg. Services",
   "leaf": false,
   "is_pnl": true,
@@ -591,7 +591,7 @@
    "Claim"
   ],
   "level": 5,
-  "scope": "org",
+  "scope": "global",
   "name": "Claim",
   "leaf": true,
   "is_pnl": true,
@@ -1208,7 +1208,7 @@
    "Expenses compensation"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Expenses compensation",
   "leaf": true,
   "is_pnl": true,
@@ -1236,7 +1236,7 @@
    "Other taxes"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Other taxes",
   "leaf": false,
   "is_pnl": true,
@@ -1266,7 +1266,7 @@
    "Adv. Tax"
   ],
   "level": 4,
-  "scope": "org",
+  "scope": "global",
   "name": "Adv. Tax",
   "leaf": true,
   "is_pnl": true,
@@ -1296,7 +1296,7 @@
    "Other"
   ],
   "level": 4,
-  "scope": "org",
+  "scope": "global",
   "name": "Other",
   "leaf": true,
   "is_pnl": true,
@@ -1311,7 +1311,7 @@
    "VAT"
   ],
   "level": 4,
-  "scope": "org",
+  "scope": "global",
   "name": "VAT",
   "leaf": true,
   "is_pnl": true,
@@ -1325,7 +1325,7 @@
    "Tax fines"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Tax fines",
   "leaf": true,
   "is_pnl": true,
@@ -1366,7 +1366,7 @@
    "Return of payment"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Return of payment",
   "leaf": true,
   "is_pnl": true,
@@ -1405,7 +1405,7 @@
    "Currency exchange"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Currency exchange",
   "leaf": true,
   "is_pnl": true,
@@ -1419,7 +1419,7 @@
    "Currency revaluation"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Currency revaluation",
   "leaf": true,
   "is_pnl": true,
@@ -1446,7 +1446,7 @@
    "Interests received"
   ],
   "level": 3,
-  "scope": "org",
+  "scope": "global",
   "name": "Interests received",
   "leaf": true,
   "is_pnl": true,

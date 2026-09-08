@@ -85,8 +85,9 @@ func TestUpDownUp(t *testing.T) {
 		t.Fatalf("Up: %v", err)
 	}
 	// goose_db_version + 5 River tables + 4 identity tables (00003) + 4
-	// tenancy tables (00004).
-	assertTableCount(t, url, 14)
+	// tenancy tables (00004) + categories (00005).
+
+	assertTableCount(t, url, 15)
 
 	// Down four times: 00004 (tenancy), 00003 (identity), 00002 (River),
 	// 00001 (roles), matching the four migrations actually registered.
@@ -111,7 +112,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 14)
+	assertTableCount(t, url, 15)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {

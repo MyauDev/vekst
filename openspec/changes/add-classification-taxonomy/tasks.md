@@ -10,22 +10,39 @@ own code, so raise them there first.
 
 **Ownership.** Track B throughout. No file here is owned by Track A.
 
-## 0. Agree with change 1.1 — do this before writing code
+## 0. Points that belonged to change 1.1
 
-- [ ] 0.1 Raise design §D2(a): the RLS coverage test needs a `shared+tenant` state that asserts the policy *shape*, not just its presence
-- [ ] 0.2 Raise design §D2(b): `parent_id` takes a constraint trigger instead of a composite foreign key, because a shared parent's `org_id` is NULL
-- [ ] 0.3 Raise design §D2(c): confirm seed-before-`FORCE` ordering is acceptable inside one migration
-- [ ] 0.4 Raise design §D2(d): `memberships.entity_id`, one nullable column, while migration 004 is still unwritten
+Written when 1.1 was in flight. It merged as PR #5 on 2026-09-08 before these
+were raised, so three of them are now changes to merged code and are made here.
+
+- [x] 0.1 §D2(a): the RLS coverage test learns a `shared+tenant` state. Implemented as `deploy/db/rls-shared-tenant-tables.txt` plus `checkSharedTenantPolicies`, which demands a **stricter** pair — one read policy admitting shared-or-mine, one write policy admitting only mine — rather than relaxing the general rule
+- [x] 0.2 §D2(b): `parent_id` takes a constraint trigger, not a composite foreign key
+- [x] 0.3 §D2(c): seed precedes `ENABLE`/`FORCE` inside migration 005
+- [ ] 0.4 §D2(d): `memberships.entity_id`. Migration 004 is written and merged without it, so this is now its own migration rather than one column in an unwritten one. Still cheap — nullable, no policy reads it — and still the same argument 1.1 accepts for `entities`
+
+**A design correction found while implementing.** The proposal split shared from
+per-organisation by depth: levels 1-2 shared, 3+ not. That is wrong, and the
+data says so. A shared rule cannot point at a per-organisation row — every
+organisation holds its own id for its own "Bank commission" — so anything a
+template rule targets must itself be shared. Fourteen of the nineteen targeted
+categories sit at levels 3 to 5, and all of them (Bank commission, VAT,
+Currency exchange, Office rent) are universal. The split is now derived rather
+than judged: 41 shared, 60 in the industry template. `eval/build.py`
+`assign_scopes` states it.
+
+The sixty are not seeded. They belong to whoever adopts them, and a shared row
+belongs to nobody; they are written to `eval/out/industry_template.csv` for the
+change that creates an organisation.
 
 ## 1. Migration — Track B
 
-- [ ] 1.1 Migration 005 up: `categories` with every column and check constraint from the design
-- [ ] 1.2 Add the `UNIQUE NULLS NOT DISTINCT (taxonomy_version, org_id, code)` constraint and both indexes
-- [ ] 1.3 Constraint trigger asserting a parent is shared or same-organisation (§D2(b))
-- [ ] 1.4 Seed the 106 shared rows from `eval/out/seed_categories.sql`, inside the same migration and **before** RLS is enabled
-- [ ] 1.5 Enable and `FORCE ROW LEVEL SECURITY`; create `categories_read` and `categories_write` as two separate policies
-- [ ] 1.6 Migration 005 down, and confirm `up → down → up` against a scratch database
-- [ ] 1.7 Grant `vekst_app` DML on the table; confirm the default privileges from migration 001 already cover it and no follow-up grant is needed
+- [x] 1.1 Migration 005 up: `categories` with every column and check constraint from the design
+- [x] 1.2 Add the `UNIQUE NULLS NOT DISTINCT (taxonomy_version, org_id, code)` constraint and both indexes
+- [x] 1.3 Constraint trigger asserting a parent is shared or same-organisation (§D2(b))
+- [x] 1.4 Seed the 46 shared rows from `eval/out/seed_categories.sql`, inside the same migration and **before** RLS is enabled
+- [x] 1.5 Enable and `FORCE ROW LEVEL SECURITY`; create `categories_read` and `categories_write` as two separate policies
+- [x] 1.6 Migration 005 down, and confirm `up → down → up` against a scratch database
+- [x] 1.7 Grant `vekst_app` DML on the table; confirmed: 00001's default privileges already grant SELECT, INSERT, UPDATE and DELETE, and no follow-up grant is needed
 
 ## 2. Generated queries — Track B
 

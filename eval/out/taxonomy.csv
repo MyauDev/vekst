@@ -7,28 +7,28 @@
 030101;3;org;OCS;PROMOTION;Prom. Commission;;;Prom. Commission;yes;yes;;;;1
 04;1;global;OPEX;;;;;OPEX;;yes;;;;289
 0401;2;global;OPEX;Administration;;;;Administration;;yes;;;;104
-040101;3;org;OPEX;Administration;Finance;;;Finance;;yes;;;;47
+040101;3;global;OPEX;Administration;Finance;;;Finance;;yes;;;;47
 04010101;4;org;OPEX;Administration;Finance;FI Expenses;;FI Expenses;;yes;;;;2
 0401010101;5;org;OPEX;Administration;Finance;FI Expenses;Salary;Salary;yes;yes;;;;2
-04010102;4;org;OPEX;Administration;Finance;FI Services;;FI Services;;yes;;;;45
-0401010201;5;org;OPEX;Administration;Finance;FI Services;1С Cloud;1С Cloud;yes;yes;;;;2
+04010102;4;global;OPEX;Administration;Finance;FI Services;;FI Services;;yes;;;;45
+0401010201;5;global;OPEX;Administration;Finance;FI Services;1С Cloud;1С Cloud;yes;yes;;;;2
 0401010202;5;org;OPEX;Administration;Finance;FI Services;Acc. matters;Acc. matters;yes;yes;;;;3
 0401010203;5;org;OPEX;Administration;Finance;FI Services;Audit;Audit;yes;yes;;;;3
-0401010204;5;org;OPEX;Administration;Finance;FI Services;Bank commission;Bank commission;yes;yes;;;;25
+0401010204;5;global;OPEX;Administration;Finance;FI Services;Bank commission;Bank commission;yes;yes;;;;25
 0401010205;5;org;OPEX;Administration;Finance;FI Services;E-docs;E-docs;yes;yes;;;;6
 0401010206;5;org;OPEX;Administration;Finance;FI Services;T&A;T&A;yes;yes;;;;6
-040102;3;org;OPEX;Administration;GM;;;General Management;;yes;;;;45
+040102;3;global;OPEX;Administration;GM;;;General Management;;yes;;;;45
 04010201;4;org;OPEX;Administration;GM;GM Expenses;;GM Expenses;;yes;;;;2
 0401020101;5;org;OPEX;Administration;GM;GM Expenses;Salary;Salary;yes;yes;;;;2
-04010202;4;org;OPEX;Administration;GM;GM Services;;GM Services;;yes;;;;43
+04010202;4;global;OPEX;Administration;GM;GM Services;;GM Services;;yes;;;;43
 0401020201;5;org;OPEX;Administration;GM;GM Services;BisTrips;BisTrips;yes;yes;;;;6
-0401020202;5;org;OPEX;Administration;GM;GM Services;Communication;Communication;yes;yes;;;;9
+0401020202;5;global;OPEX;Administration;GM;GM Services;Communication;Communication;yes;yes;;;;9
 0401020203;5;org;OPEX;Administration;GM;GM Services;Domain;Domain;yes;yes;;;;1
 0401020204;5;org;OPEX;Administration;GM;GM Services;Education;Education;yes;yes;;;;7
 0401020205;5;org;OPEX;Administration;GM;GM Services;File storage;File storage;yes;yes;;;;1
 0401020206;5;org;OPEX;Administration;GM;GM Services;Hosting;Hosting;yes;yes;;;;1
 0401020207;5;org;OPEX;Administration;GM;GM Services;IT equipment repair;IT equipment repair;yes;yes;;;;4
-0401020208;5;org;OPEX;Administration;GM;GM Services;Office rent;Office rent;yes;yes;;;;4
+0401020208;5;global;OPEX;Administration;GM;GM Services;Office rent;Office rent;yes;yes;;;;4
 0401020209;5;org;OPEX;Administration;GM;GM Services;Office supplies;Office supplies;yes;yes;;;;2
 0401020210;5;org;OPEX;Administration;GM;GM Services;Small IT equipment;Small IT equipment;yes;yes;;;;2
 0401020211;5;org;OPEX;Administration;GM;GM Services;Sport;Sport;yes;yes;;;;2
@@ -36,9 +36,9 @@
 040103;3;org;OPEX;Administration;HR;;;HR;;yes;;;;1
 04010301;4;org;OPEX;Administration;HR;HR Services;;HR Services;;yes;;;;1
 0401030101;5;org;OPEX;Administration;HR;HR Services;HR Tools;HR Tools;yes;yes;;;;1
-040104;3;org;OPEX;Administration;Legal;;;Legal;;yes;;;;7
-04010401;4;org;OPEX;Administration;Legal;Leg. Services;;Leg. Services;;yes;;;;7
-0401040101;5;org;OPEX;Administration;Legal;Leg. Services;Claim;Claim;yes;yes;;;;2
+040104;3;global;OPEX;Administration;Legal;;;Legal;;yes;;;;7
+04010401;4;global;OPEX;Administration;Legal;Leg. Services;;Leg. Services;;yes;;;;7
+0401040101;5;global;OPEX;Administration;Legal;Leg. Services;Claim;Claim;yes;yes;;;;2
 0401040102;5;org;OPEX;Administration;Legal;Leg. Services;Court;Court;yes;yes;;;;2
 0401040103;5;org;OPEX;Administration;Legal;Leg. Services;LE Rent;LE Rent;yes;yes;;;;1
 0401040104;5;org;OPEX;Administration;Legal;Leg. Services;Legal - other;Legal - other;yes;yes;;;;1
@@ -79,24 +79,24 @@
 0406;2;org;OPEX;Twoj StartUp;;;;Twoj StartUp;yes;yes;;;;15
 05;1;global;OIE;;;;;OIE;;yes;;;;43
 0501;2;global;OIE;OTHER EXPENSE;;;;OTHER EXPENSE;;yes;;;;20
-050101;3;org;OIE;OTHER EXPENSE;Expenses compensation;;;Expenses compensation;yes;yes;;;;1
+050101;3;global;OIE;OTHER EXPENSE;Expenses compensation;;;Expenses compensation;yes;yes;;;;1
 050102;3;org;OIE;OTHER EXPENSE;Expenses for 2022;;;Expenses for 2022;yes;yes;;;;5
-050103;3;org;OIE;OTHER EXPENSE;Other taxes;;;Other taxes;;yes;;;;12
+050103;3;global;OIE;OTHER EXPENSE;Other taxes;;;Other taxes;;yes;;;;12
 05010301;4;org;OIE;OTHER EXPENSE;Other taxes;1%, IT Park;;1%, IT Park;yes;yes;;;;4
-05010302;4;org;OIE;OTHER EXPENSE;Other taxes;Adv. Tax;;Adv. Tax;yes;yes;;;;1
+05010302;4;global;OIE;OTHER EXPENSE;Other taxes;Adv. Tax;;Adv. Tax;yes;yes;;;;1
 05010303;4;org;OIE;OTHER EXPENSE;Other taxes;IT Park - membership;;IT Park - membership;yes;yes;;;;4
-05010304;4;org;OIE;OTHER EXPENSE;Other taxes;Other;;Other;yes;yes;;;;1
-05010305;4;org;OIE;OTHER EXPENSE;Other taxes;VAT;;VAT;yes;yes;;;;2
-050104;3;org;OIE;OTHER EXPENSE;Tax fines;;;Tax fines;yes;yes;;;;2
+05010304;4;global;OIE;OTHER EXPENSE;Other taxes;Other;;Other;yes;yes;;;;1
+05010305;4;global;OIE;OTHER EXPENSE;Other taxes;VAT;;VAT;yes;yes;;;;2
+050104;3;global;OIE;OTHER EXPENSE;Tax fines;;;Tax fines;yes;yes;;;;2
 0502;2;global;OIE;OTHER INCOME;;;;OTHER INCOME;;yes;;;;23
 050201;3;org;OIE;OTHER INCOME;CIT Refund;;;CIT Refund;yes;yes;;;;2
-050202;3;org;OIE;OTHER INCOME;Return of payment;;;Return of payment;yes;yes;;;;21
+050202;3;global;OIE;OTHER INCOME;Return of payment;;;Return of payment;yes;yes;;;;21
 06;1;global;FR;;;;;FR;;yes;;;;37
 0601;2;global;FR;FXR;;;;FXR;;yes;;;;35
-060101;3;org;FR;FXR;Currency exchange;;;Currency exchange;yes;yes;;;;31
-060102;3;org;FR;FXR;Currency revaluation;;;Currency revaluation;yes;yes;;;;4
+060101;3;global;FR;FXR;Currency exchange;;;Currency exchange;yes;yes;;;;31
+060102;3;global;FR;FXR;Currency revaluation;;;Currency revaluation;yes;yes;;;;4
 0602;2;global;FR;OFR;;;;OFR;;yes;;;;2
-060201;3;org;FR;OFR;Interests received;;;Interests received;yes;yes;;;;2
+060201;3;global;FR;OFR;Interests received;;;Interests received;yes;yes;;;;2
 07;1;global;CIT;;;;;CIT;yes;yes;;;;4
 08;1;global;CAPEX;;;;;CAPEX;yes;no;;;;17
 09;1;global;OUT OF P&L;;;;;OUT OF P&L;yes;no;;;;19
