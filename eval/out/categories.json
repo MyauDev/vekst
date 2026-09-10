@@ -1,0 +1,1492 @@
+{
+ "01": {
+  "path": [
+   "NET SALES"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "NET SALES",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 177
+ },
+ "0101": {
+  "path": [
+   "NET SALES",
+   "SOFTWARE DEVELOPMENT"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "SOFTWARE DEVELOPMENT",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 177
+ },
+ "02": {
+  "path": [
+   "CS"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "CS",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 0
+ },
+ "03": {
+  "path": [
+   "OCS"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "OCS",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0301": {
+  "path": [
+   "OCS",
+   "PROMOTION"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "PROMOTION",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "030101": {
+  "path": [
+   "OCS",
+   "PROMOTION",
+   "Prom. Commission"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Prom. Commission",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "04": {
+  "path": [
+   "OPEX"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "OPEX",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 289
+ },
+ "0401": {
+  "path": [
+   "OPEX",
+   "Administration"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "Administration",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 104
+ },
+ "040101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Finance",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 47
+ },
+ "04010101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Expenses"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "FI Expenses",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401010101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Expenses",
+   "Salary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Salary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "04010102": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "FI Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 45
+ },
+ "0401010201": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services",
+   "1С Cloud"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "1С Cloud",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401010202": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services",
+   "Acc. matters"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Acc. matters",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0401010203": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services",
+   "Audit"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Audit",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0401010204": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services",
+   "Bank commission"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Bank commission",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 25
+ },
+ "0401010205": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services",
+   "E-docs"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "E-docs",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 6
+ },
+ "0401010206": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Finance",
+   "FI Services",
+   "T&A"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "T&A",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 6
+ },
+ "040102": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "General Management",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 45
+ },
+ "04010201": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Expenses"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "GM Expenses",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401020101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Expenses",
+   "Salary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Salary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "04010202": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "GM Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 43
+ },
+ "0401020201": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "BisTrips"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "BisTrips",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 6
+ },
+ "0401020202": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Communication"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Communication",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 9
+ },
+ "0401020203": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Domain"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Domain",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401020204": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Education"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Education",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 7
+ },
+ "0401020205": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "File storage"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "File storage",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401020206": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Hosting"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Hosting",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401020207": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "IT equipment repair"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "IT equipment repair",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "0401020208": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Office rent"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Office rent",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "0401020209": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Office supplies"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Office supplies",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401020210": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Small IT equipment"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Small IT equipment",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401020211": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Sport"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Sport",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401020212": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "GM",
+   "GM Services",
+   "Stationary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Stationary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "040103": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "HR"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "HR",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "04010301": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "HR",
+   "HR Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "HR Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401030101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "HR",
+   "HR Services",
+   "HR Tools"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "HR Tools",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "040104": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Legal",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 7
+ },
+ "04010401": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal",
+   "Leg. Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "Leg. Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 7
+ },
+ "0401040101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal",
+   "Leg. Services",
+   "Claim"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Claim",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401040102": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal",
+   "Leg. Services",
+   "Court"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Court",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0401040103": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal",
+   "Leg. Services",
+   "LE Rent"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "LE Rent",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401040104": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal",
+   "Leg. Services",
+   "Legal - other"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Legal - other",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401040105": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Legal",
+   "Leg. Services",
+   "Relocation"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Relocation",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "040105": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Recruiting"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Recruiting",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "04010501": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Recruiting",
+   "Rec. Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "Rec. Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "0401050101": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Recruiting",
+   "Rec. Services",
+   "Education"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Education",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0401050102": {
+  "path": [
+   "OPEX",
+   "Administration",
+   "Recruiting",
+   "Rec. Services",
+   "HH"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "HH",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0402": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "Marketing and Sales",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 77
+ },
+ "040201": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Marketing",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 60
+ },
+ "04020101": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Expenses"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "MRK Expenses",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0402010101": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Expenses",
+   "Salary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Salary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "04020102": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "MRK Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 57
+ },
+ "0402010201": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "Content creation"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Content creation",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "0402010202": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "Google ADS"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Google ADS",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0402010203": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "MarTech Tools"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "MarTech Tools",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 17
+ },
+ "0402010204": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "Marketing Channels"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Marketing Channels",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 20
+ },
+ "0402010205": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "Marketplace adv."
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Marketplace adv.",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0402010206": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "Merch for employees"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Merch for employees",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 7
+ },
+ "0402010207": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Marketing",
+   "MRK Services",
+   "SEO"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "SEO",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "040202": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Sales"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Sales",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 17
+ },
+ "04020201": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Sales",
+   "SL Expenses"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "SL Expenses",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 10
+ },
+ "0402020101": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Sales",
+   "SL Expenses",
+   "Salary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Salary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 10
+ },
+ "04020202": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Sales",
+   "SL Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "SL Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 7
+ },
+ "0402020201": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Sales",
+   "SL Services",
+   "Sales Activities"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Sales Activities",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0402020202": {
+  "path": [
+   "OPEX",
+   "Marketing and Sales",
+   "Sales",
+   "SL Services",
+   "Sales Tools"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Sales Tools",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 6
+ },
+ "0403": {
+  "path": [
+   "OPEX",
+   "PAYROLL TAX to distribute"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "PAYROLL TAX to distribute",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": true,
+  "rules": 19
+ },
+ "0404": {
+  "path": [
+   "OPEX",
+   "PAYROLL to distribute"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "PAYROLL to distribute",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": true,
+  "rules": 25
+ },
+ "0405": {
+  "path": [
+   "OPEX",
+   "Production"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "Production",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 49
+ },
+ "040501": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Developers",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 49
+ },
+ "04050101": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Expenses"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "Dev Expenses",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 34
+ },
+ "0405010101": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Expenses",
+   "Education"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Education",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "0405010102": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Expenses",
+   "Salary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Salary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 33
+ },
+ "04050102": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Services"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "Dev Services",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 15
+ },
+ "0405010201": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Services",
+   "Design Tools"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Design Tools",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0405010202": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Services",
+   "Production Tools"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Production Tools",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 10
+ },
+ "0405010203": {
+  "path": [
+   "OPEX",
+   "Production",
+   "Developers",
+   "Dev Services",
+   "Salary"
+  ],
+  "level": 5,
+  "scope": "org",
+  "name": "Salary",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 3
+ },
+ "0406": {
+  "path": [
+   "OPEX",
+   "Twoj StartUp"
+  ],
+  "level": 2,
+  "scope": "org",
+  "name": "Twoj StartUp",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 15
+ },
+ "05": {
+  "path": [
+   "OIE"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "OIE",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 43
+ },
+ "0501": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "OTHER EXPENSE",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 20
+ },
+ "050101": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Expenses compensation"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Expenses compensation",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "050102": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Expenses for 2022"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Expenses for 2022",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 5
+ },
+ "050103": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Other taxes"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Other taxes",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 12
+ },
+ "05010301": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Other taxes",
+   "1%, IT Park"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "1%, IT Park",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "05010302": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Other taxes",
+   "Adv. Tax"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "Adv. Tax",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "05010303": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Other taxes",
+   "IT Park - membership"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "IT Park - membership",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "05010304": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Other taxes",
+   "Other"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "Other",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 1
+ },
+ "05010305": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Other taxes",
+   "VAT"
+  ],
+  "level": 4,
+  "scope": "org",
+  "name": "VAT",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "050104": {
+  "path": [
+   "OIE",
+   "OTHER EXPENSE",
+   "Tax fines"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Tax fines",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "0502": {
+  "path": [
+   "OIE",
+   "OTHER INCOME"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "OTHER INCOME",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 23
+ },
+ "050201": {
+  "path": [
+   "OIE",
+   "OTHER INCOME",
+   "CIT Refund"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "CIT Refund",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "050202": {
+  "path": [
+   "OIE",
+   "OTHER INCOME",
+   "Return of payment"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Return of payment",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 21
+ },
+ "06": {
+  "path": [
+   "FR"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "FR",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 37
+ },
+ "0601": {
+  "path": [
+   "FR",
+   "FXR"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "FXR",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 35
+ },
+ "060101": {
+  "path": [
+   "FR",
+   "FXR",
+   "Currency exchange"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Currency exchange",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 31
+ },
+ "060102": {
+  "path": [
+   "FR",
+   "FXR",
+   "Currency revaluation"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Currency revaluation",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "0602": {
+  "path": [
+   "FR",
+   "OFR"
+  ],
+  "level": 2,
+  "scope": "global",
+  "name": "OFR",
+  "leaf": false,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "060201": {
+  "path": [
+   "FR",
+   "OFR",
+   "Interests received"
+  ],
+  "level": 3,
+  "scope": "org",
+  "name": "Interests received",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 2
+ },
+ "07": {
+  "path": [
+   "CIT"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "CIT",
+  "leaf": true,
+  "is_pnl": true,
+  "alloc": false,
+  "rules": 4
+ },
+ "08": {
+  "path": [
+   "CAPEX"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "CAPEX",
+  "leaf": true,
+  "is_pnl": false,
+  "alloc": false,
+  "rules": 17
+ },
+ "09": {
+  "path": [
+   "OUT OF P&L"
+  ],
+  "level": 1,
+  "scope": "global",
+  "name": "OUT OF P&L",
+  "leaf": true,
+  "is_pnl": false,
+  "alloc": false,
+  "rules": 19
+ }
+}

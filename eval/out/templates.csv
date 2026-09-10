@@ -1,0 +1,72 @@
+﻿priority;country;scope;field;op;value;direction;category_code;category_path
+1;BY;country:BY;description;contains_all;"ВЫПЛАТЫ ПО ДОГОВОРУ ВОЗМЕЗДНОГО ОКАЗАНИЯ УСЛУГ; СОГЛ. СПИСКУ";Expense;0404;OPEX > PAYROLL to distribute
+2;BY;country:BY;description;contains_all;"ВЫПЛАТЫ ПО ДОГОВОРАМ ПОДРЯДА; СОГЛ. СПИСКУ";Expense;0404;OPEX > PAYROLL to distribute
+3;BY;country:BY;description;contains_all;"ПРОФЕССИОНАЛЬНЫЙ ДОХОД;СОГЛ. СПИСКУ";Expense;0404;OPEX > PAYROLL to distribute
+4;BY;country:BY;description;contains_all;"ПОДОХОДНЫЙ НАЛОГ;ИЗ ДИВИДЕНДОВ";Expense;09;OUT OF P&L
+5;BY;bank:priorbank;description;contains_all;ПЛАТА ЗА ЗАЧИСЛЕНИЕ СТРАХОВЫХ ВЫПЛАТ,ДИВИДЕНДОВ,АРЕНДЫ,ЗАЙМОВ,ДРУГИХ ВЫПЛАТ И ПЕРЕЧИСЛЕНИЙ;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+6;BY;bank:priorbank;description;contains_all;ПЛАТА ЗА БЕЗНАЛ.ЗАЧИСЛ.ЗП И ПЛАТЕЖЕЙ К НЕЙ ПРИРАВ.НА КАРТ-СЧЕТА В НАЦ. ВАЛЮТЕ;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+7;BY;bank:priorbank;description;contains_all;"ЕЖЕМЕСЯЧНАЯ АБОНЕНТСКАЯ ПЛАТА ЗА ПАКЕТ УСЛУГ ""MS BUSINESS DIRECT""";Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+8;BY;bank:priorbank;description;contains_all;"ПЛАТА ЗА УСЛУГИ ""ПРИОРБАНК"" ОАО";Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+9;BY;country:BY;description;contains_all;СТРАХОВЫЕ ВЗНОСЫ ПО ОБЯЗАТЕЛЬНОМУ СТРАХОВАНИЮ;Expense;0403;OPEX > PAYROLL TAX to distribute
+10;BY;country:BY;description;contains_all;ВЫПЛАТА ПО АВАНСОВОМУ ОТЧЕТУ ХОЗ.РАСХОДЫ;Expense;050101;OIE > OTHER EXPENSE > Expenses compensation
+11;BY;bank:priorbank;description;contains_all;УПЛАТА ПРОЦЕНТОВ ПО ОСТАТКАМ НА СЧЕТЕ;Income;060201;FR > OFR > Interests received
+12;BY;bank:priorbank;description;contains_all;ПЕРЕВОД С ПРОДАЖЕЙ ПО БАЗОВОМУ КУРСУ;Expense;060101;FR > FXR > Currency exchange
+13;BY;bank:priorbank;description;contains_all;ПЛАТА ЗА ЗАЧИСЛЕНИЕ ВАЛЮТНЫХ СРЕДСТВ;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+14;BY;country:BY;description;contains_all;ВОЗВРАТ ОШИБОЧНО ПЕРЕВЕДЕННОЙ СУММЫ;Income;050202;OIE > OTHER INCOME > Return of payment
+15;BY;country:BY;description;contains_all;ПРЕДОПЛАТА ПО ДОГОВОРУ АРЕНДЫ;Expense;0401020208;OPEX > Administration > GM > GM Services > Office rent
+16;BY;country:BY;description;contains_all;ПОСОБИЕ ПО УХОДУ ЗА РЕБЕНКОМ;Expense;0404;OPEX > PAYROLL to distribute
+17;BY;country:BY;description;contains_all;ПОСОБИЯ ПО УХОДУ ЗА РЕБЕНКОМ;Expense;0404;OPEX > PAYROLL to distribute
+18;BY;country:BY;description;contains_all;ВОЗВРАТ ИЗЛИШНЕ ПЕРЕЧИСЛЕНН;Income;050202;OIE > OTHER INCOME > Return of payment
+19;BY;country:BY;description;contains_all;ОПЛАТА ПО ДОГОВОРУ АРЕНДЫ;Expense;0401020208;OPEX > Administration > GM > GM Services > Office rent
+20;BY;country:BY;description;contains_all;ОПЛАТА ПОДОХОДНОГО НАЛОГА;Expense;0403;OPEX > PAYROLL TAX to distribute
+21;BY;bank:priorbank;description;contains_all;СВОБОДНАЯ ПРОДАЖА ВАЛЮТЫ;Expense;060101;FR > FXR > Currency exchange
+22;BY;country:BY;description;contains_all;ОПЛАТА НАЛОГА НА ПРИБЫЛЬ;Expense;07;CIT
+23;BY;bank:priorbank;description;contains_all;СВОБОДНАЯ ПРОДАЖА ВАЛЮТЫ;Income;060101;FR > FXR > Currency exchange
+24;BY;country:BY;description;contains_all;КОМАНДИРОВОЧНЫЕ РАСХОДЫ;Expense;0404;OPEX > PAYROLL to distribute
+25;BY;country:BY;description;contains_all;РАСЧЕТ ПРИ УВОЛЬНЕНИИ;Expense;0404;OPEX > PAYROLL to distribute
+26;BY;country:BY;description;contains_all;ОКОНЧАТЕЛЬНЫЙ РАСЧЕТ;Expense;0404;OPEX > PAYROLL to distribute
+27;BY;bank:priorbank;description;contains_all;ПЕРЕВОД С КОНВЕРСИЕЙ;Expense;060101;FR > FXR > Currency exchange
+28;BY;country:BY;description;contains_all;МАТЕРИАЛЬНАЯ ПОМОЩЬ;Expense;0404;OPEX > PAYROLL to distribute
+29;BY;country:BY;description;contains_all;ОНОЧАТЕЛЬНЫЙ РАСЧЕТ;Expense;0404;OPEX > PAYROLL to distribute
+30;BY;country:BY;description;contains_all;ОТЧИСЛЕНИЯ В ФСЗН;Expense;0403;OPEX > PAYROLL TAX to distribute
+31;BY;country:BY;description;contains_all;ЗАРАБОТНАЯ ПЛАТА;Expense;0404;OPEX > PAYROLL to distribute
+32;BY;country:BY;description;contains_all;ПОДОХОДНЫЙ НАЛОГ;Expense;0403;OPEX > PAYROLL TAX to distribute
+33;BY;country:BY;description;contains_all;ДЕНЕЖНАЯ ПОМОЩЬ;Expense;0404;OPEX > PAYROLL to distribute
+34;BY;country:BY;description;contains_all;СБОР ЗА РЕКЛАМУ;Expense;05010302;OIE > OTHER EXPENSE > Other taxes > Adv. Tax
+35;BY;bank:priorbank;description;contains_all;ПЕРЕОЦЕНКА;Income;060102;FR > FXR > Currency revaluation
+36;BY;bank:priorbank;description;contains_all;ПЕРЕОЦЕНКА;Expense;060102;FR > FXR > Currency revaluation
+37;BY;country:BY;description;contains_all;БОЛЬНИЧНЫЙ;Expense;0404;OPEX > PAYROLL to distribute
+38;BY;country:BY;description;contains_all;ДИВИДЕНДЫ;Expense;09;OUT OF P&L
+39;BY;country:BY;description;contains_all;ОТПУСКНЫЕ;Expense;0404;OPEX > PAYROLL to distribute
+40;BY;country:BY;description;contains_all;ОПЛ.ПТ;Expense;0403;OPEX > PAYROLL TAX to distribute
+41;BY;country:BY;description;contains_all;АВАНС;Expense;0404;OPEX > PAYROLL to distribute
+42;KZ;country:KZ;knp;eq;010;Expense;0403;OPEX > PAYROLL TAX to distribute
+43;KZ;country:KZ;knp;eq;012;Expense;0403;OPEX > PAYROLL TAX to distribute
+44;KZ;country:KZ;knp;eq;089;Expense;0403;OPEX > PAYROLL TAX to distribute
+45;KZ;country:KZ;knp;eq;120;Expense;05010304;OIE > OTHER EXPENSE > Other taxes > Other
+46;KZ;country:KZ;knp;eq;121;Expense;0403;OPEX > PAYROLL TAX to distribute
+47;KZ;country:KZ;knp;eq;122;Expense;0403;OPEX > PAYROLL TAX to distribute
+48;KZ;country:KZ;knp;eq;223;Expense;060101;FR > FXR > Currency exchange
+49;KZ;country:KZ;knp;eq;223;Income;060101;FR > FXR > Currency exchange
+50;KZ;country:KZ;knp;eq;230;Expense;060101;FR > FXR > Currency exchange
+51;KZ;country:KZ;knp;eq;332;Expense;0404;OPEX > PAYROLL to distribute
+52;KZ;country:KZ;knp;eq;661;Expense;09;OUT OF P&L
+53;KZ;country:KZ;knp;eq;841;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+54;KZ;country:KZ;knp;eq;851;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+55;KZ;country:KZ;knp;eq;852;Expense;0401020202;OPEX > Administration > GM > GM Services > Communication
+56;KZ;country:KZ;knp;eq;854;Expense;0401040101;OPEX > Administration > Legal > Leg. Services > Claim
+57;KZ;country:KZ;knp;eq;855;Expense;0401010201;OPEX > Administration > Finance > FI Services > 1С Cloud
+58;KZ;country:KZ;knp;eq;857;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+59;KZ;country:KZ;knp;eq;858;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+60;KZ;country:KZ;knp;eq;859;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+61;KZ;country:KZ;knp;eq;911;Expense;0403;OPEX > PAYROLL TAX to distribute
+62;KZ;country:KZ;knp;eq;912;Expense;050104;OIE > OTHER EXPENSE > Tax fines
+63;PL;bank:pkobp;operation_type;eq;Prowizja;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+64;PL;bank:pkobp;operation_type;eq;Opłata;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+65;PL;bank:pkobp;operation_type;eq;Opłata za użytkowanie karty;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+66;PL;bank:pkobp;operation_type;eq;Przelew do ZUS;Expense;0403;OPEX > PAYROLL TAX to distribute
+67;PL;bank:pkobp;operation_type;eq;Przelew do US VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
+68;PL;bank:pkobp;operation_type;eq;Uznanie;Income;060101;FR > FXR > Currency exchange
+69;PL;bank:pkobp;operation_type;eq;Obciążenie;Expense;060101;FR > FXR > Currency exchange
+70;PL;country:PL;description;contains_all;WARTOŚĆ VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
+71;PL;country:PL;description;contains_all;ZALICZKA NA CIT;Expense;07;CIT

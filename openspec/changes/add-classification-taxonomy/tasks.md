@@ -1,0 +1,55 @@
+**Budget.** `docs/IMPLEMENTATION_PLAN.md` §3 allocates **1.5 person-days** to change 3.1.
+These tasks total **≈ 11 hours ≈ 1.4 person-days**, which fits — but only because D-1 was
+answered first. The taxonomy itself, its 101 nodes and the decisions behind them, was the
+expensive part and is already done in `eval/`.
+
+**Ordering.** Apply after `add-tenancy-and-rls` is merged. Three tasks below depend on
+`app_current_org()` and on the non-superuser migrator, and neither exists before it. §D2 of
+the design lists four points to agree with 1.1 *before* starting; two of them change 1.1's
+own code, so raise them there first.
+
+**Ownership.** Track B throughout. No file here is owned by Track A.
+
+## 0. Agree with change 1.1 — do this before writing code
+
+- [ ] 0.1 Raise design §D2(a): the RLS coverage test needs a `shared+tenant` state that asserts the policy *shape*, not just its presence
+- [ ] 0.2 Raise design §D2(b): `parent_id` takes a constraint trigger instead of a composite foreign key, because a shared parent's `org_id` is NULL
+- [ ] 0.3 Raise design §D2(c): confirm seed-before-`FORCE` ordering is acceptable inside one migration
+- [ ] 0.4 Raise design §D2(d): `memberships.entity_id`, one nullable column, while migration 004 is still unwritten
+
+## 1. Migration — Track B
+
+- [ ] 1.1 Migration 005 up: `categories` with every column and check constraint from the design
+- [ ] 1.2 Add the `UNIQUE NULLS NOT DISTINCT (taxonomy_version, org_id, code)` constraint and both indexes
+- [ ] 1.3 Constraint trigger asserting a parent is shared or same-organisation (§D2(b))
+- [ ] 1.4 Seed the 106 shared rows from `eval/out/seed_categories.sql`, inside the same migration and **before** RLS is enabled
+- [ ] 1.5 Enable and `FORCE ROW LEVEL SECURITY`; create `categories_read` and `categories_write` as two separate policies
+- [ ] 1.6 Migration 005 down, and confirm `up → down → up` against a scratch database
+- [ ] 1.7 Grant `vekst_app` DML on the table; confirm the default privileges from migration 001 already cover it and no follow-up grant is needed
+
+## 2. Generated queries — Track B
+
+- [ ] 2.1 `core/internal/db/query/taxonomy.sql`: `EffectiveTaxonomy` and `ClassifiableCategories`
+- [ ] 2.2 Run `make gen`; confirm the codegen drift job stays green
+
+## 3. Tests — Track B
+
+- [ ] 3.1 **Cross-tenant isolation:** organisation A cannot read organisation B's leaves, and sees every shared row
+- [ ] 3.2 **Cross-tenant write:** A cannot insert, update or delete a row owned by B, and the failure is a policy denial rather than a not-found
+- [ ] 3.3 **Shared rows are read-only to the application:** `vekst_app` cannot insert, update or delete a row with `org_id IS NULL`, under either policy
+- [ ] 3.4 **Parent trigger:** a leaf may hang under a shared parent; a leaf may not hang under another organisation's parent, and the error is identical whether that parent exists or not
+- [ ] 3.5 **Seed ordering:** the migration applies to an empty database; a variant that enables `FORCE` before seeding fails, proving the ordering is load-bearing
+- [ ] 3.6 **Computed lines:** `ClassifiableCategories` returns no row where `is_computed`, so no rule can ever target GM, NM, CM, IBT or NI
+- [ ] 3.7 **Seed integrity:** every seeded row's `parent_id` resolves, every leaf is childless, and the 66 leaves and 20 shared nodes match what `eval/emit.py` reports
+- [ ] 3.8 **`requires_allocation`:** both payroll buckets carry it and nothing else does
+
+## 4. Drift — Track B
+
+- [ ] 4.1 CI check: re-running `eval/emit.py` produces no diff, so the committed seed and the generator cannot disagree
+- [ ] 4.2 CI check: every `category_code` in `eval/out/seed_rules.sql` exists in `eval/out/seed_categories.sql` — change 3.2 depends on it and should not discover a dangling code at apply time
+
+## 5. Close
+
+- [ ] 5.1 Update `docs/IMPLEMENTATION_PLAN.md` §7: D-1 is closed and 3.1 is delivered
+- [ ] 5.2 Add `/core/internal/db/query/taxonomy.sql` to `CODEOWNERS` under Track B
+- [ ] 5.3 Update the capability spec and run the full suite

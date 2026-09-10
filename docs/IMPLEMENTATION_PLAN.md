@@ -291,7 +291,7 @@ remaining report templates · mobile client · AI comments on already-highlighte
 
 | ID | Decision | Blocks | Due |
 | --- | --- | --- | --- |
-| D-1 | The classification category list | 3.1, 3.2, 4.1 — **Track B stalls without it** | **27 August** |
+| D-1 | The classification category list | 3.1, 3.2, 4.1 | **Closed 2026-09-08.** 101 categories in `eval/out/taxonomy.csv`, seeded by `eval/out/seed_categories.sql`. Built from the founder's P&L structure and the three categorisation files; see `eval/README.md`. Track B is unblocked |
 | D-2 | The 7 real export files in `/core/testdata` | 2.2, 2.3 — **Track A stalls without them** | **27 August** |
 | D-3 | The predefined output table structure | 4.1 | 15 September |
 | D-4 | Does the Demo split VAT out of gross? | 3.1, 4.1 | Default: no. Report gross and say so |

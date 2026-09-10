@@ -1,0 +1,15 @@
+# Lint settings for eval/. The service's own settings live in
+# classifier/pyproject.toml; this directory is an offline toolkit and is not
+# packaged, so it carries its own file rather than joining that one.
+
+line-length = 88
+
+[lint]
+select = ["E", "F", "I", "N", "UP", "B", "RUF"]
+
+# RUF001 and RUF003 flag Cyrillic characters that resemble Latin ones. Every
+# one of them here is a column name, a payment-purpose fragment or a category
+# path quoted verbatim from a bank export or the accountant's file -- "с" in
+# "Корреспондент.Счет" is the data, not a typo. Rewriting them would break the
+# matching this package exists to do.
+ignore = ["RUF001", "RUF003"]
