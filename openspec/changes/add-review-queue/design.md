@@ -123,17 +123,18 @@ classification may never target. So:
   *and* recognisable as a pair — which is what `ARCHITECTURE.md` §5.2 describes and change
   2.6 implements by finding the pairs automatically.
 
-Two ways to resolve that, and **task 0.1 has to settle it before section 1 is written**:
+**Settled:** both keys resolve to `09`, and the difference lives in the decision rather than
+in the taxonomy. `N` means "not part of the P&L" and `T` means "not part of the P&L, and the
+user says it is one leg of a transfer". Both are excluded from every report line by `is_pnl`;
+`review_decisions.outcome` keeps the two apart, so change 2.6 can find the pairs later and
+upgrade a claim into a confirmed link.
 
-1. Seed a non-P&L leaf for internal transfers, so `T` is an ordinary categorisation and 2.6
-   later upgrades a guess into a confirmed pair. Cheap, and it stores "somebody said this is
-   a transfer" without storing which two rows are the pair.
-2. Leave `T` out of this change and let 2.6 own it entirely. Honest, and it means the
-   keyboard legend `DESIGN.md` §8 promises is wrong until 2.6 ships.
-
-The design's working assumption is (1), because a promised key that does nothing is worse
-than a decision recorded imprecisely — but it adds a category to a seeded taxonomy, which is
-migration 005's territory and a change to `eval/build.py`, so it is not free.
+Seeding a category for transfers was the alternative and it is worse than it looks.
+`categories` carries `FORCE ROW LEVEL SECURITY` and a write policy admitting only
+`org_id = app_current_org()`, so a later migration cannot insert a shared row without opening
+a `NO FORCE` window — and it would then desynchronise `eval/out/seed_categories.sql` from
+what the database holds, which `scripts/check-taxonomy-seed.sh` exists to prevent. One row is
+not worth either.
 
 The alternative for both — a boolean pair on `transactions` — is rejected: it puts the same
 fact in two places and needs every report query to remember both.

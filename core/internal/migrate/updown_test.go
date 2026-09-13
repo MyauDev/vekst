@@ -88,7 +88,7 @@ func TestUpDownUp(t *testing.T) {
 	// tenancy tables (00004) + categories (00005) + classification_rules
 	// and vendors (00006).
 
-	assertTableCount(t, url, 20)
+	assertTableCount(t, url, 21)
 
 	// Down once per migration that creates a table, newest first. Named
 	// rather than counted: when the count is wrong the failure says which
@@ -100,7 +100,8 @@ func TestUpDownUp(t *testing.T) {
 	// database has ever been migrated. This test runs against a scratch
 	// database beside the real one, which is the case that cannot work.
 	for _, name := range []string{
-		"00007 transaction ledger", "00006 classification rules",
+		"00008 review decisions", "00007 transaction ledger",
+		"00006 classification rules",
 		"00005 taxonomy", "00004 tenancy",
 		"00003 identity", "00002 River",
 	} {
@@ -117,7 +118,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 20)
+	assertTableCount(t, url, 21)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {

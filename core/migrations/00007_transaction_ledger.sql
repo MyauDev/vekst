@@ -255,7 +255,21 @@ CREATE TABLE classifications (
 
     decided_by      uuid        NULL REFERENCES users (id) ON DELETE RESTRICT,
     decided_at      timestamptz NOT NULL DEFAULT now(),
+
+    -- Two ways a classification stops being the current answer, and they are
+    -- not the same event.
+    --
+    -- superseded_by names the classification that replaced it: a correction,
+    -- where some other answer is now current.
+    --
+    -- retracted_at says the answer was withdrawn and none took its place, which
+    -- is what a review decision being undone means. Supersession cannot express
+    -- it -- there is no successor to point at, and pointing at itself is
+    -- refused below -- and a report needs the difference: a corrected row has a
+    -- category, a retracted one is back in the queue.
     superseded_by   uuid        NULL,
+    retracted_at    timestamptz NULL,
+    retracted_by    uuid        NULL REFERENCES users (id) ON DELETE RESTRICT,
 
     PRIMARY KEY (org_id, id),
     FOREIGN KEY (org_id, transaction_id)
@@ -267,7 +281,15 @@ CREATE TABLE classifications (
     CONSTRAINT cls_human_has_a_decider CHECK (
         engine_layer <> 'human' OR decided_by IS NOT NULL),
 
-    CONSTRAINT cls_does_not_supersede_itself CHECK (superseded_by <> id)
+    CONSTRAINT cls_does_not_supersede_itself CHECK (superseded_by <> id),
+
+    CONSTRAINT cls_retraction_is_whole CHECK (
+        num_nonnulls(retracted_at, retracted_by) IN (0, 2)),
+
+    -- A row is replaced or withdrawn, never both: the two describe different
+    -- fates and a row with both is one no report can classify.
+    CONSTRAINT cls_is_not_both CHECK (
+        superseded_by IS NULL OR retracted_at IS NULL)
 );
 
 -- "The current classification" is a single row by construction. Without this
@@ -275,7 +297,7 @@ CREATE TABLE classifications (
 -- it wrong prints a transaction twice.
 CREATE UNIQUE INDEX classifications_one_live_idx
     ON classifications (org_id, transaction_id)
-    WHERE superseded_by IS NULL;
+    WHERE superseded_by IS NULL AND retracted_at IS NULL;
 
 CREATE INDEX classifications_txn_idx ON classifications (org_id, transaction_id);
 
@@ -300,7 +322,7 @@ CREATE CONSTRAINT TRIGGER classifications_category_is_visible
 -- ---------------------------------------------------------------------------
 
 REVOKE UPDATE, DELETE ON classifications FROM vekst_app;
-GRANT UPDATE (superseded_by) ON classifications TO vekst_app;
+GRANT UPDATE (superseded_by, retracted_at, retracted_by) ON classifications TO vekst_app;
 
 -- ---------------------------------------------------------------------------
 -- Row-level security. Three ordinary tenant tables -- none of them has rows

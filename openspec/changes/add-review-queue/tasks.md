@@ -11,25 +11,25 @@ demonstrable until that worker exists.
 
 ## 0. Before anything else
 
-- [ ] 0.1 **Settle `T`.** `N` resolves to the seeded leaf `09` OUT OF P&L and needs nothing new. Internal transfer has no category and is not one — design §D2 sets out the two options and assumes the first. Decide before section 1, because option 1 changes `eval/build.py` and migration 005's seed
+- [x] 0.1 **Settled.** Both `T` and `N` resolve to the seeded leaf `09` OUT OF P&L; `review_decisions.outcome` keeps them apart so 2.6 can upgrade a transfer claim into a confirmed pair. No taxonomy amendment — `categories` is FORCE'd and a shared row cannot be added without a `NO FORCE` window that would desynchronise the generator (design §D2)
 - [ ] 0.2 Decide whether `ARCHITECTURE.md` §5.5's `review_items` sketch is replaced or kept beside `review_decisions` — the design argues replaced, and the doc should say so either way
 
 ## 1. Migration 008 — `review_decisions`
 
-- [ ] 1.1 The table per design §D1, with the outcome/category CHECK and the whole-undo CHECK
-- [ ] 1.2 The partial unique index: one live decision per counterparty per key version
-- [ ] 1.3 RLS: enable, `FORCE`, an ordinary tenant policy — no shared rows
-- [ ] 1.4 Grants: no DELETE. An undo stamps, it does not remove
-- [ ] 1.5 Migration 008 down, and `up → down → up`; bump the two tripwires
+- [x] 1.1 The table per design §D1, with the outcome/category CHECK and the whole-undo CHECK
+- [x] 1.2 The partial unique index: one live decision per counterparty per key version
+- [x] 1.3 RLS: enable, `FORCE`, an ordinary tenant policy — no shared rows
+- [x] 1.4 Grants: no DELETE. An undo stamps, it does not remove
+- [x] 1.5 Migration 008 down, and `up → down → up`; bump the two tripwires
 
 ## 2. Queries — `core/internal/db/query/review.sql`
 
-- [ ] 2.1 `ReviewGroups`: the grouped aggregate of design §D3, filtered by entity, ordered by absolute base amount then count then key
-- [ ] 2.2 `ReviewGroupRows`: the transactions behind one group, for the drill-down the screen opens
-- [ ] 2.3 `UnclassifiedTotals`: count and sum over the whole queue, for "412 rows · 88 counterparties left"
-- [ ] 2.4 `InsertReviewDecision`, `UndoReviewDecision`, `DecisionsForCounterparty`
-- [ ] 2.5 `DeleteVendor` — the one non-append-only write in this flow (design §D5)
-- [ ] 2.6 Run `make gen`; confirm the codegen drift job stays green
+- [x] 2.1 `ReviewGroups`: the grouped aggregate of design §D3, filtered by entity, ordered by absolute base amount then count then key
+- [x] 2.2 `ReviewGroupRows`: the transactions behind one group, for the drill-down the screen opens
+- [x] 2.3 `UnclassifiedTotals`: count and sum over the whole queue, for "412 rows · 88 counterparties left"
+- [x] 2.4 `InsertReviewDecision`, `UndoReviewDecision`, `DecisionsForCounterparty`
+- [x] 2.5 `DeleteVendor` — the one non-append-only write in this flow (design §D5)
+- [x] 2.6 Run `make gen`; confirm the codegen drift job stays green
 
 ## 3. Proto — `proto/vekst/v1/review.proto`, both reviewers
 
