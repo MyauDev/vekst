@@ -41,6 +41,10 @@ type Querier interface {
 	// session is still visible to an operator asking what happened.
 	DeleteExpiredSessions(ctx context.Context, expiresAt pgtype.Timestamptz) (int64, error)
 	DeleteMembership(ctx context.Context, userID pgtype.UUID) (int64, error)
+	// The one non-append-only write in this flow, and the asymmetry is deliberate:
+	// memory is current state, classifications are history. A superseded vendor row
+	// would keep answering L0 with a category the user has just taken back.
+	DeleteVendor(ctx context.Context, arg DeleteVendorParams) (int64, error)
 	// Queries that assemble a ClassifyBatch request.
 	//
 	// The classifier holds no database credentials and no state, so everything it
@@ -129,6 +133,13 @@ type Querier interface {
 	GetOrganization(ctx context.Context) (Organization, error)
 	InsertAccount(ctx context.Context, arg InsertAccountParams) (Account, error)
 	InsertAuthFlow(ctx context.Context, arg InsertAuthFlowParams) (pgtype.UUID, error)
+	// ---------------------------------------------------------------------------
+	// The writes a decision fans out into.
+	// ---------------------------------------------------------------------------
+	// Append-only. A correction inserts a new row and points the old one at it;
+	// migration 007 withheld the UPDATE and DELETE grants that would allow
+	// anything else.
+	InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error)
 	InsertEntity(ctx context.Context, arg InsertEntityParams) (Entity, error)
 	// Insert-once, with no ON CONFLICT clause. Repointing a subject at another
 	// user is account takeover; vekst_app has no UPDATE privilege here, so this
@@ -164,6 +175,10 @@ type Querier interface {
 	// OrgIDForNewOrg and InTx arrange. WITH CHECK passes because the identifiers
 	// match, and no privileged path is needed to create an organisation.
 	InsertOrganization(ctx context.Context, arg InsertOrganizationParams) (Organization, error)
+	// One row per human decision about a counterparty. The covered count and total
+	// are what the user was shown, recorded so the decision stays explicable in the
+	// terms it was taken in.
+	InsertReviewDecision(ctx context.Context, arg InsertReviewDecisionParams) (ReviewDecision, error)
 	// token_sha256 is the SHA-256 of 32 random bytes; the raw value lives only in
 	// the cookie and is never stored, so a read of this table yields nothing a
 	// browser could present.
@@ -182,14 +197,86 @@ type Querier interface {
 	// from one query file only. A member list showing names and addresses is a
 	// browser-facing read, which arrives with 2.1 and brings that decision with it.
 	ListMemberships(ctx context.Context) ([]Membership, error)
+	// What a decision wrote, found again by the counterparty it was about. Used by
+	// the undo, which has a decision and needs the rows it touched.
+	LiveClassificationsForCounterparty(ctx context.Context, counterpartyKey string) ([]Classification, error)
+	LiveDecisionForCounterparty(ctx context.Context, arg LiveDecisionForCounterpartyParams) (ReviewDecision, error)
+	// The review queue: the read that builds it, and the writes that empty it.
+	//
+	// The queue is not a table. A transaction needing review is one with no live
+	// classification, which `classifications` already says -- so these are queries
+	// over `transactions`, not over a state somebody has to keep current.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context. None of
+	// them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else, and writing it again here would be a
+	// second place to get isolation right.
+	//
+	// Every insert takes org_id from app_current_org() rather than as a parameter,
+	// for the same reason. db.OrgID cannot be built outside core/internal/db and
+	// its wire form is unexported, so a caller could not supply one anyway -- but
+	// the deeper point is that a parameter is a chance to pass the wrong value,
+	// and the transaction already knows the right one. The WITH CHECK on each
+	// policy would reject a mismatch; not being able to express one is better.
+	// The currency every total in this file is denominated in. Read inside the
+	// same transaction that sums, rather than passed in by a caller who read it
+	// earlier: a total and the code beside it have to come from one moment.
+	OrganizationBaseCurrency(ctx context.Context) (string, error)
+	// The undo path. A retraction is not a supersession: supersession names the
+	// classification that replaced this one, and an undo has no replacement --
+	// the rows go back into the queue with no answer at all. Migration 007 carries
+	// both columns for exactly this reason, and a row may carry one or the other
+	// and never both.
+	RetractClassificationsOfTransactions(ctx context.Context, arg RetractClassificationsOfTransactionsParams) (int64, error)
+	ReviewDecisionByID(ctx context.Context, id pgtype.UUID) (ReviewDecision, error)
+	// The transactions behind one group, for the drill-down the screen opens and
+	// for the resolve that follows it. Ordered by date so a person reading them
+	// sees a story rather than a set.
+	ReviewGroupRows(ctx context.Context, arg ReviewGroupRowsParams) ([]ReviewGroupRowsRow, error)
+	// The queue, grouped by counterparty and ordered so that the largest amount is
+	// settled first.
+	//
+	// Three things here are decisions rather than SQL.
+	//
+	//   coalesce(base_amount_minor, amount_minor) -- comparing amounts across
+	//   currencies is only meaningful in one of them, and migration 007 stores the
+	//   converted amount rather than deriving it. A row with no conversion is
+	//   already in the base currency, so this is exact and not an approximation.
+	//   Summing face values would put a JPY row at the top of every queue.
+	//
+	//   abs(...) -- a 40,000 refund matters as much as a 40,000 payment, and
+	//   sorting signed puts every expense below every income.
+	//
+	//   counterparty_key last -- a deterministic tiebreak, so two reads agree and
+	//   the ground does not move under somebody working by keyboard.
+	//
+	// The empty key is a group like any other: a row whose counterparty could not
+	// be identified is the hardest row in the queue, and a queue that hides those
+	// reports a completion it did not reach.
+	ReviewGroups(ctx context.Context, arg ReviewGroupsParams) ([]ReviewGroupsRow, error)
 	// Sign-out marks the row revoked rather than deleting it, so the session is
 	// auditable afterwards and the expiry job is what finally removes it.
 	RevokeSession(ctx context.Context, tokenSha256 []byte) error
 	TouchSession(ctx context.Context, id pgtype.UUID) error
+	// "412 rows across 88 counterparties left." What the screen puts above the
+	// queue, and what tells a person whether fifteen minutes is plausible.
+	UnclassifiedTotals(ctx context.Context, entityID pgtype.UUID) (UnclassifiedTotalsRow, error)
+	// Stamped, never deleted: what a person did and then reversed is part of the
+	// audit trail. The WHERE clause makes a second undo affect no row, which
+	// db.ExactlyOneRow turns into an error rather than a silent success.
+	UndoReviewDecision(ctx context.Context, arg UndoReviewDecisionParams) (ReviewDecision, error)
 	UpdateAccountName(ctx context.Context, arg UpdateAccountNameParams) (int64, error)
 	UpdateEntityName(ctx context.Context, arg UpdateEntityNameParams) (int64, error)
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) (int64, error)
 	UpdateOrganizationName(ctx context.Context, name string) (int64, error)
+	// ---------------------------------------------------------------------------
+	// Vendor memory: the reason month two takes three minutes.
+	// ---------------------------------------------------------------------------
+	// Written only when a category was chosen. An internal transfer is not a
+	// vendor fact and a non-P&L marking is a property of the movement -- memory
+	// for either would make L0 answer next month with something that is not a
+	// category.
+	UpsertVendor(ctx context.Context, arg UpsertVendorParams) (Vendor, error)
 	// L0: what this organisation has already decided about a counterparty.
 	//
 	// Filtered by key_version, not merely tagged with it. Keys produced by an

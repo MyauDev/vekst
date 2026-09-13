@@ -45,6 +45,25 @@ type Category struct {
 	CreatedAt          pgtype.Timestamptz
 }
 
+type Classification struct {
+	OrgID            pgtype.UUID
+	ID               pgtype.UUID
+	TransactionID    pgtype.UUID
+	CategoryID       pgtype.UUID
+	EngineLayer      string
+	Confidence       pgtype.Numeric
+	Evidence         string
+	TaxonomyVersion  string
+	RulesetVersion   string
+	EngineVersion    string
+	NormalizeVersion string
+	DecidedBy        pgtype.UUID
+	DecidedAt        pgtype.Timestamptz
+	SupersededBy     pgtype.UUID
+	RetractedAt      pgtype.Timestamptz
+	RetractedBy      pgtype.UUID
+}
+
 type ClassificationRule struct {
 	ID              pgtype.UUID
 	TaxonomyVersion string
@@ -74,6 +93,15 @@ type GooseDbVersion struct {
 	Tstamp    pgtype.Timestamp
 }
 
+type ImportBatch struct {
+	OrgID      pgtype.UUID
+	ID         pgtype.UUID
+	EntityID   pgtype.UUID
+	SourceKind string
+	Status     string
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Membership struct {
 	OrgID     pgtype.UUID
 	UserID    pgtype.UUID
@@ -89,6 +117,22 @@ type Organization struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+type ReviewDecision struct {
+	OrgID           pgtype.UUID
+	ID              pgtype.UUID
+	CounterpartyKey string
+	KeyVersion      string
+	Outcome         string
+	CategoryID      pgtype.UUID
+	DecidedBy       pgtype.UUID
+	DecidedAt       pgtype.Timestamptz
+	CoveredCount    int32
+	CoveredMinor    int64
+	CoveredCurrency string
+	UndoneAt        pgtype.Timestamptz
+	UndoneBy        pgtype.UUID
+}
+
 type Session struct {
 	ID          pgtype.UUID
 	TokenSha256 []byte
@@ -98,6 +142,35 @@ type Session struct {
 	LastSeenAt  pgtype.Timestamptz
 	RevokedAt   pgtype.Timestamptz
 	UserAgent   pgtype.Text
+}
+
+type Transaction struct {
+	OrgID            pgtype.UUID
+	ID               pgtype.UUID
+	EntityID         pgtype.UUID
+	AccountID        pgtype.UUID
+	BatchID          pgtype.UUID
+	SourceKind       string
+	DocumentRef      pgtype.Text
+	PostingNo        int32
+	BookedOn         pgtype.Date
+	ValueOn          pgtype.Date
+	Direction        string
+	AmountMinor      int64
+	Currency         string
+	FxRate           pgtype.Numeric
+	FxRateOn         pgtype.Date
+	BaseAmountMinor  pgtype.Int8
+	BaseCurrency     pgtype.Text
+	CounterpartyRaw  string
+	CounterpartyKey  string
+	DescriptionRaw   string
+	DescriptionNorm  string
+	NormalizeVersion string
+	RegulatedCode    string
+	BankRef          string
+	DedupHash        string
+	CreatedAt        pgtype.Timestamptz
 }
 
 type User struct {

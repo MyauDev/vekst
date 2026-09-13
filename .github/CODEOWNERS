@@ -19,6 +19,7 @@
 /core/classify/              @MyauDev/admin
 /core/internal/report/       @MyauDev/admin
 /core/internal/normalize/    @MyauDev/admin
+/core/internal/review/       @MyauDev/admin
 /classifier/                 @MyauDev/admin
 
 # --- Both reviewers required (branch protection enforces the count) -------
@@ -70,3 +71,9 @@
 # (change 3.2). The two tables sit side by side with opposite policies, which
 # is the thing to read carefully in a review.
 /core/migrations/00006_classification_rules.sql   @MyauDev/admin
+
+# The ledger and the review queue. 007 is where money, the grain and
+# append-only classifications land; 008 is the human decision that empties the
+# queue and writes the memory L0 reads next month.
+/core/migrations/00007_transaction_ledger.sql   @MyauDev/admin
+/core/migrations/00008_review_decisions.sql     @MyauDev/admin
