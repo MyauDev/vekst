@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package vekst.v1;
+
+import "vekst/type/v1/money.proto";
+
+option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
+
+// ReviewService is the queue where a person settles what the engine could not,
+// and where every decision becomes memory: an approval writes a vendor-memory
+// row, and next month L0 answers that counterparty for free. That loop is why
+// the second month takes three minutes instead of fifteen.
+//
+// Browser-facing, so Connect rather than the native gRPC the classifier uses.
+//
+// Every request names the organisation it acts for. The handler resolves it
+// through the one sanctioned door, which both proves membership and returns
+// the caller's role -- a second lookup at enforcement time is how a
+// stale-permissions bug gets built.
+service ReviewService {
+  // The queue: counterparties with unclassified transactions, largest amount
+  // first. Any member may call it, including a viewer.
+  rpc ListReviewGroups(ListReviewGroupsRequest) returns (ListReviewGroupsResponse);
+
+  // The transactions behind one group, for the drill-down.
+  rpc ListGroupTransactions(ListGroupTransactionsRequest) returns (ListGroupTransactionsResponse);
+
+  // Settle a whole counterparty in one call. Requires owner, admin or
+  // approver.
+  rpc ResolveGroup(ResolveGroupRequest) returns (ResolveGroupResponse);
+
+  // Reverse a decision. The rows return to the queue; the decision itself is
+  // stamped rather than deleted. Requires owner, admin or approver.
+  rpc UndoDecision(UndoDecisionRequest) returns (UndoDecisionResponse);
+}
+
+// What a person decided about a counterparty.
+enum ReviewOutcome {
+  // Never sent by a client. Proto3 cannot distinguish an unset enum from its
+  // zero value, so the zero value is reserved for "nobody said", and a request
+  // carrying it is refused rather than defaulted.
+  REVIEW_OUTCOME_UNSPECIFIED = 0;
+
+  // A category was chosen. This is the only outcome that writes vendor memory:
+  // the others are properties of the movement rather than facts about the
+  // counterparty, and remembering one would make L0 answer next month with
+  // something that is not a category.
+  REVIEW_OUTCOME_CATEGORISED = 1;
+
+  // One leg of a movement between the organisation's own accounts. Resolves to
+  // the same out-of-P&L category as the next one; the distinction is kept so
+  // that the change which matches the two legs can upgrade a claim into a
+  // confirmed pair.
+  REVIEW_OUTCOME_INTERNAL_TRANSFER = 2;
+
+  // Outside the P&L, and not a transfer.
+  REVIEW_OUTCOME_NON_PNL = 3;
+
+  // Looked at and deferred. The rows stay in the queue.
+  REVIEW_OUTCOME_SKIPPED = 4;
+}
+
+// One counterparty's worth of unsettled transactions.
+message ReviewGroup {
+  // Produced by core's normalisation: 'tax:220340017991' where the statement
+  // carried a tax identifier, 'name:...' where it did not. Empty when the
+  // counterparty could not be identified at all -- which is a group like any
+  // other, because a queue that hides its hardest rows reports a completion it
+  // did not reach.
+  string counterparty_key = 1;
+
+  // As the statement spelled it, for a person to read.
+  string display_name = 2;
+
+  int32 row_count = 3;
+
+  // Signed, and in the organisation's base currency. Groups are ordered by its
+  // absolute value: a 40,000 refund deserves attention as much as a 40,000
+  // payment.
+  vekst.type.v1.Money total = 4;
+
+  // ISO 8601 dates, YYYY-MM-DD. A date is not an instant -- a booking date has
+  // no time zone, and a timestamp would invite one.
+  string first_seen = 5;
+  string last_seen = 6;
+}
+
+message ListReviewGroupsRequest {
+  string organization_id = 1;
+  string entity_id = 2;
+
+  // Page size and offset. Offset rather than a cursor because the ordering is
+  // deterministic and the queue shrinks as it is worked: a cursor into a list
+  // that is being emptied points at a moving target.
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListReviewGroupsResponse {
+  repeated ReviewGroup groups = 1;
+
+  // The whole queue, not this page: "412 rows across 88 counterparties left."
+  int32 total_row_count = 2;
+  int32 total_counterparty_count = 3;
+
+  // The sum of absolute amounts, so it reads as "worth settling" rather than
+  // netting an expense against an income to nearly nothing.
+  vekst.type.v1.Money total_absolute = 4;
+}
+
+message ListGroupTransactionsRequest {
+  string organization_id = 1;
+  string entity_id = 2;
+  string counterparty_key = 3;
+}
+
+message QueuedTransaction {
+  string id = 1;
+
+  // YYYY-MM-DD.
+  string booked_on = 2;
+
+  // income | expense
+  string direction = 3;
+
+  // What the source said.
+  vekst.type.v1.Money amount = 4;
+
+  // The conversion into the organisation's base currency, absent when the row
+  // is already in it. Absent means "no conversion happened", which is a
+  // different claim from "converted at a rate of one".
+  vekst.type.v1.Money base_amount = 5;
+
+  string description = 6;
+  string counterparty_raw = 7;
+
+  // КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+  string regulated_code = 8;
+
+  // ledger | bank
+  string source_kind = 9;
+}
+
+message ListGroupTransactionsResponse {
+  repeated QueuedTransaction transactions = 1;
+}
+
+message ResolveGroupRequest {
+  string organization_id = 1;
+  string entity_id = 2;
+  string counterparty_key = 3;
+
+  ReviewOutcome outcome = 4;
+
+  // Required when the outcome is CATEGORISED, and refused otherwise. A code
+  // rather than an identifier: the client renders a taxonomy it was given, and
+  // an id it could return is an id it could invent.
+  string category_code = 5;
+}
+
+message ResolveGroupResponse {
+  string decision_id = 1;
+
+  // What the decision actually covered, read inside the same transaction that
+  // wrote it. The client shows this back: a number that differs from what was
+  // on screen means an import landed while the person was deciding.
+  int32 covered_count = 2;
+  vekst.type.v1.Money covered_total = 3;
+}
+
+message UndoDecisionRequest {
+  string organization_id = 1;
+  string decision_id = 2;
+}
+
+message UndoDecisionResponse {
+  // How many classifications were retracted, which is how many rows returned
+  // to the queue.
+  int32 retracted_count = 1;
+}

@@ -595,6 +595,13 @@ func TestOrgsForUserIsABoundedException(t *testing.T) {
 // This asserts on the reporting currency specifically, not on every column
 // whose name contains "currency": `accounts.currency` is the denomination an
 // account is held in, which is a different fact and legitimately per-account.
+//
+// Change 2.5 took the escape hatch the original message offered, so the test
+// is stricter now rather than looser. `transactions.base_currency` exists
+// because `base_amount_minor` without a code beside it is the one thing money
+// is never allowed to be -- and it is admitted here only while a trigger ties
+// it to the organisation's own. A second home with no rule still fails, which
+// is the case this test was written for.
 func TestTheReportingCurrencyHasOneHome(t *testing.T) {
 	f := newTenantFixture(t, "vekst_tenancy_currency_test")
 
@@ -626,11 +633,31 @@ func TestTheReportingCurrencyHasOneHome(t *testing.T) {
 		t.Fatalf("iterating: %v", err)
 	}
 
-	if len(carriers) != 1 || carriers[0] != "organizations" {
-		t.Fatalf("base_currency lives on %v, want exactly [organizations]. Two copies of the "+
-			"currency a report converts into can disagree with no error; if a second home is "+
-			"genuinely needed, the change that adds it must also add the rule for which one "+
-			"applies (design §1)", carriers)
+	if len(carriers) == 0 || carriers[0] != "organizations" {
+		t.Fatalf("base_currency lives on %v; organizations must be one of them", carriers)
+	}
+
+	// Every other carrier must name a trigger that ties its copy to the
+	// organisation's. The rule is what makes a second copy legible: a stored
+	// row carries the currency its converted amount is actually denominated
+	// in, so changing an organisation's reporting currency is a visible
+	// backfill rather than a silent reinterpretation.
+	for _, table := range carriers[1:] {
+		var triggers int
+		if err := f.migrator.QueryRow(`
+			SELECT count(*)
+			  FROM pg_trigger t
+			  JOIN pg_class c ON c.oid = t.tgrelid
+			 WHERE c.relname = $1
+			   AND NOT t.tgisinternal
+			   AND t.tgname LIKE '%base_currency%'`, table).Scan(&triggers); err != nil {
+			t.Fatalf("looking for the rule on %s: %v", table, err)
+		}
+		if triggers == 0 {
+			t.Errorf("base_currency also lives on %s with no rule saying which copy applies. "+
+				"Two copies of the currency a report converts into can disagree with no error, "+
+				"and whichever the query happens to read wins (design §1)", table)
+		}
 	}
 }
 
