@@ -124,10 +124,21 @@ func (h *harness) cleanTables() {
 	// email. CLAUDE.md puts it plainly: the rule exists to keep "a UNIQUE
 	// violation off the login path where it would lock out a valid account".
 	// Half-deleting puts it straight back on.
+	// The test is ".test", not "@example.test", and the difference was found by
+	// running the suite. This package owns @example.test, but it is not the only
+	// writer of users: core/internal/db's tenancy tests create @tenancy.test
+	// accounts, and go test runs packages in parallel against one DATABASE_URL.
+	// Counting those as foreign made this guard fail the whole identity package
+	// as soon as a sibling package had run.
+	//
+	// .test is reserved by RFC 6761 for exactly this, so an address ending in it
+	// is by construction not a real account. The DELETE below stays narrow --
+	// this package removes only its own domain, because removing a sibling's
+	// users mid-run is the race the comment above describes.
 	var foreign int
 	if err := h.database.InSystemTx(context.Background(), func(ctx context.Context, tx pgx.Tx) error {
 		return tx.QueryRow(ctx,
-			"SELECT count(*) FROM users WHERE email IS NOT NULL AND email NOT LIKE '%@example.test'",
+			"SELECT count(*) FROM users WHERE email IS NOT NULL AND email NOT LIKE '%.test'",
 		).Scan(&foreign)
 	}); err != nil {
 		h.t.Fatalf("checking the database is safe to clear: %v", err)
