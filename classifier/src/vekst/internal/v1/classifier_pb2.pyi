@@ -3,8 +3,11 @@
 isort:skip_file
 """
 
+from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
+from google.protobuf.internal import containers as _containers
+from vekst.type.v1 import money_pb2 as _money_pb2
 import builtins as _builtins
 import sys
 import typing as _typing
@@ -57,3 +60,362 @@ class VersionResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___VersionResponse: _TypeAlias = VersionResponse  # noqa: Y015
+
+@_typing.final
+class ClassifyBatchRequest(_message.Message):
+    """---------------------------------------------------------------------------
+    ClassifyBatch
+    ---------------------------------------------------------------------------
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    REQUEST_ID_FIELD_NUMBER: _builtins.int
+    TAXONOMY_VERSION_FIELD_NUMBER: _builtins.int
+    RULESET_VERSION_FIELD_NUMBER: _builtins.int
+    NORMALIZE_VERSION_FIELD_NUMBER: _builtins.int
+    CATEGORIES_FIELD_NUMBER: _builtins.int
+    RULES_FIELD_NUMBER: _builtins.int
+    VENDORS_FIELD_NUMBER: _builtins.int
+    TXNS_FIELD_NUMBER: _builtins.int
+    THRESHOLD_FIELD_NUMBER: _builtins.int
+    request_id: _builtins.str
+    """Idempotency key, one per chunk. core stores it so that a retried job does
+    not produce a second set of proposals for rows it already has.
+    """
+    taxonomy_version: _builtins.str
+    """The three strings a report pins. They are sent rather than configured
+    because the classifier keeps no state: it cannot know which taxonomy this
+    organisation is on, and must not guess.
+    """
+    ruleset_version: _builtins.str
+    normalize_version: _builtins.str
+    """Asserted, not applied. core normalised description_norm and
+    counterparty_key before sending them, and says with which version of that
+    function. The classifier rejects a version it does not implement rather
+    than matching normalised rules against text normalised some other way --
+    a mismatch there is silently wrong, never loudly wrong.
+    """
+    threshold: _builtins.float
+    """Below this, a proposal is not returned. A confidence is a threshold
+    comparison and never money, which is why a double is allowed here.
+    """
+    @_builtins.property
+    def categories(self) -> _containers.RepeatedCompositeFieldContainer[Global___Category]:
+        """Classifiable leaves only. A section or a computed line reaching this list
+        would let a proposal double-count, so it is filtered in the query that
+        builds the request, not here.
+        """
+
+    @_builtins.property
+    def rules(self) -> _containers.RepeatedCompositeFieldContainer[Global___Rule]:
+        """Already ordered: L1 is first-match-wins, so the order is part of the
+        request and not something the classifier may re-derive.
+        """
+
+    @_builtins.property
+    def vendors(self) -> _containers.RepeatedCompositeFieldContainer[Global___VendorMemory]:
+        """This organisation's own L0 memory. Never another organisation's -- the
+        read that fills this runs under row-level security.
+        """
+
+    @_builtins.property
+    def txns(self) -> _containers.RepeatedCompositeFieldContainer[Global___TxnForClassify]: ...
+    def __init__(
+        self,
+        *,
+        request_id: _builtins.str = ...,
+        taxonomy_version: _builtins.str = ...,
+        ruleset_version: _builtins.str = ...,
+        normalize_version: _builtins.str = ...,
+        categories: _abc.Iterable[Global___Category] | None = ...,
+        rules: _abc.Iterable[Global___Rule] | None = ...,
+        vendors: _abc.Iterable[Global___VendorMemory] | None = ...,
+        txns: _abc.Iterable[Global___TxnForClassify] | None = ...,
+        threshold: _builtins.float = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "normalize_version", b"normalize_version", "request_id", b"request_id", "rules", b"rules", "ruleset_version", b"ruleset_version", "taxonomy_version", b"taxonomy_version", "threshold", b"threshold", "txns", b"txns", "vendors", b"vendors"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ClassifyBatchRequest: _TypeAlias = ClassifyBatchRequest  # noqa: Y015
+
+@_typing.final
+class Category(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CODE_FIELD_NUMBER: _builtins.int
+    NAME_FIELD_NUMBER: _builtins.int
+    REQUIRES_ALLOCATION_FIELD_NUMBER: _builtins.int
+    code: _builtins.str
+    name: _builtins.str
+    requires_allocation: _builtins.bool
+    """True when a report may show this amount as known-but-unattributed rather
+    than attributing it. Payroll is the case: it is payroll before anyone has
+    said which department.
+    """
+    def __init__(
+        self,
+        *,
+        code: _builtins.str = ...,
+        name: _builtins.str = ...,
+        requires_allocation: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["code", b"code", "name", b"name", "requires_allocation", b"requires_allocation"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Category: _TypeAlias = Category  # noqa: Y015
+
+@_typing.final
+class Rule(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PRIORITY_FIELD_NUMBER: _builtins.int
+    CATEGORY_CODE_FIELD_NUMBER: _builtins.int
+    SCOPE_FIELD_NUMBER: _builtins.int
+    ALL_FIELD_NUMBER: _builtins.int
+    SOURCE_KIND_FIELD_NUMBER: _builtins.int
+    priority: _builtins.int
+    category_code: _builtins.str
+    scope: _builtins.str
+    """'country:BY' | 'bank:priorbank' | 'org'. Returned as a proposal's
+    evidence, so a customer asking "why this category" gets "because this is
+    how Belarusian statements word it", not a rule id.
+    """
+    source_kind: _builtins.str
+    """ledger | bank. A rule written for a bank's wording must not fire on a
+    ledger row: an accountant's narration and a bank's are different
+    languages that share words, and a line computed from both double-counts.
+    """
+    @_builtins.property
+    def all(self) -> _containers.RepeatedCompositeFieldContainer[Global___Condition]:
+        """AND over every condition. There is no OR: an alternative is a second rule,
+        which keeps each rule independently measurable by the harness and keeps
+        priority meaningful.
+        """
+
+    def __init__(
+        self,
+        *,
+        priority: _builtins.int = ...,
+        category_code: _builtins.str = ...,
+        scope: _builtins.str = ...,
+        all: _abc.Iterable[Global___Condition] | None = ...,
+        source_kind: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["all", b"all", "category_code", b"category_code", "priority", b"priority", "scope", b"scope", "source_kind", b"source_kind"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Rule: _TypeAlias = Rule  # noqa: Y015
+
+@_typing.final
+class Condition(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    FIELD_FIELD_NUMBER: _builtins.int
+    OP_FIELD_NUMBER: _builtins.int
+    VALUE_FIELD_NUMBER: _builtins.int
+    AMOUNT_VALUE_FIELD_NUMBER: _builtins.int
+    field: _builtins.str
+    """description | counterparty_key | regulated_code | direction | amount |
+    account. Matched against the named field alone -- never against a
+    concatenation of the row, which is how a rule for a counterparty starts
+    firing on a payment reference that happens to contain the same letters.
+
+    A field this engine does not implement fails the batch. Returning false
+    instead would let a newer core's rules quietly stop firing against an
+    older classifier, and a coverage number that drops for an invisible
+    reason is worse than one that does not arrive.
+    """
+    op: _builtins.str
+    """contains_all | eq | gte | lte"""
+    value: _builtins.str
+    """The comparand for every op except the amount ones."""
+    @_builtins.property
+    def amount_value(self) -> _money_pb2.Money:
+        """The comparand for gte and lte, so that an amount rule is never a parsed
+        string and never a double. Two Money values of different currencies do not
+        compare, and the engine says so rather than converting.
+        """
+
+    def __init__(
+        self,
+        *,
+        field: _builtins.str = ...,
+        op: _builtins.str = ...,
+        value: _builtins.str = ...,
+        amount_value: _money_pb2.Money | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["amount_value", b"amount_value"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["amount_value", b"amount_value", "field", b"field", "op", b"op", "value", b"value"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Condition: _TypeAlias = Condition  # noqa: Y015
+
+@_typing.final
+class TxnForClassify(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TRANSACTION_ID_FIELD_NUMBER: _builtins.int
+    SOURCE_KIND_FIELD_NUMBER: _builtins.int
+    DESCRIPTION_NORM_FIELD_NUMBER: _builtins.int
+    COUNTERPARTY_KEY_FIELD_NUMBER: _builtins.int
+    DIRECTION_FIELD_NUMBER: _builtins.int
+    AMOUNT_FIELD_NUMBER: _builtins.int
+    REGULATED_CODE_FIELD_NUMBER: _builtins.int
+    ACCOUNT_ID_FIELD_NUMBER: _builtins.int
+    transaction_id: _builtins.str
+    source_kind: _builtins.str
+    """ledger | bank. A rule declares which kind it applies to, because a
+    description written by a bank and one written by an accountant are not the
+    same language even when they share words.
+    """
+    description_norm: _builtins.str
+    counterparty_key: _builtins.str
+    direction: _builtins.str
+    """income | expense -- the direction of the money, not the bookkeeping side
+    of one account. The seeded rules are written in these terms because the
+    accountant's own files were, and "debit" answers a different question
+    depending on whose ledger is being read.
+    """
+    regulated_code: _builtins.str
+    """КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+    This is L0.5: a code assigned by someone other than the payer.
+    """
+    account_id: _builtins.str
+    @_builtins.property
+    def amount(self) -> _money_pb2.Money: ...
+    def __init__(
+        self,
+        *,
+        transaction_id: _builtins.str = ...,
+        source_kind: _builtins.str = ...,
+        description_norm: _builtins.str = ...,
+        counterparty_key: _builtins.str = ...,
+        direction: _builtins.str = ...,
+        amount: _money_pb2.Money | None = ...,
+        regulated_code: _builtins.str = ...,
+        account_id: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["amount", b"amount"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["account_id", b"account_id", "amount", b"amount", "counterparty_key", b"counterparty_key", "description_norm", b"description_norm", "direction", b"direction", "regulated_code", b"regulated_code", "source_kind", b"source_kind", "transaction_id", b"transaction_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___TxnForClassify: _TypeAlias = TxnForClassify  # noqa: Y015
+
+@_typing.final
+class Proposal(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    TRANSACTION_ID_FIELD_NUMBER: _builtins.int
+    CATEGORY_CODE_FIELD_NUMBER: _builtins.int
+    ENGINE_LAYER_FIELD_NUMBER: _builtins.int
+    CONFIDENCE_FIELD_NUMBER: _builtins.int
+    EVIDENCE_FIELD_NUMBER: _builtins.int
+    MATCHED_RULE_PRIORITY_FIELD_NUMBER: _builtins.int
+    transaction_id: _builtins.str
+    category_code: _builtins.str
+    engine_layer: _builtins.str
+    """L0 | L0.5 | L1. Stored on the classification row, because "the customer
+    taught us this" and "a template rule guessed" are different claims and a
+    review queue orders by which is which.
+    """
+    confidence: _builtins.float
+    evidence: _builtins.str
+    """Why, in a form a person can read: the counterparty key tier that matched,
+    or the rule's scope.
+    """
+    matched_rule_priority: _builtins.int
+    """0 when no L1 rule was involved."""
+    def __init__(
+        self,
+        *,
+        transaction_id: _builtins.str = ...,
+        category_code: _builtins.str = ...,
+        engine_layer: _builtins.str = ...,
+        confidence: _builtins.float = ...,
+        evidence: _builtins.str = ...,
+        matched_rule_priority: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["category_code", b"category_code", "confidence", b"confidence", "engine_layer", b"engine_layer", "evidence", b"evidence", "matched_rule_priority", b"matched_rule_priority", "transaction_id", b"transaction_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Proposal: _TypeAlias = Proposal  # noqa: Y015
+
+@_typing.final
+class VendorMemory(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    KEY_FIELD_NUMBER: _builtins.int
+    CATEGORY_CODE_FIELD_NUMBER: _builtins.int
+    DISPLAY_NAME_FIELD_NUMBER: _builtins.int
+    key: _builtins.str
+    """Produced by core's counterparty_key(): 'tax:220340017991' when the
+    statement carried a tax identifier, 'name:...' when it did not.
+    """
+    category_code: _builtins.str
+    display_name: _builtins.str
+    def __init__(
+        self,
+        *,
+        key: _builtins.str = ...,
+        category_code: _builtins.str = ...,
+        display_name: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["category_code", b"category_code", "display_name", b"display_name", "key", b"key"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___VendorMemory: _TypeAlias = VendorMemory  # noqa: Y015
+
+@_typing.final
+class ClassifyBatchResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    ENGINE_VERSION_FIELD_NUMBER: _builtins.int
+    RULESET_VERSION_FIELD_NUMBER: _builtins.int
+    PROPOSALS_FIELD_NUMBER: _builtins.int
+    engine_version: _builtins.str
+    ruleset_version: _builtins.str
+    """Echoed from the request, so that a response stored against a batch carries
+    the ruleset it was actually produced under rather than the one core
+    believes it asked for.
+    """
+    @_builtins.property
+    def proposals(self) -> _containers.RepeatedCompositeFieldContainer[Global___Proposal]:
+        """A transaction absent from this list is one no layer answered. That is a
+        result, not an omission: it goes to the review queue rather than to a
+        guess.
+        """
+
+    def __init__(
+        self,
+        *,
+        engine_version: _builtins.str = ...,
+        ruleset_version: _builtins.str = ...,
+        proposals: _abc.Iterable[Global___Proposal] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["engine_version", b"engine_version", "proposals", b"proposals", "ruleset_version", b"ruleset_version"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ClassifyBatchResponse: _TypeAlias = ClassifyBatchResponse  # noqa: Y015

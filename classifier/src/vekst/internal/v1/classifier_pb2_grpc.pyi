@@ -31,9 +31,10 @@ class ClassifierServiceStub:
     only by core. It is never exposed through the Ingress, and it never receives
     database credentials -- ARCHITECTURE.md A-4.
 
-    ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-    vendor memory and rule matcher, none of which exist before changes 3.1 and
-    3.2. See ../README.md.
+    ClassifyBatch takes everything it reasons with in the request. The service
+    holds no database handle, no clock and no globals, so a batch is a pure
+    function of its arguments -- which is what lets the same request replay in
+    June and produce June's answer only if the versions in it changed.
     """
 
     @_typing.overload
@@ -41,6 +42,7 @@ class ClassifierServiceStub:
     @_typing.overload
     def __new__(cls, channel: _aio.Channel) -> ClassifierServiceAsyncStub: ...
     Version: _grpc.UnaryUnaryMultiCallable[_classifier_pb2.VersionRequest, _classifier_pb2.VersionResponse]
+    ClassifyBatch: _grpc.UnaryUnaryMultiCallable[_classifier_pb2.ClassifyBatchRequest, _classifier_pb2.ClassifyBatchResponse]
 
 @_typing.type_check_only
 class ClassifierServiceAsyncStub(ClassifierServiceStub):
@@ -48,22 +50,25 @@ class ClassifierServiceAsyncStub(ClassifierServiceStub):
     only by core. It is never exposed through the Ingress, and it never receives
     database credentials -- ARCHITECTURE.md A-4.
 
-    ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-    vendor memory and rule matcher, none of which exist before changes 3.1 and
-    3.2. See ../README.md.
+    ClassifyBatch takes everything it reasons with in the request. The service
+    holds no database handle, no clock and no globals, so a batch is a pure
+    function of its arguments -- which is what lets the same request replay in
+    June and produce June's answer only if the versions in it changed.
     """
 
     def __init__(self, channel: _aio.Channel) -> None: ...
     Version: _aio.UnaryUnaryMultiCallable[_classifier_pb2.VersionRequest, _classifier_pb2.VersionResponse]  # type: ignore[assignment]
+    ClassifyBatch: _aio.UnaryUnaryMultiCallable[_classifier_pb2.ClassifyBatchRequest, _classifier_pb2.ClassifyBatchResponse]  # type: ignore[assignment]
 
 class ClassifierServiceServicer(metaclass=_abc_1.ABCMeta):
     """ClassifierService is internal: native gRPC on a private ClusterIP Service, called
     only by core. It is never exposed through the Ingress, and it never receives
     database credentials -- ARCHITECTURE.md A-4.
 
-    ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-    vendor memory and rule matcher, none of which exist before changes 3.1 and
-    3.2. See ../README.md.
+    ClassifyBatch takes everything it reasons with in the request. The service
+    holds no database handle, no clock and no globals, so a batch is a pure
+    function of its arguments -- which is what lets the same request replay in
+    June and produce June's answer only if the versions in it changed.
     """
 
     @_abc_1.abstractmethod
@@ -72,5 +77,12 @@ class ClassifierServiceServicer(metaclass=_abc_1.ABCMeta):
         request: _classifier_pb2.VersionRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_classifier_pb2.VersionResponse, _abc.Awaitable[_classifier_pb2.VersionResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def ClassifyBatch(
+        self,
+        request: _classifier_pb2.ClassifyBatchRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_classifier_pb2.ClassifyBatchResponse, _abc.Awaitable[_classifier_pb2.ClassifyBatchResponse]]: ...
 
 def add_ClassifierServiceServicer_to_server(servicer: ClassifierServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
