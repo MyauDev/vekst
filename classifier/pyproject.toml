@@ -54,6 +54,11 @@ select = ["E", "F", "I", "N", "UP", "B", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Method names on a servicer are fixed by the proto contract, not by us.
 "src/vekst_classifier/service.py" = ["N802"]
+# The Cyrillic in these files is data, not a homoglyph mistake: they are the
+# payment purposes a Belarusian bank actually writes, and "ЗА" has to be the
+# Cyrillic ЗА or the test stops testing anything. Same exception eval/ruff.toml
+# makes, for the same reason.
+"tests/test_engine.py" = ["RUF001", "RUF003"]
 
 [tool.mypy]
 strict = true

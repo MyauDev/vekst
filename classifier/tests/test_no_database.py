@@ -52,7 +52,11 @@ def test_no_database_package_is_installed() -> None:
 def test_no_database_package_is_declared() -> None:
     """The same rule at the source, so the failure names the line to delete."""
     path = Path(__file__).parent.parent / "pyproject.toml"
-    pyproject = tomllib.loads(path.read_text())
+    # TOML is UTF-8 by specification; Path.read_text() without an encoding is
+    # whatever the platform's locale happens to be, which is cp1252 on a
+    # Windows developer machine and UTF-8 in CI. A comment in the file naming
+    # a Cyrillic string is enough to make those two disagree.
+    pyproject = tomllib.loads(path.read_text(encoding="utf-8"))
 
     declared = list(pyproject["project"]["dependencies"])
     for group in pyproject.get("dependency-groups", {}).values():
