@@ -137,23 +137,21 @@ func seedEntityAndBatch(t *testing.T, d *db.DB, org db.OrgID) (entity, batch uui
 	return uuid.UUID(e.Bytes), uuid.UUID(b.Bytes)
 }
 
+// amount is signed, as the ledger stores it: money in is positive, money out
+// negative. direction is not a field because it is not a column any more --
+// migration 007 generates it from the sign.
 type txn struct {
 	key        string
 	name       string
 	amount     int64
 	currency   string
 	baseAmount int64 // 0 means no conversion: the row is already in NOK
-	direction  string
 }
 
 func (f *fixture) insert(t *testing.T, rows ...txn) {
 	t.Helper()
 	err := f.db.InTx(context.Background(), f.org, func(ctx context.Context, tx pgx.Tx) error {
 		for i, r := range rows {
-			direction := r.direction
-			if direction == "" {
-				direction = "expense"
-			}
 			currency := r.currency
 			if currency == "" {
 				currency = "NOK"
@@ -165,18 +163,18 @@ func (f *fixture) insert(t *testing.T, rows ...txn) {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO transactions (
 					org_id, entity_id, account_id, batch_id, source_kind,
-					booked_on, direction, amount_minor, currency,
+					booked_on, amount_minor, currency,
 					fx_rate, fx_rate_on, base_amount_minor, base_currency,
 					counterparty_raw, counterparty_key, description_raw,
 					description_norm, normalize_version, dedup_hash)
 				SELECT app_current_org(), $1, a.id, $2, 'bank',
-				       date '2026-03-01' + $3::int, $4, $5, $6,
-				       $7::numeric, $8::date, $9::bigint, $10,
-				       $11, $12, $13, $13, $14, $15
+				       date '2026-03-01' + $3::int, $4, $5,
+				       $6::numeric, $7::date, $8::bigint, $9,
+				       $10, $11, $12, $12, $13, $14
 				  FROM accounts a WHERE a.entity_id = $1 LIMIT 1`,
 				pgtype.UUID{Bytes: f.entity, Valid: true},
 				pgtype.UUID{Bytes: f.batch, Valid: true},
-				i, direction, r.amount, currency,
+				i, r.amount, currency,
 				fxRate, fxOn, base, baseCcy,
 				r.name, r.key, r.name+" payment", normalize.Version,
 				uuid.NewString(),
@@ -223,11 +221,11 @@ func codeOf(err error) string {
 func TestTheQueueIsOrderedByAbsoluteAmount(t *testing.T) {
 	f := newFixture(t)
 	f.insert(t,
-		txn{key: "tax:100", name: "Small", amount: 400},
-		txn{key: "tax:200", name: "Large", amount: 4_000_000},
+		txn{key: "tax:100", name: "Small", amount: -400},
+		txn{key: "tax:200", name: "Large", amount: -4_000_000},
 		// A refund of the same size as the largest payment: it deserves the
 		// same attention, so it must sort beside it rather than last.
-		txn{key: "tax:300", name: "Refund", amount: -4_000_000, direction: "income"},
+		txn{key: "tax:300", name: "Refund", amount: 4_000_000},
 	)
 
 	groups, totals := f.queue(t)
@@ -277,8 +275,8 @@ func TestAmountsCompareInTheBaseCurrency(t *testing.T) {
 	f := newFixture(t)
 	f.insert(t,
 		// 1,000,000 JPY minor units is a big number and a small amount.
-		txn{key: "tax:jpy", name: "Tokyo", amount: 1_000_000, currency: "JPY", baseAmount: 7_000},
-		txn{key: "tax:nok", name: "Oslo", amount: 50_000},
+		txn{key: "tax:jpy", name: "Tokyo", amount: -1_000_000, currency: "JPY", baseAmount: -7_000},
+		txn{key: "tax:nok", name: "Oslo", amount: -50_000},
 	)
 
 	groups, _ := f.queue(t)
@@ -287,8 +285,8 @@ func TestAmountsCompareInTheBaseCurrency(t *testing.T) {
 			"by the 7,000 it converts to", groups[0].CounterpartyKey)
 	}
 	for _, g := range groups {
-		if g.CounterpartyKey == "tax:jpy" && g.Total.MinorUnits != 7_000 {
-			t.Errorf("JPY group total = %d, want the converted 7000", g.Total.MinorUnits)
+		if g.CounterpartyKey == "tax:jpy" && g.Total.MinorUnits != -7_000 {
+			t.Errorf("JPY group total = %d, want the converted -7000", g.Total.MinorUnits)
 		}
 	}
 }

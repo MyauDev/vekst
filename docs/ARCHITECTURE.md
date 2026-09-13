@@ -345,6 +345,21 @@ makes D4 possible: a bank payment can link to the postings of the invoice it set
 Rejected alternative: one row per *document*, with line items in JSONB. It reads well and
 it makes every report query a JSONB unnest. Do not.
 
+**Amounts are signed: money in is positive, money out is negative.** Added 2026-09-13 by
+change 4.1, which could not be written without it — a section total is either a plain sum or
+a `CASE`, and which one depends on this. Two other changes already assumed it: `add-dedup`
+pairs internal transfers on "opposite signs", and the review queue orders counterparties by
+the absolute value of a signed sum.
+
+`direction` is therefore **derived** from the amount and not stored beside it, as a generated
+column producing `income` or `expense` — the vocabulary the 71 seeded rules already match
+against. Two unconstrained copies of one fact can disagree with no error, which is the same
+reasoning that keeps the reporting currency on `organizations` alone.
+
+A cost section consequently sums to a negative number. Reports print costs as positive, with
+the sign carried by the line's role rather than by the figure; that inversion lives in one
+tested place in `core/internal/report` and nowhere else.
+
 `normalize()` lowercases, collapses whitespace, strips punctuation, and strips the
 bank's own reference noise. Its exact behaviour is versioned, because changing it changes
 what counts as a duplicate.

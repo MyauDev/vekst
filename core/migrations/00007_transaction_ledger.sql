@@ -60,10 +60,31 @@ CREATE TABLE transactions (
 
     booked_on    date        NOT NULL,
     value_on     date,
-    direction    text        NOT NULL CHECK (direction IN ('income', 'expense')),
+    -- Derived, not stored beside the amount it describes. Two unconstrained
+    -- copies of one fact can disagree with no error and whichever the query
+    -- happens to read wins -- which is the reasoning migration 004 used to
+    -- keep the reporting currency in one place, and it applies here exactly.
+    --
+    -- The vocabulary is load-bearing: all 71 rules seeded by migration 006
+    -- match this column against 'income' and 'expense', and so do the
+    -- classifier's field switch and the internal contract. Generating 'in' and
+    -- 'out' instead would stop every rule firing, silently.
+    --
+    -- >= rather than >, so a zero-amount row -- a waived fee, a correction --
+    -- is not called an expense on no evidence.
+    direction    text        GENERATED ALWAYS AS
+                 (CASE WHEN amount_minor >= 0 THEN 'income' ELSE 'expense' END) STORED
+                 NOT NULL,
 
     -- Money. int64 minor units plus an ISO-4217 code, never a float, in any
     -- language. bigint is what sqlc's override in sqlc.yaml maps to int64.
+    --
+    -- Signed: money in is positive, money out is negative. Every sum in the
+    -- system is then a plain sum and a section total needs no CASE. Three
+    -- changes depend on it -- 2.6 pairs internal transfers on opposite signs,
+    -- the review queue orders by the absolute value of a signed sum, and the
+    -- P&L sums a section -- so it is stated in ARCHITECTURE.md 5.0 as well as
+    -- enforced by the generated column below.
     amount_minor      bigint NOT NULL,
     currency          text   NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
 

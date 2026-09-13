@@ -11,39 +11,39 @@ Section 0 touches migration 007, which is Track A's to merge.
 
 ## 0. Settle with Track A before writing SQL
 
-- [ ] 0.1 **The sign convention** (design §D3): `amount_minor` is signed, money in positive. 2.6 already assumes it and the review queue already sums that way; write it into `ARCHITECTURE.md` §5.0 so the third change does not have to rediscover it
-- [ ] 0.2 **`direction` as a generated column**, with the vocabulary `income`/`expense` and not `in`/`out`. Track A's `SUPERSEDED.md` amendment 3 proposes the column and the wrong values; all 71 seeded rules, the classifier's field switch and the proto comment use the other pair
+- [x] 0.1 **The sign convention** (design §D3): `amount_minor` is signed, money in positive. 2.6 already assumes it and the review queue already sums that way; write it into `ARCHITECTURE.md` §5.0 so the third change does not have to rediscover it
+- [x] 0.2 **`direction` as a generated column**, with the vocabulary `income`/`expense` and not `in`/`out`. Track A's `SUPERSEDED.md` amendment 3 proposes the column and the wrong values; all 71 seeded rules, the classifier's field switch and the proto comment use the other pair
 - [ ] 0.3 **Migration numbering.** `add-file-upload` claims 008, which `00008_review_decisions.sql` holds. Agree the order for 008–012 before either branch merges
-- [ ] 0.4 Tell Track A that `transactions_dedup_idx` is already answered: 2.5's design §D5 puts the occurrence index of the content inside the hash, so two identical payments differ and a re-imported file still collides. Their 2.6 task 0.4 and `SUPERSEDED.md` both still read it as open
+- [x] 0.4 Tell Track A that `transactions_dedup_idx` is already answered: 2.5's design §D5 puts the occurrence index of the content inside the hash, so two identical payments differ and a re-imported file still collides. Their 2.6 task 0.4 and `SUPERSEDED.md` both still read it as open
 - [ ] 0.5 Close **D-3**, the output table structure. It is this change's shape and it is overdue
 
 ## 1. Migration 009 — `pnl_section`
 
-- [ ] 1.1 Fill `pnl_section` on all 46 seeded rows from the level-1 ancestor (design §D2)
-- [ ] 1.2 A constraint trigger: a new row's section equals its parent's; a level-1 row is its own
-- [ ] 1.3 `NOT NULL` once filled, so a row that names no section cannot be written
-- [ ] 1.4 Down, `up → down → up`, and the two tripwires
+- [x] 1.1 Fill `pnl_section` on all 46 seeded rows from the level-1 ancestor (design §D2)
+- [x] 1.2 A constraint trigger: a new row's section equals its parent's; a level-1 row is its own
+- [x] 1.3 `NOT NULL` once filled, so a row that names no section cannot be written
+- [x] 1.4 Down, `up → down → up`, and the two tripwires
 
 ## 2. The calculation — `core/internal/report`, no database
 
-- [ ] 2.1 `Row`, `Spec` and `Report` types; money as `money.Money` throughout
-- [ ] 2.2 The computed-line table of design §D1, over codes, with the stored `formula` carried as a label
-- [ ] 2.3 `Compute(rows, spec)`: section totals, the five-line chain, Total and % of revenue
-- [ ] 2.4 Costs print positive; the one inversion lives here and nowhere else (design §D3)
-- [ ] 2.5 The four exclusion buckets of design §D6, each in money
-- [ ] 2.6 Periods from the range and granularity, with empty periods present as zero columns (design §D7)
-- [ ] 2.7 `% of revenue` is a ratio, not money: a float here is correct, and a test asserts it is the only one
+- [x] 2.1 `Row`, `Spec` and `Report` types; money as `money.Money` throughout
+- [x] 2.2 The computed-line table of design §D1, over codes, with the stored `formula` carried as a label
+- [x] 2.3 `Compute(rows, spec)`: section totals, the five-line chain, Total and % of revenue
+- [x] 2.4 Costs print positive; the one inversion lives here and nowhere else (design §D3)
+- [x] 2.5 The four exclusion buckets of design §D6, each in money
+- [x] 2.6 Periods from the range and granularity, with empty periods present as zero columns (design §D7)
+- [x] 2.7 `% of revenue` is a ratio, not money: a float here is correct, and a test asserts it is the only one
 
 ## 3. Tests for the calculation
 
-- [ ] 3.1 **The chain:** a fixture with one row in each section, asserting GM, NM, CM, IBT and NI against hand-computed values
-- [ ] 3.2 **The formula table matches the taxonomy:** every name in every stored `formula` resolves to a category, and names the operands the table uses
-- [ ] 3.3 **Costs are positive on the page and negative in the store**, proved in both directions
-- [ ] 3.4 **Non-base-currency:** a JPY row (exponent 0) and a KWD row (exponent 3) contribute their base amounts and nothing rounds
-- [ ] 3.5 **No-float:** every money field in the report types is `money.Money`; `% of revenue` is the sole exception and is named in the test
-- [ ] 3.6 **Division by zero:** % of revenue with no revenue is absent, not infinity and not zero
-- [ ] 3.7 **An empty period is a zero column**, distinguishable from a period that was not requested
-- [ ] 3.8 **The exclusion buckets sum with the report to the whole:** every row given to `Compute` lands in exactly one of a line or a bucket, asserted as an identity
+- [x] 3.1 **The chain:** a fixture with one row in each section, asserting GM, NM, CM, IBT and NI against hand-computed values
+- [x] 3.2 **The formula table matches the taxonomy:** every name in every stored `formula` resolves to a category, and names the operands the table uses
+- [x] 3.3 **Costs are positive on the page and negative in the store**, proved in both directions
+- [x] 3.4 **Non-base-currency:** a JPY row (exponent 0) and a KWD row (exponent 3) contribute their base amounts and nothing rounds
+- [x] 3.5 **No-float:** every money field in the report types is `money.Money`; `% of revenue` is the sole exception and is named in the test
+- [x] 3.6 **Division by zero:** % of revenue with no revenue is absent, not infinity and not zero
+- [x] 3.7 **An empty period is a zero column**, distinguishable from a period that was not requested
+- [x] 3.8 **The exclusion buckets sum with the report to the whole:** every row given to `Compute` lands in exactly one of a line or a bucket, asserted as an identity
 
 ## 4. Queries — `core/internal/db/query/report.sql`
 

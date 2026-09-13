@@ -100,7 +100,8 @@ func TestUpDownUp(t *testing.T) {
 	// database has ever been migrated. This test runs against a scratch
 	// database beside the real one, which is the case that cannot work.
 	for _, name := range []string{
-		"00008 review decisions", "00007 transaction ledger",
+		"00009 pnl sections", "00008 review decisions",
+		"00007 transaction ledger",
 		"00006 classification rules",
 		"00005 taxonomy", "00004 tenancy",
 		"00003 identity", "00002 River",
