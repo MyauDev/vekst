@@ -36,8 +36,10 @@ CREATE TABLE classification_rules (
         (org_id IS NULL AND scope <> 'org') OR (org_id IS NOT NULL AND scope = 'org'))
 );
 
--- Priority is unique within what a single organisation sees: its own rules and
--- the shared ones. Ties would make the engine's answer depend on row order.
+-- Priority is unique per owner -- within the templates, and within each
+-- organisation's own set -- not across the two. A per-org rule exists to
+-- overrule a template, so the ordering settles that: EffectiveRules returns an
+-- organisation's own rules ahead of every template rule, then by priority.
 CREATE UNIQUE INDEX rules_priority_idx
     ON classification_rules (taxonomy_version, ruleset_version, org_id, priority)
     NULLS NOT DISTINCT;

@@ -18,6 +18,7 @@
 # --- Track B: meaning ------------------------------------------------------
 /core/classify/              @MyauDev/admin
 /core/internal/report/       @MyauDev/admin
+/core/internal/normalize/    @MyauDev/admin
 /classifier/                 @MyauDev/admin
 
 # --- Both reviewers required (branch protection enforces the count) -------
@@ -63,3 +64,9 @@
 # its split read/write policies, and the constraint trigger that stands in for
 # a composite foreign key a shared parent cannot satisfy (change 3.1).
 /core/migrations/00005_classification_taxonomy.sql   @MyauDev/admin
+
+# The rules migration: template rules that belong to a country or a bank
+# rather than to a customer, and the vendor memory that belongs to exactly one
+# (change 3.2). The two tables sit side by side with opposite policies, which
+# is the thing to read carefully in a review.
+/core/migrations/00006_classification_rules.sql   @MyauDev/admin
