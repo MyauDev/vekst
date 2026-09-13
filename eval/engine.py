@@ -48,14 +48,13 @@ def _condition_holds(txn: dict, c: dict) -> bool:
     if field == "direction":
         return txn.get("dir", "").lower() == str(want).lower()
 
-    if field == "knp":
-        return (txn.get("knp") or "") == want
-
-    if field == "operation_type":
-        # PKO BP labels every row with its own operation type. Weaker evidence
-        # than a regulated code — the bank chose the vocabulary — but it needs
-        # no text at all, and it is exact.
-        return (txn.get("typ") or "") == want
+    if field == "regulated_code":
+        # One field for every code the source carries: КНП in Kazakhstan,
+        # `Typ operacji` at PKO BP, a 1C account code later. They differ in
+        # who assigned them — a regulator, a bank — and `scope` records that,
+        # but none of them is the payer's own words, which is what makes this
+        # layer outrank a text match.
+        return (txn.get("knp") or txn.get("typ") or "") == want
 
     if field == "counterparty_account":
         # Matched against the parsed field, never against the packed
@@ -96,16 +95,33 @@ def classify(txn: dict, rules: list, memory: dict | None = None) -> dict | None:
                 "evidence": tier,
             }
 
-    for r in rules:
-        if all(_condition_holds(txn, c) for c in r["matcher"]["all"]):
-            by_code = r["matcher"]["all"][0]["field"] == "knp"
-            return {
-                "category": r["category_code"],
-                "layer": "L0.5" if by_code else "L1",
-                "rule": r["priority"],
-                # A regulated code is stronger evidence than a text match,
-                # and both sit above the 0.80 auto-accept threshold.
-                "confidence": 0.99 if by_code else 0.95,
-                "evidence": r["scope"],
-            }
+    # L0.5 before L1, whatever the priorities say. Sorting the two together
+    # would let a Belarusian phrase rule outrank a Kazakh КНП because it was
+    # numbered first — and both statements are written in Russian, so that is
+    # not a hypothetical. Priority orders rules *within* a layer.
+    regulated = [r for r in rules if _by_code(r)]
+    textual = [r for r in rules if not _by_code(r)]
+
+    for layer, group in (("L0.5", regulated), ("L1", textual)):
+        for r in group:
+            if all(_condition_holds(txn, c) for c in r["matcher"]["all"]):
+                return {
+                    "category": r["category_code"],
+                    "layer": layer,
+                    "rule": r["priority"],
+                    # A regulated code is stronger evidence than a text match,
+                    # and both sit above the 0.80 auto-accept threshold.
+                    "confidence": 0.99 if layer == "L0.5" else 0.95,
+                    "evidence": r["scope"],
+                }
     return None
+
+
+def _by_code(r: dict) -> bool:
+    """Whether a rule belongs to L0.5.
+
+    Any condition on the regulated code puts it there, not merely the first
+    one: "КНП 223 and direction expense" is the regulator's evidence whichever
+    order it happens to be written in.
+    """
+    return any(c["field"] == "regulated_code" for c in r["matcher"]["all"])

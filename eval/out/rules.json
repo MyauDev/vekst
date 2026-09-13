@@ -956,7 +956,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "010"
      },
@@ -979,7 +979,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "012"
      },
@@ -1002,7 +1002,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "089"
      },
@@ -1025,7 +1025,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "120"
      },
@@ -1048,7 +1048,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "121"
      },
@@ -1071,7 +1071,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "122"
      },
@@ -1094,7 +1094,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "223"
      },
@@ -1117,7 +1117,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "223"
      },
@@ -1140,7 +1140,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "230"
      },
@@ -1163,7 +1163,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "332"
      },
@@ -1186,7 +1186,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "661"
      },
@@ -1209,7 +1209,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "841"
      },
@@ -1232,7 +1232,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "851"
      },
@@ -1255,7 +1255,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "852"
      },
@@ -1278,7 +1278,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "854"
      },
@@ -1301,7 +1301,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "855"
      },
@@ -1324,7 +1324,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "857"
      },
@@ -1347,7 +1347,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "858"
      },
@@ -1370,7 +1370,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "859"
      },
@@ -1393,7 +1393,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "911"
      },
@@ -1416,7 +1416,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "knp",
+      "field": "regulated_code",
       "op": "eq",
       "value": "912"
      },
@@ -1439,7 +1439,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Prowizja"
      },
@@ -1462,7 +1462,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Opłata"
      },
@@ -1485,7 +1485,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Opłata za użytkowanie karty"
      },
@@ -1508,7 +1508,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Przelew do ZUS"
      },
@@ -1531,7 +1531,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Przelew do US VAT"
      },
@@ -1554,7 +1554,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Uznanie"
      },
@@ -1577,7 +1577,7 @@
     "normalize_version": "v1",
     "all": [
      {
-      "field": "operation_type",
+      "field": "regulated_code",
       "op": "eq",
       "value": "Obciążenie"
      },

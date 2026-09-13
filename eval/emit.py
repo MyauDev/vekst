@@ -22,6 +22,7 @@ from build import (
     COMPUTED,
     assign_scopes,
     OUT,
+    RULESET_VERSION,
     TAXONOMY_VERSION,
     build_by_template,
     build_kz_template,
@@ -258,9 +259,14 @@ RULES_HEADER = """-- L1 template rules. Not one of these belongs to a customer.
 --   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' |
 --                      -- 'country:PL' | 'bank:pkobp' | 'org'
 -- Without them there is nowhere to store the rules that do most of the work.
-BEGIN;
-INSERT INTO classification_rules (org_id, scope, priority, matcher, category_code,
-                                  taxonomy_version, active) VALUES
+-- The rows name a category by code and the insert resolves it, because a code is
+-- what a person reads in a review and an id is what the schema stores. The JOIN
+-- would drop a rule whose code no longer exists rather than fail, so migration
+-- 006 counts the result afterwards and raises if any went missing.
+INSERT INTO classification_rules (org_id, scope, priority, matcher, category_id,
+                                  taxonomy_version, ruleset_version, active)
+SELECT v.org_id, v.scope, v.priority, v.matcher, c.id, v.taxonomy_version, v.ruleset_version, v.active
+  FROM (VALUES
 """
 
 
@@ -325,12 +331,21 @@ def write_seeds(cats, rules):
     with open(os.path.join(OUT, "seed_rules.sql"), "w", encoding="utf-8") as f:
         f.write(RULES_HEADER.format(by=n["BY"], kz=n["KZ"], pl=n["PL"]))
         rows = [
-            f"  (NULL, {_sql(r['scope'])}, {r['priority']}, "
-            f"{_sql(json.dumps(_matcher(r), ensure_ascii=False))}, "
-            f"{_sql(cats[r['path']]['code'])}, {_sql(TAXONOMY_VERSION)}, true)"
+            f"  (NULL::uuid, {_sql(r['scope'])}, {r['priority']}, "
+            f"{_sql(json.dumps(_matcher(r), ensure_ascii=False))}::jsonb, "
+            f"{_sql(cats[r['path']]['code'])}, {_sql(TAXONOMY_VERSION)}, "
+            f"{_sql(RULESET_VERSION)}, true)"
             for r in rules
         ]
-        f.write(",\n".join(rows) + ";\nCOMMIT;\n")
+        f.write(
+            ",\n".join(rows)
+            + "\n) AS v(org_id, scope, priority, matcher, category_code,"
+            + " taxonomy_version, ruleset_version, active)\n"
+            + "  JOIN categories c\n"
+            + "    ON c.taxonomy_version = v.taxonomy_version\n"
+            + "   AND c.org_id IS NULL\n"
+            + "   AND c.code = v.category_code;\n"
+        )
 
 
 def main():

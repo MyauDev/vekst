@@ -25,6 +25,9 @@ from sources import load_rules
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
 TAXONOMY_VERSION = "v1"
+# The rules, versioned separately from the categories they point at: a rule can
+# be corrected without redrawing the tree, and a report pins both.
+RULESET_VERSION = "v1"
 
 # --------------------------------------------------------------------------
 # Canonicalisation. The three files spell the same category several ways.
@@ -366,7 +369,13 @@ def build_kz_template(cats):
             {
                 "country": "KZ",
                 "scope": "country:KZ",
-                "field": "knp",
+                # One field name for every regulated code, not one per
+                # country. КНП here, Typ operacji in Poland, a 1C account
+                # code later: what they have in common is that somebody other
+                # than the payer assigned them, which is the whole reason L0.5
+                # outranks a text match. A field per country would put the
+                # vocabulary of each new market into the wire contract.
+                "field": "regulated_code",
                 "op": "eq",
                 "value": code,
                 "direction": direction,
@@ -438,7 +447,11 @@ def build_pl_template(cats):
             {
                 "country": "PL",
                 "scope": "bank:pkobp",
-                "field": "operation_type",
+                # See the Kazakh builder: the same field, for the same reason.
+                # PKO BP chose this vocabulary rather than a regulator, which
+                # makes it weaker evidence than a КНП -- but it is still not
+                # the payer's own free text, and scope records whose it is.
+                "field": "regulated_code",
                 "op": "eq",
                 "value": typ,
                 "direction": direction,

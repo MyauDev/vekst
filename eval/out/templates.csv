@@ -40,33 +40,33 @@
 39;BY;country:BY;description;contains_all;ОТПУСКНЫЕ;Expense;0404;OPEX > PAYROLL to distribute
 40;BY;country:BY;description;contains_all;ОПЛ.ПТ;Expense;0403;OPEX > PAYROLL TAX to distribute
 41;BY;country:BY;description;contains_all;АВАНС;Expense;0404;OPEX > PAYROLL to distribute
-42;KZ;country:KZ;knp;eq;010;Expense;0403;OPEX > PAYROLL TAX to distribute
-43;KZ;country:KZ;knp;eq;012;Expense;0403;OPEX > PAYROLL TAX to distribute
-44;KZ;country:KZ;knp;eq;089;Expense;0403;OPEX > PAYROLL TAX to distribute
-45;KZ;country:KZ;knp;eq;120;Expense;05010304;OIE > OTHER EXPENSE > Other taxes > Other
-46;KZ;country:KZ;knp;eq;121;Expense;0403;OPEX > PAYROLL TAX to distribute
-47;KZ;country:KZ;knp;eq;122;Expense;0403;OPEX > PAYROLL TAX to distribute
-48;KZ;country:KZ;knp;eq;223;Expense;060101;FR > FXR > Currency exchange
-49;KZ;country:KZ;knp;eq;223;Income;060101;FR > FXR > Currency exchange
-50;KZ;country:KZ;knp;eq;230;Expense;060101;FR > FXR > Currency exchange
-51;KZ;country:KZ;knp;eq;332;Expense;0404;OPEX > PAYROLL to distribute
-52;KZ;country:KZ;knp;eq;661;Expense;09;OUT OF P&L
-53;KZ;country:KZ;knp;eq;841;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
-54;KZ;country:KZ;knp;eq;851;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
-55;KZ;country:KZ;knp;eq;852;Expense;0401020202;OPEX > Administration > GM > GM Services > Communication
-56;KZ;country:KZ;knp;eq;854;Expense;0401040101;OPEX > Administration > Legal > Leg. Services > Claim
-57;KZ;country:KZ;knp;eq;855;Expense;0401010201;OPEX > Administration > Finance > FI Services > 1С Cloud
-58;KZ;country:KZ;knp;eq;857;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
-59;KZ;country:KZ;knp;eq;858;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
-60;KZ;country:KZ;knp;eq;859;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
-61;KZ;country:KZ;knp;eq;911;Expense;0403;OPEX > PAYROLL TAX to distribute
-62;KZ;country:KZ;knp;eq;912;Expense;050104;OIE > OTHER EXPENSE > Tax fines
-63;PL;bank:pkobp;operation_type;eq;Prowizja;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
-64;PL;bank:pkobp;operation_type;eq;Opłata;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
-65;PL;bank:pkobp;operation_type;eq;Opłata za użytkowanie karty;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
-66;PL;bank:pkobp;operation_type;eq;Przelew do ZUS;Expense;0403;OPEX > PAYROLL TAX to distribute
-67;PL;bank:pkobp;operation_type;eq;Przelew do US VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
-68;PL;bank:pkobp;operation_type;eq;Uznanie;Income;060101;FR > FXR > Currency exchange
-69;PL;bank:pkobp;operation_type;eq;Obciążenie;Expense;060101;FR > FXR > Currency exchange
+42;KZ;country:KZ;regulated_code;eq;010;Expense;0403;OPEX > PAYROLL TAX to distribute
+43;KZ;country:KZ;regulated_code;eq;012;Expense;0403;OPEX > PAYROLL TAX to distribute
+44;KZ;country:KZ;regulated_code;eq;089;Expense;0403;OPEX > PAYROLL TAX to distribute
+45;KZ;country:KZ;regulated_code;eq;120;Expense;05010304;OIE > OTHER EXPENSE > Other taxes > Other
+46;KZ;country:KZ;regulated_code;eq;121;Expense;0403;OPEX > PAYROLL TAX to distribute
+47;KZ;country:KZ;regulated_code;eq;122;Expense;0403;OPEX > PAYROLL TAX to distribute
+48;KZ;country:KZ;regulated_code;eq;223;Expense;060101;FR > FXR > Currency exchange
+49;KZ;country:KZ;regulated_code;eq;223;Income;060101;FR > FXR > Currency exchange
+50;KZ;country:KZ;regulated_code;eq;230;Expense;060101;FR > FXR > Currency exchange
+51;KZ;country:KZ;regulated_code;eq;332;Expense;0404;OPEX > PAYROLL to distribute
+52;KZ;country:KZ;regulated_code;eq;661;Expense;09;OUT OF P&L
+53;KZ;country:KZ;regulated_code;eq;841;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+54;KZ;country:KZ;regulated_code;eq;851;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+55;KZ;country:KZ;regulated_code;eq;852;Expense;0401020202;OPEX > Administration > GM > GM Services > Communication
+56;KZ;country:KZ;regulated_code;eq;854;Expense;0401040101;OPEX > Administration > Legal > Leg. Services > Claim
+57;KZ;country:KZ;regulated_code;eq;855;Expense;0401010201;OPEX > Administration > Finance > FI Services > 1С Cloud
+58;KZ;country:KZ;regulated_code;eq;857;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+59;KZ;country:KZ;regulated_code;eq;858;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+60;KZ;country:KZ;regulated_code;eq;859;Income;0101;NET SALES > SOFTWARE DEVELOPMENT
+61;KZ;country:KZ;regulated_code;eq;911;Expense;0403;OPEX > PAYROLL TAX to distribute
+62;KZ;country:KZ;regulated_code;eq;912;Expense;050104;OIE > OTHER EXPENSE > Tax fines
+63;PL;bank:pkobp;regulated_code;eq;Prowizja;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+64;PL;bank:pkobp;regulated_code;eq;Opłata;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+65;PL;bank:pkobp;regulated_code;eq;Opłata za użytkowanie karty;Expense;0401010204;OPEX > Administration > Finance > FI Services > Bank commission
+66;PL;bank:pkobp;regulated_code;eq;Przelew do ZUS;Expense;0403;OPEX > PAYROLL TAX to distribute
+67;PL;bank:pkobp;regulated_code;eq;Przelew do US VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
+68;PL;bank:pkobp;regulated_code;eq;Uznanie;Income;060101;FR > FXR > Currency exchange
+69;PL;bank:pkobp;regulated_code;eq;Obciążenie;Expense;060101;FR > FXR > Currency exchange
 70;PL;country:PL;description;contains_all;WARTOŚĆ VAT;Expense;05010305;OIE > OTHER EXPENSE > Other taxes > VAT
 71;PL;country:PL;description;contains_all;ZALICZKA NA CIT;Expense;07;CIT
