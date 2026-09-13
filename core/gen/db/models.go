@@ -45,6 +45,19 @@ type Category struct {
 	CreatedAt          pgtype.Timestamptz
 }
 
+type ClassificationRule struct {
+	ID              pgtype.UUID
+	TaxonomyVersion string
+	RulesetVersion  string
+	OrgID           pgtype.UUID
+	Scope           string
+	Priority        int32
+	Matcher         []byte
+	CategoryID      pgtype.UUID
+	Active          bool
+	CreatedAt       pgtype.Timestamptz
+}
+
 type Entity struct {
 	ID        pgtype.UUID
 	OrgID     pgtype.UUID
@@ -100,4 +113,15 @@ type UserIdentity struct {
 	Subject   string
 	UserID    pgtype.UUID
 	CreatedAt pgtype.Timestamptz
+}
+
+type Vendor struct {
+	ID          pgtype.UUID
+	OrgID       pgtype.UUID
+	Key         string
+	KeyVersion  string
+	DisplayName string
+	CategoryID  pgtype.UUID
+	DecidedBy   pgtype.UUID
+	DecidedAt   pgtype.Timestamptz
 }

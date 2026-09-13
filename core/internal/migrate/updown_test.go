@@ -85,23 +85,27 @@ func TestUpDownUp(t *testing.T) {
 		t.Fatalf("Up: %v", err)
 	}
 	// goose_db_version + 5 River tables + 4 identity tables (00003) + 4
-	// tenancy tables (00004) + categories (00005).
+	// tenancy tables (00004) + categories (00005) + classification_rules
+	// and vendors (00006).
 
-	assertTableCount(t, url, 15)
+	assertTableCount(t, url, 17)
 
-	// Down four times: 00004 (tenancy), 00003 (identity), 00002 (River),
-	// 00001 (roles), matching the four migrations actually registered.
-	if err := Down(ctx, url); err != nil {
-		t.Fatalf("Down (tenancy): %v", err)
-	}
-	if err := Down(ctx, url); err != nil {
-		t.Fatalf("Down (identity): %v", err)
-	}
-	if err := Down(ctx, url); err != nil {
-		t.Fatalf("Down (River): %v", err)
-	}
-	if err := Down(ctx, url); err != nil {
-		t.Fatalf("Down (roles): %v", err)
+	// Down once per migration that creates a table, newest first. Named
+	// rather than counted: when the count is wrong the failure says which
+	// rollback was never run, instead of only that some table survived.
+	//
+	// 00001 is deliberately not rolled back. Roles are cluster-wide but
+	// DROP OWNED BY is not -- it clears only the current database -- so its
+	// down section can drop vekst_app only on a cluster where no other
+	// database has ever been migrated. This test runs against a scratch
+	// database beside the real one, which is the case that cannot work.
+	for _, name := range []string{
+		"00006 classification rules", "00005 taxonomy", "00004 tenancy",
+		"00003 identity", "00002 River",
+	} {
+		if err := Down(ctx, url); err != nil {
+			t.Fatalf("Down (%s): %v", name, err)
+		}
 	}
 	// goose_db_version itself survives a full rollback -- goose needs
 	// somewhere to record that the current version is 0. Confirmed
@@ -112,7 +116,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 15)
+	assertTableCount(t, url, 17)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {
