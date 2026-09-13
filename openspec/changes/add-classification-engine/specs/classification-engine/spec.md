@@ -38,11 +38,13 @@ produced it and the evidence it rested on.
 - **THEN** the proposal names layer `L0`
 - **AND** its evidence names the tier of the counterparty key that matched
 
-#### Scenario: A regulated code outranks a text rule
+#### Scenario: A regulated code outranks a text rule whatever its priority
 
 - **WHEN** a transaction carries a regulated code with a rule for it, and also matches a text
-  rule of lower priority
+  rule numbered ahead of that rule
 - **THEN** the proposal names layer `L0.5`
+- **AND** the layer decides, not the priority: the seeded Kazakh code rules are numbered after
+  the Belarusian text rules, and both countries write their statements in Russian
 
 #### Scenario: Nothing answers
 
@@ -57,7 +59,7 @@ whether it came from a ledger or from a bank, and SHALL record which issuer assi
 
 #### Scenario: A Kazakh bank row is classified by its state payment-purpose code
 
-- **WHEN** a bank transaction carries КНП `911` in the debit direction
+- **WHEN** a bank transaction carries КНП `911` in the expense direction
 - **THEN** the proposal names layer `L0.5`
 - **AND** the category is the payroll-tax bucket
 
@@ -69,9 +71,14 @@ whether it came from a ledger or from a bank, and SHALL record which issuer assi
 
 ### Requirement: Rules are ordered, and specific beats general
 
-The system SHALL evaluate rules in priority order and stop at the first whose every
-condition holds. Priority SHALL be unique within what one organisation sees, so that no
-answer depends on row order.
+The system SHALL evaluate rules in priority order within a layer and stop at the first whose
+every condition holds. Priority SHALL be unique per owner — within the template set, and
+within each organisation's own set — and the ordering SHALL place an organisation's own rules
+ahead of every template rule, so that no answer depends on row order.
+
+Unique per owner rather than across owners, because a per-organisation rule exists to
+overrule a template. Making the numbers globally unique would force a customer to know which
+priorities the templates had taken, and would still not say which of the two won.
 
 #### Scenario: A two-part rule beats its own prefix
 
@@ -80,11 +87,17 @@ answer depends on row order.
 - **THEN** the pair wins
 - **AND** the category is outside the P&L rather than a payroll tax
 
-#### Scenario: Duplicate priorities are rejected
+#### Scenario: Duplicate priorities within one owner are rejected
 
-- **WHEN** two rules visible to one organisation are stored with the same priority for one
+- **WHEN** one organisation stores two of its own rules with the same priority for one
   taxonomy and ruleset version
 - **THEN** the write is rejected by a unique index
+
+#### Scenario: An organisation may reuse a template's priority
+
+- **WHEN** an organisation stores a rule whose priority a template rule already holds
+- **THEN** the write succeeds
+- **AND** the organisation's own rule is tried first
 
 ### Requirement: Template rules belong to no organisation
 
@@ -150,6 +163,27 @@ carry only classifiable leaves.
 - **THEN** the call fails
 - **AND** no partial set of proposals is returned
 
+### Requirement: A matcher this engine cannot evaluate fails the batch
+
+The system SHALL refuse a request containing a condition whose field or operator it does not
+implement, rather than treating that condition as unmet. A matcher with no conditions SHALL
+be rejected by the database as well.
+
+A silent false is the dangerous reading: a newer `core` sending a field an older classifier
+does not know would see its rules quietly stop firing, and a coverage number that drops for
+an invisible reason is worse than one that does not arrive.
+
+#### Scenario: An unknown field is refused
+
+- **WHEN** a rule names a matcher field the engine does not implement
+- **THEN** the call fails with a specific error code
+- **AND** no partial set of proposals is returned
+
+#### Scenario: An empty matcher cannot be stored
+
+- **WHEN** a rule is written whose matcher has no conditions, or no condition list at all
+- **THEN** the write is rejected by a check constraint
+
 ### Requirement: Money never becomes a float
 
 The system SHALL carry every amount as `vekst.type.v1.Money` — minor units and an ISO-4217
@@ -161,10 +195,12 @@ code — in the contract, in the matcher and in every generated type.
   KWD amount, whose exponent is 3
 - **THEN** both comparisons use minor units and neither rounds
 
-#### Scenario: Comparing two currencies is refused
+#### Scenario: Two currencies never compare
 
-- **WHEN** an amount condition compares amounts with different currency codes
-- **THEN** the comparison fails rather than returning a result
+- **WHEN** an amount condition names one currency and the transaction is in another
+- **THEN** the condition does not hold, whatever the two numbers are
+- **AND** no conversion is performed: an FX rate has a date and the engine has no clock, so
+  the transaction falls through to the next rule and to review if there is none
 
 #### Scenario: No money field is floating point
 

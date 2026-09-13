@@ -40,6 +40,14 @@ func (s stubClassifier) Version(ctx context.Context) (classify.VersionInfo, erro
 	return s.info, s.err
 }
 
+// The health handler asks the classifier for its version and nothing else. The
+// method is here because Classifier requires it, and it refuses rather than
+// returning an empty batch: a stub that answered would let a test pass while
+// classifying nothing.
+func (stubClassifier) Classify(context.Context, classify.BatchRequest) (classify.BatchResponse, error) {
+	return classify.BatchResponse{}, errors.New("stubClassifier does not classify")
+}
+
 // Task 5.1: Check reports serving, with a version and an RFC 3339 build time.
 func TestCheckReportsBuildIdentity(t *testing.T) {
 	h := &healthHandler{classifier: stubClassifier{info: classify.VersionInfo{EngineVersion: "engine-1"}}, log: discard()}

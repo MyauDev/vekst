@@ -22,9 +22,10 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from vekst.type.v1 import money_pb2 as vekst_dot_type_dot_v1_dot_money__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"vekst/internal/v1/classifier.proto\x12\x11vekst.internal.v1\"\x10\n\x0eVersionRequest\";\n\x0fVersionResponse\x12\x16\n\x0e\x65ngine_version\x18\x01 \x01(\t\x12\x10\n\x08\x62uilt_at\x18\x02 \x01(\t2e\n\x11\x43lassifierService\x12P\n\x07Version\x12!.vekst.internal.v1.VersionRequest\x1a\".vekst.internal.v1.VersionResponseBCZAgithub.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinternalv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"vekst/internal/v1/classifier.proto\x12\x11vekst.internal.v1\x1a\x19vekst/type/v1/money.proto\"\x10\n\x0eVersionRequest\";\n\x0fVersionResponse\x12\x16\n\x0e\x65ngine_version\x18\x01 \x01(\t\x12\x10\n\x08\x62uilt_at\x18\x02 \x01(\t\"\xcd\x02\n\x14\x43lassifyBatchRequest\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x18\n\x10taxonomy_version\x18\x02 \x01(\t\x12\x17\n\x0fruleset_version\x18\x03 \x01(\t\x12\x19\n\x11normalize_version\x18\x04 \x01(\t\x12/\n\ncategories\x18\x05 \x03(\x0b\x32\x1b.vekst.internal.v1.Category\x12&\n\x05rules\x18\x06 \x03(\x0b\x32\x17.vekst.internal.v1.Rule\x12\x30\n\x07vendors\x18\x07 \x03(\x0b\x32\x1f.vekst.internal.v1.VendorMemory\x12/\n\x04txns\x18\x08 \x03(\x0b\x32!.vekst.internal.v1.TxnForClassify\x12\x11\n\tthreshold\x18\t \x01(\x01J\x04\x08\x14\x10(\"C\n\x08\x43\x61tegory\x12\x0c\n\x04\x63ode\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x1b\n\x13requires_allocation\x18\x03 \x01(\x08\"~\n\x04Rule\x12\x10\n\x08priority\x18\x01 \x01(\x05\x12\x15\n\rcategory_code\x18\x02 \x01(\t\x12\r\n\x05scope\x18\x03 \x01(\t\x12)\n\x03\x61ll\x18\x04 \x03(\x0b\x32\x1c.vekst.internal.v1.Condition\x12\x13\n\x0bsource_kind\x18\x05 \x01(\t\"a\n\tCondition\x12\r\n\x05\x66ield\x18\x01 \x01(\t\x12\n\n\x02op\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x12*\n\x0c\x61mount_value\x18\x04 \x01(\x0b\x32\x14.vekst.type.v1.Money\"\xd6\x01\n\x0eTxnForClassify\x12\x16\n\x0etransaction_id\x18\x01 \x01(\t\x12\x13\n\x0bsource_kind\x18\x02 \x01(\t\x12\x18\n\x10\x64\x65scription_norm\x18\x03 \x01(\t\x12\x18\n\x10\x63ounterparty_key\x18\x04 \x01(\t\x12\x11\n\tdirection\x18\x05 \x01(\t\x12$\n\x06\x61mount\x18\x06 \x01(\x0b\x32\x14.vekst.type.v1.Money\x12\x16\n\x0eregulated_code\x18\x07 \x01(\t\x12\x12\n\naccount_id\x18\x08 \x01(\t\"\x94\x01\n\x08Proposal\x12\x16\n\x0etransaction_id\x18\x01 \x01(\t\x12\x15\n\rcategory_code\x18\x02 \x01(\t\x12\x14\n\x0c\x65ngine_layer\x18\x03 \x01(\t\x12\x12\n\nconfidence\x18\x04 \x01(\x01\x12\x10\n\x08\x65vidence\x18\x05 \x01(\t\x12\x1d\n\x15matched_rule_priority\x18\x06 \x01(\x05\"H\n\x0cVendorMemory\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x15\n\rcategory_code\x18\x02 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x03 \x01(\t\"x\n\x15\x43lassifyBatchResponse\x12\x16\n\x0e\x65ngine_version\x18\x01 \x01(\t\x12\x17\n\x0fruleset_version\x18\x02 \x01(\t\x12.\n\tproposals\x18\x03 \x03(\x0b\x32\x1b.vekst.internal.v1.Proposal2\xc9\x01\n\x11\x43lassifierService\x12P\n\x07Version\x12!.vekst.internal.v1.VersionRequest\x1a\".vekst.internal.v1.VersionResponse\x12\x62\n\rClassifyBatch\x12\'.vekst.internal.v1.ClassifyBatchRequest\x1a(.vekst.internal.v1.ClassifyBatchResponseBCZAgithub.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinternalv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,10 +33,26 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'vekst.internal.v1.classifie
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZAgithub.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinternalv1'
-  _globals['_VERSIONREQUEST']._serialized_start=57
-  _globals['_VERSIONREQUEST']._serialized_end=73
-  _globals['_VERSIONRESPONSE']._serialized_start=75
-  _globals['_VERSIONRESPONSE']._serialized_end=134
-  _globals['_CLASSIFIERSERVICE']._serialized_start=136
-  _globals['_CLASSIFIERSERVICE']._serialized_end=237
+  _globals['_VERSIONREQUEST']._serialized_start=84
+  _globals['_VERSIONREQUEST']._serialized_end=100
+  _globals['_VERSIONRESPONSE']._serialized_start=102
+  _globals['_VERSIONRESPONSE']._serialized_end=161
+  _globals['_CLASSIFYBATCHREQUEST']._serialized_start=164
+  _globals['_CLASSIFYBATCHREQUEST']._serialized_end=497
+  _globals['_CATEGORY']._serialized_start=499
+  _globals['_CATEGORY']._serialized_end=566
+  _globals['_RULE']._serialized_start=568
+  _globals['_RULE']._serialized_end=694
+  _globals['_CONDITION']._serialized_start=696
+  _globals['_CONDITION']._serialized_end=793
+  _globals['_TXNFORCLASSIFY']._serialized_start=796
+  _globals['_TXNFORCLASSIFY']._serialized_end=1010
+  _globals['_PROPOSAL']._serialized_start=1013
+  _globals['_PROPOSAL']._serialized_end=1161
+  _globals['_VENDORMEMORY']._serialized_start=1163
+  _globals['_VENDORMEMORY']._serialized_end=1235
+  _globals['_CLASSIFYBATCHRESPONSE']._serialized_start=1237
+  _globals['_CLASSIFYBATCHRESPONSE']._serialized_end=1357
+  _globals['_CLASSIFIERSERVICE']._serialized_start=1360
+  _globals['_CLASSIFIERSERVICE']._serialized_end=1561
 # @@protoc_insertion_point(module_scope)

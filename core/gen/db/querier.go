@@ -16,6 +16,20 @@ type Querier interface {
 	// migrations (design D6/Q5), and fails naming both when the schema is
 	// behind.
 	AppliedMigrationVersion(ctx context.Context) (int64, error)
+	// One category by its natural key. `org_id IS NOT DISTINCT FROM $2` rather
+	// than `=`: the shared rows carry NULL, and NULL = NULL is unknown, so the
+	// ordinary comparison would never match exactly the rows every organisation
+	// needs to reach.
+	CategoryByCode(ctx context.Context, arg CategoryByCodeParams) (CategoryByCodeRow, error)
+	// What a classification may target, and the only list change 3.2 sends to the
+	// classifier.
+	//
+	// Leaves only, and never a computed line. GM, NM, CM, IBT and NI are
+	// arithmetic over other lines; a transaction landing in one would be counted
+	// twice, once where it belongs and once in the formula that already includes
+	// it. A section is excluded for the same reason: its figure is the sum of its
+	// children.
+	ClassifiableCategories(ctx context.Context, taxonomyVersion string) ([]ClassifiableCategoriesRow, error)
 	// Consuming deletes, in one statement, so a replayed callback cannot race a
 	// first one: exactly one DELETE can return a row. A callback whose state
 	// matches nothing and one whose flow was already consumed are therefore
@@ -27,6 +41,58 @@ type Querier interface {
 	// session is still visible to an operator asking what happened.
 	DeleteExpiredSessions(ctx context.Context, expiresAt pgtype.Timestamptz) (int64, error)
 	DeleteMembership(ctx context.Context, userID pgtype.UUID) (int64, error)
+	// Queries that assemble a ClassifyBatch request.
+	//
+	// The classifier holds no database credentials and no state, so everything it
+	// reasons with is read here and sent in the request: the rules, the vendor
+	// memory, and (from taxonomy.sql) the classifiable categories. That is the
+	// whole reason these are reads and not a view the other service could query.
+	//
+	// Both statements run inside db.InTx. Neither restates the tenant predicate:
+	// row-level security already admits a shared rule or this organisation's own
+	// and nothing else, and writing it again here would be a second place to get
+	// isolation right.
+	// The rule list for one organisation, in the order the engine must try it.
+	//
+	// Ordering is the contract, not a convenience: L1 is first-match-wins, so two
+	// rules that both match must have a defined winner or the answer depends on
+	// which row the planner returned first.
+	//
+	//   1. This organisation's own rules, before every template rule. A per-org
+	//      rule exists precisely to overrule a template -- "for us ЛИЗИНГ is not
+	//      rent" -- and it cannot do that from behind one. This is also what makes
+	//      the unique index sound: priority is unique per owner, not across
+	//      owners, so a template and an org rule may both be priority 7, and
+	//      without this clause that pair would be the tie the index does not
+	//      prevent.
+	//   2. Then by priority, which is where specificity lives: the seeded rules
+	//      put `ПОДОХОДНЫЙ НАЛОГ;ИЗ ДИВИДЕНДОВ` at 4 and bare `ПОДОХОДНЫЙ НАЛОГ`
+	//      at 32, and the longer phrase has to be tried first or the shorter one
+	//      swallows it.
+	//   3. Then by id, so that a bug in either of the above is a stable wrong
+	//      answer we can reproduce rather than an intermittent one.
+	//
+	// The join to categories yields the code rather than the id, because that is
+	// what crosses the wire: an id is meaningless to a stateless service and would
+	// invite it to hold one.
+	EffectiveRules(ctx context.Context, arg EffectiveRulesParams) ([]EffectiveRulesRow, error)
+	// Queries over the category taxonomy.
+	//
+	// `categories` is the first table that is shared and tenant at once: a row with
+	// a NULL org_id belongs to everyone, a row with one belongs to a single
+	// organisation. Row-level security already enforces that split -- the read
+	// policy admits a shared row or mine and nothing else -- so nothing here
+	// restates it. A predicate on org_id in this file would be a second place to
+	// get isolation right, and the point of doing it in the database is that there
+	// is only one.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context. Without
+	// it app_current_org() raises 42704 and the query fails, rather than returning
+	// an empty tree that a report would render as a customer with no categories.
+	// The tree this organisation actually sees: the shared skeleton plus its own
+	// leaves, in code order, which is also report order because a code carries its
+	// own position (two characters per level).
+	EffectiveTaxonomy(ctx context.Context, taxonomyVersion string) ([]EffectiveTaxonomyRow, error)
 	// Queries for the four identity tables: users, user_identities, sessions and
 	// auth_flows.
 	//
@@ -124,6 +190,14 @@ type Querier interface {
 	UpdateEntityName(ctx context.Context, arg UpdateEntityNameParams) (int64, error)
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) (int64, error)
 	UpdateOrganizationName(ctx context.Context, name string) (int64, error)
+	// L0: what this organisation has already decided about a counterparty.
+	//
+	// Filtered by key_version, not merely tagged with it. Keys produced by an
+	// older counterparty_key() do not mean the same thing as today's -- that is
+	// the entire reason the column exists -- so mixing versions would silently
+	// apply a customer's decision to a counterparty they never approved. A row
+	// whose version has moved on is invisible until it is backfilled.
+	VendorMemory(ctx context.Context, keyVersion string) ([]VendorMemoryRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

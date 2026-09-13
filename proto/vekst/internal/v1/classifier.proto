@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package vekst.internal.v1;
 
+import "vekst/type/v1/money.proto";
+
 // The Go output directory drops the "internal" path element on purpose. Go
 // treats any path containing internal/ as a visibility boundary, so generated
 // code under core/gen/vekst/internal/ would be unimportable from core/classify.
@@ -13,11 +15,13 @@ option go_package = "github.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinte
 // only by core. It is never exposed through the Ingress, and it never receives
 // database credentials -- ARCHITECTURE.md A-4.
 //
-// ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-// vendor memory and rule matcher, none of which exist before changes 3.1 and
-// 3.2. See ../README.md.
+// ClassifyBatch takes everything it reasons with in the request. The service
+// holds no database handle, no clock and no globals, so a batch is a pure
+// function of its arguments -- which is what lets the same request replay in
+// June and produce June's answer only if the versions in it changed.
 service ClassifierService {
   rpc Version(VersionRequest) returns (VersionResponse);
+  rpc ClassifyBatch(ClassifyBatchRequest) returns (ClassifyBatchResponse);
 }
 
 message VersionRequest {}
@@ -30,4 +34,172 @@ message VersionResponse {
 
   // RFC 3339.
   string built_at = 2;
+}
+
+// ---------------------------------------------------------------------------
+// ClassifyBatch
+// ---------------------------------------------------------------------------
+
+message ClassifyBatchRequest {
+  // Idempotency key, one per chunk. core stores it so that a retried job does
+  // not produce a second set of proposals for rows it already has.
+  string request_id = 1;
+
+  // The three strings a report pins. They are sent rather than configured
+  // because the classifier keeps no state: it cannot know which taxonomy this
+  // organisation is on, and must not guess.
+  string taxonomy_version = 2;
+  string ruleset_version = 3;
+
+  // Asserted, not applied. core normalised description_norm and
+  // counterparty_key before sending them, and says with which version of that
+  // function. The classifier rejects a version it does not implement rather
+  // than matching normalised rules against text normalised some other way --
+  // a mismatch there is silently wrong, never loudly wrong.
+  string normalize_version = 4;
+
+  // Classifiable leaves only. A section or a computed line reaching this list
+  // would let a proposal double-count, so it is filtered in the query that
+  // builds the request, not here.
+  repeated Category categories = 5;
+
+  // Already ordered: L1 is first-match-wins, so the order is part of the
+  // request and not something the classifier may re-derive.
+  repeated Rule rules = 6;
+
+  // This organisation's own L0 memory. Never another organisation's -- the
+  // read that fills this runs under row-level security.
+  repeated VendorMemory vendors = 7;
+
+  repeated TxnForClassify txns = 8;
+
+  // Below this, a proposal is not returned. A confidence is a threshold
+  // comparison and never money, which is why a double is allowed here.
+  double threshold = 9;
+
+  // L4 will add candidates and an embedding model version. Reserved now so
+  // that adding them later cannot collide with a field number some deployed
+  // build already read differently. See ARCHITECTURE.md 2.3.
+  reserved 20 to 39;
+}
+
+message Category {
+  string code = 1;
+  string name = 2;
+
+  // True when a report may show this amount as known-but-unattributed rather
+  // than attributing it. Payroll is the case: it is payroll before anyone has
+  // said which department.
+  bool requires_allocation = 3;
+}
+
+message Rule {
+  int32 priority = 1;
+  string category_code = 2;
+
+  // 'country:BY' | 'bank:priorbank' | 'org'. Returned as a proposal's
+  // evidence, so a customer asking "why this category" gets "because this is
+  // how Belarusian statements word it", not a rule id.
+  string scope = 3;
+
+  // AND over every condition. There is no OR: an alternative is a second rule,
+  // which keeps each rule independently measurable by the harness and keeps
+  // priority meaningful.
+  repeated Condition all = 4;
+
+  // ledger | bank. A rule written for a bank's wording must not fire on a
+  // ledger row: an accountant's narration and a bank's are different
+  // languages that share words, and a line computed from both double-counts.
+  string source_kind = 5;
+}
+
+message Condition {
+  // description | counterparty_key | regulated_code | direction | amount |
+  // account. Matched against the named field alone -- never against a
+  // concatenation of the row, which is how a rule for a counterparty starts
+  // firing on a payment reference that happens to contain the same letters.
+  //
+  // A field this engine does not implement fails the batch. Returning false
+  // instead would let a newer core's rules quietly stop firing against an
+  // older classifier, and a coverage number that drops for an invisible
+  // reason is worse than one that does not arrive.
+  string field = 1;
+
+  // contains_all | eq | gte | lte
+  string op = 2;
+
+  // The comparand for every op except the amount ones.
+  string value = 3;
+
+  // The comparand for gte and lte, so that an amount rule is never a parsed
+  // string and never a double. Two Money values of different currencies do not
+  // compare, and the engine says so rather than converting.
+  vekst.type.v1.Money amount_value = 4;
+}
+
+message TxnForClassify {
+  string transaction_id = 1;
+
+  // ledger | bank. A rule declares which kind it applies to, because a
+  // description written by a bank and one written by an accountant are not the
+  // same language even when they share words.
+  string source_kind = 2;
+
+  string description_norm = 3;
+  string counterparty_key = 4;
+
+  // income | expense -- the direction of the money, not the bookkeeping side
+  // of one account. The seeded rules are written in these terms because the
+  // accountant's own files were, and "debit" answers a different question
+  // depending on whose ledger is being read.
+  string direction = 5;
+
+  vekst.type.v1.Money amount = 6;
+
+  // КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+  // This is L0.5: a code assigned by someone other than the payer.
+  string regulated_code = 7;
+
+  string account_id = 8;
+}
+
+message Proposal {
+  string transaction_id = 1;
+  string category_code = 2;
+
+  // L0 | L0.5 | L1. Stored on the classification row, because "the customer
+  // taught us this" and "a template rule guessed" are different claims and a
+  // review queue orders by which is which.
+  string engine_layer = 3;
+
+  double confidence = 4;
+
+  // Why, in a form a person can read: the counterparty key tier that matched,
+  // or the rule's scope.
+  string evidence = 5;
+
+  // 0 when no L1 rule was involved.
+  int32 matched_rule_priority = 6;
+}
+
+message VendorMemory {
+  // Produced by core's counterparty_key(): 'tax:220340017991' when the
+  // statement carried a tax identifier, 'name:...' when it did not.
+  string key = 1;
+  string category_code = 2;
+  string display_name = 3;
+}
+
+message ClassifyBatchResponse {
+  string engine_version = 1;
+
+  // Echoed from the request, so that a response stored against a batch carries
+  // the ruleset it was actually produced under rather than the one core
+  // believes it asked for.
+  string ruleset_version = 2;
+
+  // A transaction absent from this list is one no layer answered. That is a
+  // result, not an omission: it goes to the review queue rather than to a
+  // guess.
+  repeated Proposal proposals = 3;
 }

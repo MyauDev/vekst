@@ -7,6 +7,7 @@
 package vektinternalv1
 
 import (
+	v1 "github.com/MyauDev/vekst/core/gen/vekstype/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -113,17 +114,759 @@ func (x *VersionResponse) GetBuiltAt() string {
 	return ""
 }
 
+type ClassifyBatchRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Idempotency key, one per chunk. core stores it so that a retried job does
+	// not produce a second set of proposals for rows it already has.
+	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// The three strings a report pins. They are sent rather than configured
+	// because the classifier keeps no state: it cannot know which taxonomy this
+	// organisation is on, and must not guess.
+	TaxonomyVersion string `protobuf:"bytes,2,opt,name=taxonomy_version,json=taxonomyVersion,proto3" json:"taxonomy_version,omitempty"`
+	RulesetVersion  string `protobuf:"bytes,3,opt,name=ruleset_version,json=rulesetVersion,proto3" json:"ruleset_version,omitempty"`
+	// Asserted, not applied. core normalised description_norm and
+	// counterparty_key before sending them, and says with which version of that
+	// function. The classifier rejects a version it does not implement rather
+	// than matching normalised rules against text normalised some other way --
+	// a mismatch there is silently wrong, never loudly wrong.
+	NormalizeVersion string `protobuf:"bytes,4,opt,name=normalize_version,json=normalizeVersion,proto3" json:"normalize_version,omitempty"`
+	// Classifiable leaves only. A section or a computed line reaching this list
+	// would let a proposal double-count, so it is filtered in the query that
+	// builds the request, not here.
+	Categories []*Category `protobuf:"bytes,5,rep,name=categories,proto3" json:"categories,omitempty"`
+	// Already ordered: L1 is first-match-wins, so the order is part of the
+	// request and not something the classifier may re-derive.
+	Rules []*Rule `protobuf:"bytes,6,rep,name=rules,proto3" json:"rules,omitempty"`
+	// This organisation's own L0 memory. Never another organisation's -- the
+	// read that fills this runs under row-level security.
+	Vendors []*VendorMemory   `protobuf:"bytes,7,rep,name=vendors,proto3" json:"vendors,omitempty"`
+	Txns    []*TxnForClassify `protobuf:"bytes,8,rep,name=txns,proto3" json:"txns,omitempty"`
+	// Below this, a proposal is not returned. A confidence is a threshold
+	// comparison and never money, which is why a double is allowed here.
+	Threshold     float64 `protobuf:"fixed64,9,opt,name=threshold,proto3" json:"threshold,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClassifyBatchRequest) Reset() {
+	*x = ClassifyBatchRequest{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClassifyBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClassifyBatchRequest) ProtoMessage() {}
+
+func (x *ClassifyBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClassifyBatchRequest.ProtoReflect.Descriptor instead.
+func (*ClassifyBatchRequest) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ClassifyBatchRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *ClassifyBatchRequest) GetTaxonomyVersion() string {
+	if x != nil {
+		return x.TaxonomyVersion
+	}
+	return ""
+}
+
+func (x *ClassifyBatchRequest) GetRulesetVersion() string {
+	if x != nil {
+		return x.RulesetVersion
+	}
+	return ""
+}
+
+func (x *ClassifyBatchRequest) GetNormalizeVersion() string {
+	if x != nil {
+		return x.NormalizeVersion
+	}
+	return ""
+}
+
+func (x *ClassifyBatchRequest) GetCategories() []*Category {
+	if x != nil {
+		return x.Categories
+	}
+	return nil
+}
+
+func (x *ClassifyBatchRequest) GetRules() []*Rule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+func (x *ClassifyBatchRequest) GetVendors() []*VendorMemory {
+	if x != nil {
+		return x.Vendors
+	}
+	return nil
+}
+
+func (x *ClassifyBatchRequest) GetTxns() []*TxnForClassify {
+	if x != nil {
+		return x.Txns
+	}
+	return nil
+}
+
+func (x *ClassifyBatchRequest) GetThreshold() float64 {
+	if x != nil {
+		return x.Threshold
+	}
+	return 0
+}
+
+type Category struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Code  string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// True when a report may show this amount as known-but-unattributed rather
+	// than attributing it. Payroll is the case: it is payroll before anyone has
+	// said which department.
+	RequiresAllocation bool `protobuf:"varint,3,opt,name=requires_allocation,json=requiresAllocation,proto3" json:"requires_allocation,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *Category) Reset() {
+	*x = Category{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Category) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Category) ProtoMessage() {}
+
+func (x *Category) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Category.ProtoReflect.Descriptor instead.
+func (*Category) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Category) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Category) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Category) GetRequiresAllocation() bool {
+	if x != nil {
+		return x.RequiresAllocation
+	}
+	return false
+}
+
+type Rule struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Priority     int32                  `protobuf:"varint,1,opt,name=priority,proto3" json:"priority,omitempty"`
+	CategoryCode string                 `protobuf:"bytes,2,opt,name=category_code,json=categoryCode,proto3" json:"category_code,omitempty"`
+	// 'country:BY' | 'bank:priorbank' | 'org'. Returned as a proposal's
+	// evidence, so a customer asking "why this category" gets "because this is
+	// how Belarusian statements word it", not a rule id.
+	Scope string `protobuf:"bytes,3,opt,name=scope,proto3" json:"scope,omitempty"`
+	// AND over every condition. There is no OR: an alternative is a second rule,
+	// which keeps each rule independently measurable by the harness and keeps
+	// priority meaningful.
+	All []*Condition `protobuf:"bytes,4,rep,name=all,proto3" json:"all,omitempty"`
+	// ledger | bank. A rule written for a bank's wording must not fire on a
+	// ledger row: an accountant's narration and a bank's are different
+	// languages that share words, and a line computed from both double-counts.
+	SourceKind    string `protobuf:"bytes,5,opt,name=source_kind,json=sourceKind,proto3" json:"source_kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Rule) Reset() {
+	*x = Rule{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Rule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Rule) ProtoMessage() {}
+
+func (x *Rule) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Rule.ProtoReflect.Descriptor instead.
+func (*Rule) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Rule) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *Rule) GetCategoryCode() string {
+	if x != nil {
+		return x.CategoryCode
+	}
+	return ""
+}
+
+func (x *Rule) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
+func (x *Rule) GetAll() []*Condition {
+	if x != nil {
+		return x.All
+	}
+	return nil
+}
+
+func (x *Rule) GetSourceKind() string {
+	if x != nil {
+		return x.SourceKind
+	}
+	return ""
+}
+
+type Condition struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// description | counterparty_key | regulated_code | direction | amount |
+	// account. Matched against the named field alone -- never against a
+	// concatenation of the row, which is how a rule for a counterparty starts
+	// firing on a payment reference that happens to contain the same letters.
+	//
+	// A field this engine does not implement fails the batch. Returning false
+	// instead would let a newer core's rules quietly stop firing against an
+	// older classifier, and a coverage number that drops for an invisible
+	// reason is worse than one that does not arrive.
+	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	// contains_all | eq | gte | lte
+	Op string `protobuf:"bytes,2,opt,name=op,proto3" json:"op,omitempty"`
+	// The comparand for every op except the amount ones.
+	Value string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	// The comparand for gte and lte, so that an amount rule is never a parsed
+	// string and never a double. Two Money values of different currencies do not
+	// compare, and the engine says so rather than converting.
+	AmountValue   *v1.Money `protobuf:"bytes,4,opt,name=amount_value,json=amountValue,proto3" json:"amount_value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Condition) Reset() {
+	*x = Condition{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Condition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Condition) ProtoMessage() {}
+
+func (x *Condition) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Condition.ProtoReflect.Descriptor instead.
+func (*Condition) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Condition) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *Condition) GetOp() string {
+	if x != nil {
+		return x.Op
+	}
+	return ""
+}
+
+func (x *Condition) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *Condition) GetAmountValue() *v1.Money {
+	if x != nil {
+		return x.AmountValue
+	}
+	return nil
+}
+
+type TxnForClassify struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TransactionId string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	// ledger | bank. A rule declares which kind it applies to, because a
+	// description written by a bank and one written by an accountant are not the
+	// same language even when they share words.
+	SourceKind      string `protobuf:"bytes,2,opt,name=source_kind,json=sourceKind,proto3" json:"source_kind,omitempty"`
+	DescriptionNorm string `protobuf:"bytes,3,opt,name=description_norm,json=descriptionNorm,proto3" json:"description_norm,omitempty"`
+	CounterpartyKey string `protobuf:"bytes,4,opt,name=counterparty_key,json=counterpartyKey,proto3" json:"counterparty_key,omitempty"`
+	// income | expense -- the direction of the money, not the bookkeeping side
+	// of one account. The seeded rules are written in these terms because the
+	// accountant's own files were, and "debit" answers a different question
+	// depending on whose ledger is being read.
+	Direction string    `protobuf:"bytes,5,opt,name=direction,proto3" json:"direction,omitempty"`
+	Amount    *v1.Money `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`
+	// КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+	// This is L0.5: a code assigned by someone other than the payer.
+	RegulatedCode string `protobuf:"bytes,7,opt,name=regulated_code,json=regulatedCode,proto3" json:"regulated_code,omitempty"`
+	AccountId     string `protobuf:"bytes,8,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TxnForClassify) Reset() {
+	*x = TxnForClassify{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TxnForClassify) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TxnForClassify) ProtoMessage() {}
+
+func (x *TxnForClassify) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TxnForClassify.ProtoReflect.Descriptor instead.
+func (*TxnForClassify) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *TxnForClassify) GetTransactionId() string {
+	if x != nil {
+		return x.TransactionId
+	}
+	return ""
+}
+
+func (x *TxnForClassify) GetSourceKind() string {
+	if x != nil {
+		return x.SourceKind
+	}
+	return ""
+}
+
+func (x *TxnForClassify) GetDescriptionNorm() string {
+	if x != nil {
+		return x.DescriptionNorm
+	}
+	return ""
+}
+
+func (x *TxnForClassify) GetCounterpartyKey() string {
+	if x != nil {
+		return x.CounterpartyKey
+	}
+	return ""
+}
+
+func (x *TxnForClassify) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+func (x *TxnForClassify) GetAmount() *v1.Money {
+	if x != nil {
+		return x.Amount
+	}
+	return nil
+}
+
+func (x *TxnForClassify) GetRegulatedCode() string {
+	if x != nil {
+		return x.RegulatedCode
+	}
+	return ""
+}
+
+func (x *TxnForClassify) GetAccountId() string {
+	if x != nil {
+		return x.AccountId
+	}
+	return ""
+}
+
+type Proposal struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TransactionId string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	CategoryCode  string                 `protobuf:"bytes,2,opt,name=category_code,json=categoryCode,proto3" json:"category_code,omitempty"`
+	// L0 | L0.5 | L1. Stored on the classification row, because "the customer
+	// taught us this" and "a template rule guessed" are different claims and a
+	// review queue orders by which is which.
+	EngineLayer string  `protobuf:"bytes,3,opt,name=engine_layer,json=engineLayer,proto3" json:"engine_layer,omitempty"`
+	Confidence  float64 `protobuf:"fixed64,4,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	// Why, in a form a person can read: the counterparty key tier that matched,
+	// or the rule's scope.
+	Evidence string `protobuf:"bytes,5,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// 0 when no L1 rule was involved.
+	MatchedRulePriority int32 `protobuf:"varint,6,opt,name=matched_rule_priority,json=matchedRulePriority,proto3" json:"matched_rule_priority,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *Proposal) Reset() {
+	*x = Proposal{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Proposal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Proposal) ProtoMessage() {}
+
+func (x *Proposal) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Proposal.ProtoReflect.Descriptor instead.
+func (*Proposal) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Proposal) GetTransactionId() string {
+	if x != nil {
+		return x.TransactionId
+	}
+	return ""
+}
+
+func (x *Proposal) GetCategoryCode() string {
+	if x != nil {
+		return x.CategoryCode
+	}
+	return ""
+}
+
+func (x *Proposal) GetEngineLayer() string {
+	if x != nil {
+		return x.EngineLayer
+	}
+	return ""
+}
+
+func (x *Proposal) GetConfidence() float64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *Proposal) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *Proposal) GetMatchedRulePriority() int32 {
+	if x != nil {
+		return x.MatchedRulePriority
+	}
+	return 0
+}
+
+type VendorMemory struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Produced by core's counterparty_key(): 'tax:220340017991' when the
+	// statement carried a tax identifier, 'name:...' when it did not.
+	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	CategoryCode  string `protobuf:"bytes,2,opt,name=category_code,json=categoryCode,proto3" json:"category_code,omitempty"`
+	DisplayName   string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VendorMemory) Reset() {
+	*x = VendorMemory{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VendorMemory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VendorMemory) ProtoMessage() {}
+
+func (x *VendorMemory) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VendorMemory.ProtoReflect.Descriptor instead.
+func (*VendorMemory) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *VendorMemory) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *VendorMemory) GetCategoryCode() string {
+	if x != nil {
+		return x.CategoryCode
+	}
+	return ""
+}
+
+func (x *VendorMemory) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type ClassifyBatchResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EngineVersion string                 `protobuf:"bytes,1,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"`
+	// Echoed from the request, so that a response stored against a batch carries
+	// the ruleset it was actually produced under rather than the one core
+	// believes it asked for.
+	RulesetVersion string `protobuf:"bytes,2,opt,name=ruleset_version,json=rulesetVersion,proto3" json:"ruleset_version,omitempty"`
+	// A transaction absent from this list is one no layer answered. That is a
+	// result, not an omission: it goes to the review queue rather than to a
+	// guess.
+	Proposals     []*Proposal `protobuf:"bytes,3,rep,name=proposals,proto3" json:"proposals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClassifyBatchResponse) Reset() {
+	*x = ClassifyBatchResponse{}
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClassifyBatchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClassifyBatchResponse) ProtoMessage() {}
+
+func (x *ClassifyBatchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_internal_v1_classifier_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClassifyBatchResponse.ProtoReflect.Descriptor instead.
+func (*ClassifyBatchResponse) Descriptor() ([]byte, []int) {
+	return file_vekst_internal_v1_classifier_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ClassifyBatchResponse) GetEngineVersion() string {
+	if x != nil {
+		return x.EngineVersion
+	}
+	return ""
+}
+
+func (x *ClassifyBatchResponse) GetRulesetVersion() string {
+	if x != nil {
+		return x.RulesetVersion
+	}
+	return ""
+}
+
+func (x *ClassifyBatchResponse) GetProposals() []*Proposal {
+	if x != nil {
+		return x.Proposals
+	}
+	return nil
+}
+
 var File_vekst_internal_v1_classifier_proto protoreflect.FileDescriptor
 
 const file_vekst_internal_v1_classifier_proto_rawDesc = "" +
 	"\n" +
-	"\"vekst/internal/v1/classifier.proto\x12\x11vekst.internal.v1\"\x10\n" +
+	"\"vekst/internal/v1/classifier.proto\x12\x11vekst.internal.v1\x1a\x19vekst/type/v1/money.proto\"\x10\n" +
 	"\x0eVersionRequest\"S\n" +
 	"\x0fVersionResponse\x12%\n" +
 	"\x0eengine_version\x18\x01 \x01(\tR\rengineVersion\x12\x19\n" +
-	"\bbuilt_at\x18\x02 \x01(\tR\abuiltAt2e\n" +
+	"\bbuilt_at\x18\x02 \x01(\tR\abuiltAt\"\xb8\x03\n" +
+	"\x14ClassifyBatchRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12)\n" +
+	"\x10taxonomy_version\x18\x02 \x01(\tR\x0ftaxonomyVersion\x12'\n" +
+	"\x0fruleset_version\x18\x03 \x01(\tR\x0erulesetVersion\x12+\n" +
+	"\x11normalize_version\x18\x04 \x01(\tR\x10normalizeVersion\x12;\n" +
+	"\n" +
+	"categories\x18\x05 \x03(\v2\x1b.vekst.internal.v1.CategoryR\n" +
+	"categories\x12-\n" +
+	"\x05rules\x18\x06 \x03(\v2\x17.vekst.internal.v1.RuleR\x05rules\x129\n" +
+	"\avendors\x18\a \x03(\v2\x1f.vekst.internal.v1.VendorMemoryR\avendors\x125\n" +
+	"\x04txns\x18\b \x03(\v2!.vekst.internal.v1.TxnForClassifyR\x04txns\x12\x1c\n" +
+	"\tthreshold\x18\t \x01(\x01R\tthresholdJ\x04\b\x14\x10(\"c\n" +
+	"\bCategory\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12/\n" +
+	"\x13requires_allocation\x18\x03 \x01(\bR\x12requiresAllocation\"\xae\x01\n" +
+	"\x04Rule\x12\x1a\n" +
+	"\bpriority\x18\x01 \x01(\x05R\bpriority\x12#\n" +
+	"\rcategory_code\x18\x02 \x01(\tR\fcategoryCode\x12\x14\n" +
+	"\x05scope\x18\x03 \x01(\tR\x05scope\x12.\n" +
+	"\x03all\x18\x04 \x03(\v2\x1c.vekst.internal.v1.ConditionR\x03all\x12\x1f\n" +
+	"\vsource_kind\x18\x05 \x01(\tR\n" +
+	"sourceKind\"\x80\x01\n" +
+	"\tCondition\x12\x14\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x12\x0e\n" +
+	"\x02op\x18\x02 \x01(\tR\x02op\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x127\n" +
+	"\famount_value\x18\x04 \x01(\v2\x14.vekst.type.v1.MoneyR\vamountValue\"\xc0\x02\n" +
+	"\x0eTxnForClassify\x12%\n" +
+	"\x0etransaction_id\x18\x01 \x01(\tR\rtransactionId\x12\x1f\n" +
+	"\vsource_kind\x18\x02 \x01(\tR\n" +
+	"sourceKind\x12)\n" +
+	"\x10description_norm\x18\x03 \x01(\tR\x0fdescriptionNorm\x12)\n" +
+	"\x10counterparty_key\x18\x04 \x01(\tR\x0fcounterpartyKey\x12\x1c\n" +
+	"\tdirection\x18\x05 \x01(\tR\tdirection\x12,\n" +
+	"\x06amount\x18\x06 \x01(\v2\x14.vekst.type.v1.MoneyR\x06amount\x12%\n" +
+	"\x0eregulated_code\x18\a \x01(\tR\rregulatedCode\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\b \x01(\tR\taccountId\"\xe9\x01\n" +
+	"\bProposal\x12%\n" +
+	"\x0etransaction_id\x18\x01 \x01(\tR\rtransactionId\x12#\n" +
+	"\rcategory_code\x18\x02 \x01(\tR\fcategoryCode\x12!\n" +
+	"\fengine_layer\x18\x03 \x01(\tR\vengineLayer\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x04 \x01(\x01R\n" +
+	"confidence\x12\x1a\n" +
+	"\bevidence\x18\x05 \x01(\tR\bevidence\x122\n" +
+	"\x15matched_rule_priority\x18\x06 \x01(\x05R\x13matchedRulePriority\"h\n" +
+	"\fVendorMemory\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12#\n" +
+	"\rcategory_code\x18\x02 \x01(\tR\fcategoryCode\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"\xa2\x01\n" +
+	"\x15ClassifyBatchResponse\x12%\n" +
+	"\x0eengine_version\x18\x01 \x01(\tR\rengineVersion\x12'\n" +
+	"\x0fruleset_version\x18\x02 \x01(\tR\x0erulesetVersion\x129\n" +
+	"\tproposals\x18\x03 \x03(\v2\x1b.vekst.internal.v1.ProposalR\tproposals2\xc9\x01\n" +
 	"\x11ClassifierService\x12P\n" +
-	"\aVersion\x12!.vekst.internal.v1.VersionRequest\x1a\".vekst.internal.v1.VersionResponseBCZAgithub.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinternalv1b\x06proto3"
+	"\aVersion\x12!.vekst.internal.v1.VersionRequest\x1a\".vekst.internal.v1.VersionResponse\x12b\n" +
+	"\rClassifyBatch\x12'.vekst.internal.v1.ClassifyBatchRequest\x1a(.vekst.internal.v1.ClassifyBatchResponseBCZAgithub.com/MyauDev/vekst/core/gen/vekstinternal/v1;vektinternalv1b\x06proto3"
 
 var (
 	file_vekst_internal_v1_classifier_proto_rawDescOnce sync.Once
@@ -137,19 +880,38 @@ func file_vekst_internal_v1_classifier_proto_rawDescGZIP() []byte {
 	return file_vekst_internal_v1_classifier_proto_rawDescData
 }
 
-var file_vekst_internal_v1_classifier_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_vekst_internal_v1_classifier_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_vekst_internal_v1_classifier_proto_goTypes = []any{
-	(*VersionRequest)(nil),  // 0: vekst.internal.v1.VersionRequest
-	(*VersionResponse)(nil), // 1: vekst.internal.v1.VersionResponse
+	(*VersionRequest)(nil),        // 0: vekst.internal.v1.VersionRequest
+	(*VersionResponse)(nil),       // 1: vekst.internal.v1.VersionResponse
+	(*ClassifyBatchRequest)(nil),  // 2: vekst.internal.v1.ClassifyBatchRequest
+	(*Category)(nil),              // 3: vekst.internal.v1.Category
+	(*Rule)(nil),                  // 4: vekst.internal.v1.Rule
+	(*Condition)(nil),             // 5: vekst.internal.v1.Condition
+	(*TxnForClassify)(nil),        // 6: vekst.internal.v1.TxnForClassify
+	(*Proposal)(nil),              // 7: vekst.internal.v1.Proposal
+	(*VendorMemory)(nil),          // 8: vekst.internal.v1.VendorMemory
+	(*ClassifyBatchResponse)(nil), // 9: vekst.internal.v1.ClassifyBatchResponse
+	(*v1.Money)(nil),              // 10: vekst.type.v1.Money
 }
 var file_vekst_internal_v1_classifier_proto_depIdxs = []int32{
-	0, // 0: vekst.internal.v1.ClassifierService.Version:input_type -> vekst.internal.v1.VersionRequest
-	1, // 1: vekst.internal.v1.ClassifierService.Version:output_type -> vekst.internal.v1.VersionResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3,  // 0: vekst.internal.v1.ClassifyBatchRequest.categories:type_name -> vekst.internal.v1.Category
+	4,  // 1: vekst.internal.v1.ClassifyBatchRequest.rules:type_name -> vekst.internal.v1.Rule
+	8,  // 2: vekst.internal.v1.ClassifyBatchRequest.vendors:type_name -> vekst.internal.v1.VendorMemory
+	6,  // 3: vekst.internal.v1.ClassifyBatchRequest.txns:type_name -> vekst.internal.v1.TxnForClassify
+	5,  // 4: vekst.internal.v1.Rule.all:type_name -> vekst.internal.v1.Condition
+	10, // 5: vekst.internal.v1.Condition.amount_value:type_name -> vekst.type.v1.Money
+	10, // 6: vekst.internal.v1.TxnForClassify.amount:type_name -> vekst.type.v1.Money
+	7,  // 7: vekst.internal.v1.ClassifyBatchResponse.proposals:type_name -> vekst.internal.v1.Proposal
+	0,  // 8: vekst.internal.v1.ClassifierService.Version:input_type -> vekst.internal.v1.VersionRequest
+	2,  // 9: vekst.internal.v1.ClassifierService.ClassifyBatch:input_type -> vekst.internal.v1.ClassifyBatchRequest
+	1,  // 10: vekst.internal.v1.ClassifierService.Version:output_type -> vekst.internal.v1.VersionResponse
+	9,  // 11: vekst.internal.v1.ClassifierService.ClassifyBatch:output_type -> vekst.internal.v1.ClassifyBatchResponse
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_vekst_internal_v1_classifier_proto_init() }
@@ -163,7 +925,7 @@ func file_vekst_internal_v1_classifier_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vekst_internal_v1_classifier_proto_rawDesc), len(file_vekst_internal_v1_classifier_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

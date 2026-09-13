@@ -30,9 +30,10 @@ class ClassifierServiceStub:
     only by core. It is never exposed through the Ingress, and it never receives
     database credentials -- ARCHITECTURE.md A-4.
 
-    ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-    vendor memory and rule matcher, none of which exist before changes 3.1 and
-    3.2. See ../README.md.
+    ClassifyBatch takes everything it reasons with in the request. The service
+    holds no database handle, no clock and no globals, so a batch is a pure
+    function of its arguments -- which is what lets the same request replay in
+    June and produce June's answer only if the versions in it changed.
     """
 
     def __init__(self, channel):
@@ -46,6 +47,11 @@ class ClassifierServiceStub:
                 request_serializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.VersionRequest.SerializeToString,
                 response_deserializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.VersionResponse.FromString,
                 _registered_method=True)
+        self.ClassifyBatch = channel.unary_unary(
+                '/vekst.internal.v1.ClassifierService/ClassifyBatch',
+                request_serializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.ClassifyBatchRequest.SerializeToString,
+                response_deserializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.ClassifyBatchResponse.FromString,
+                _registered_method=True)
 
 
 class ClassifierServiceServicer:
@@ -53,12 +59,19 @@ class ClassifierServiceServicer:
     only by core. It is never exposed through the Ingress, and it never receives
     database credentials -- ARCHITECTURE.md A-4.
 
-    ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-    vendor memory and rule matcher, none of which exist before changes 3.1 and
-    3.2. See ../README.md.
+    ClassifyBatch takes everything it reasons with in the request. The service
+    holds no database handle, no clock and no globals, so a batch is a pure
+    function of its arguments -- which is what lets the same request replay in
+    June and produce June's answer only if the versions in it changed.
     """
 
     def Version(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClassifyBatch(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -71,6 +84,11 @@ def add_ClassifierServiceServicer_to_server(servicer, server):
                     servicer.Version,
                     request_deserializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.VersionRequest.FromString,
                     response_serializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.VersionResponse.SerializeToString,
+            ),
+            'ClassifyBatch': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClassifyBatch,
+                    request_deserializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.ClassifyBatchRequest.FromString,
+                    response_serializer=vekst_dot_internal_dot_v1_dot_classifier__pb2.ClassifyBatchResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -85,9 +103,10 @@ class ClassifierService:
     only by core. It is never exposed through the Ingress, and it never receives
     database credentials -- ARCHITECTURE.md A-4.
 
-    ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-    vendor memory and rule matcher, none of which exist before changes 3.1 and
-    3.2. See ../README.md.
+    ClassifyBatch takes everything it reasons with in the request. The service
+    holds no database handle, no clock and no globals, so a batch is a pure
+    function of its arguments -- which is what lets the same request replay in
+    June and produce June's answer only if the versions in it changed.
     """
 
     @staticmethod
@@ -107,6 +126,33 @@ class ClassifierService:
             '/vekst.internal.v1.ClassifierService/Version',
             vekst_dot_internal_dot_v1_dot_classifier__pb2.VersionRequest.SerializeToString,
             vekst_dot_internal_dot_v1_dot_classifier__pb2.VersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ClassifyBatch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/vekst.internal.v1.ClassifierService/ClassifyBatch',
+            vekst_dot_internal_dot_v1_dot_classifier__pb2.ClassifyBatchRequest.SerializeToString,
+            vekst_dot_internal_dot_v1_dot_classifier__pb2.ClassifyBatchResponse.FromString,
             options,
             channel_credentials,
             insecure,

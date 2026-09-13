@@ -185,10 +185,10 @@ invented data. If the pipeline did not compute it, it does not count.
 | 2.2 | `add-statement-parsing` — charset, delimiter, header row, number locale, dates, XLSX, raw rows as JSONB | `file-ingestion` | A | 3 |
 | 2.3 | **`add-ingest-validation`** — the checks in 1.1, three outcome states, the error report, atomic rejection | `ingest-validation` | A | 2.5 |
 | 2.4 | `add-import-profiles` — the profile model and its application. No mapping UI yet | `file-ingestion` | A | 1 |
-| 2.5 | `add-transaction-ledger` — canonical rows, one per payment or posting, `document_ref`, money, currency, `counterparty_key` | `transaction-ledger` | A | 2 |
+| 2.5 | `add-transaction-ledger` — canonical rows, one per payment or posting, `document_ref`, money, currency, `counterparty_key`. **Change 3.2 adds three columns to this change's scope**, because the classifier is sent normalised text and never normalises any itself: `description_norm`, `normalize_version` and `regulated_code`. `normalize_version` is not decoration — `core/internal/normalize` decides what counts as a match, so changing it is a backfill of every row carrying the old value | `transaction-ledger` | A | 2 |
 | 2.6 | `add-dedup` — D1 file hash, D2 in-batch, D3 cross-batch, internal-transfer pairs | `dedup-and-matching` | A | 1.5 |
-| 3.1 | `add-classification-taxonomy` — category tree, `is_pnl`, `pnl_section`, non-P&L classes, account-code maps, versioned | `classification-taxonomy` | B | 1.5 |
-| 3.2 | `add-classification-engine` — the `Classifier` interface plus L0, L0.5, L1, L2, in Go. Deterministic, fixture-tested | `classification-engine` | B | 2.5 |
+| 3.1 | `add-classification-taxonomy` — category tree, `is_pnl`, `pnl_section`, non-P&L classes, versioned. **Delivered 2026-09-08**, migration 005: 41 shared nodes + 5 computed lines, split read/write policies, a constraint trigger where a composite key cannot reach. The 60 per-organisation leaves are an industry template, not seeded — a shared row belongs to nobody and these belong to whoever adopts them | `classification-taxonomy` | B | 1.5 |
+| 3.2 | `add-classification-engine` — the `Classifier` interface plus L0, L0.5 and L1. **Delivered 2026-09-13**, migration 006: 71 template rules that belong to a country or a bank, vendor memory that belongs to one organisation, `ClassifyBatch` on the internal contract, normalisation ported to Go with a conformance fixture, and the engine in Python replaying `eval/engine.py` exactly. L2 is not here: it was listed with L0–L1 when the plan was written, and it is a separate change | `classification-engine` | B | 2.5 planned, ~3.5 actual |
 | 3.3 | `add-review-queue` — below-threshold items by amount, grouped by counterparty, keyboard-first, approval writes vendor memory | `review-queue` | B | 3 |
 | 4.1 | `add-management-pnl` — sections, periods, totals, percent of revenue, non-P&L exclusions, basis label from `source_kind` | `report-mgmt-pnl` | B | 2 |
 | 4.2 | `add-report-drilldown` — any figure opens its transactions with category, layer and confidence | `report-mgmt-pnl` | B | 1.5 |
@@ -291,17 +291,18 @@ remaining report templates · mobile client · AI comments on already-highlighte
 
 | ID | Decision | Blocks | Due |
 | --- | --- | --- | --- |
-| D-1 | The classification category list | 3.1, 3.2, 4.1 | **Closed 2026-09-08.** 101 categories in `eval/out/taxonomy.csv`, seeded by `eval/out/seed_categories.sql`. Built from the founder's P&L structure and the three categorisation files; see `eval/README.md`. Track B is unblocked |
-| D-2 | The 7 real export files in `/core/testdata` | 2.2, 2.3 — **Track A stalls without them** | **27 August** |
+| D-1 | The classification category list | 3.1, 3.2, 4.1 | **Closed 2026-09-08.** 101 categories in `eval/out/taxonomy.csv`; the 46 shared ones are seeded by migration 005 and the other 60 are an industry template awaiting the change that creates an organisation. Built from the founder's P&L structure and the three categorisation files, measured against 4,508 real transactions; see `eval/README.md`. Track B is unblocked |
+| D-2 | The 7 real export files in `/core/testdata` | 2.2, 2.3 | **Partly closed 2026-09-08.** Four redacted Priorbank fixtures are in `core/testdata`, both column layouts, with the balance check passing on all four. Kazakh and Polish exports are parsed by `eval/sources.py` but have no Go parser yet. Redacted rather than real: the originals name people and carry tax identifiers |
 | D-3 | The predefined output table structure | 4.1 | 15 September |
 | D-4 | Does the Demo split VAT out of gross? | 3.1, 4.1 | Default: no. Report gross and say so |
 | D-5 | FX rate source | 2.5 | Default: ECB daily reference rates, cached, rate on the booking date |
 | D-6 | Hosting target — **the Demo is confirmed hosted; the host is still unnamed** | The provisioning change | Working assumption: Hetzner Cloud (EU) with k3s, matching the local k3d environment. Docker Compose and Caddy are superseded by Kubernetes and an Ingress |
 | D-7 | Legal entity country | Commercial | Any Paddle-supported country. Ukraine and Kazakhstan qualify; Belarus does not |
 | D-8 | May a customer override a completeness warning, and who signs it off? | 2.3, and `add-validation-overrides` | Default: `approver` may override, with a written reason, recorded on the report |
-| D-9 | Cross-client shared vendor memory: yes with consent, or never | The terms of service | Before the first invoice |
-| D-10 | Auto-accept confidence threshold | 3.2, 3.3 | Default: 0.80 |
+| D-9 | Cross-client shared vendor memory: yes with consent, or never | The terms of service | Before the first invoice. Migration 006 takes the conservative side in the meantime: `vendors` is an ordinary tenant table with no shared rows, so sharing later is a schema change somebody has to make deliberately rather than a policy somebody could relax |
+| D-10 | Auto-accept confidence threshold | 3.2, 3.3 | **Closed 2026-09-13.** 0.80, and it is the engine's own default when a request leaves the field unset — proto3 cannot tell an unset double from a deliberate 0.0, so the ambiguity resolves to the stricter reading. The three layers sit at 1.00 (vendor memory), 0.99 (regulated code) and 0.95 (text rule), so today the threshold admits all three; the gaps are what will order a review queue and what a later layer will have to clear |
 | D-11 | Product name: Vekst or Palm | Anything public | Before the marketing site |
+| D-12 | Is L0.5 ledger-only? | 3.2 | **Closed 2026-09-13, against the original decision.** `ARCHITECTURE.md` §4.1 restricted the account-code layer to ledger rows on the reasoning that a bank row carries no account code. Kazakh bank rows carry a КНП, and 16 code/direction pairs classify 948 of 1,294 rows with no exception; PKO BP labels every row with its own operation type. The rule that replaces it is about who assigned the code, not where it came from: a code assigned by somebody other than the payer is stronger evidence than the payer's own free text. §4.1 is amended and migration 006's rules carry one `regulated_code` field for all of them, never one field per country |
 
 ---
 

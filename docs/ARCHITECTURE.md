@@ -192,7 +192,7 @@ that the boundary was drawn in the wrong place. Move the logic, not the credenti
 | Layer | Method | Source | Confidence |
 | --- | --- | --- | --- |
 | **L0** | Exact match on the org's vendor key memory | any | 1.00 |
-| **L0.5** | Regulated chart-of-accounts code lookup | ledger only (1C) | 0.99 |
+| **L0.5** | Regulated code carried by the source: КНП, a 1C account number, a bank's own operation type | any source that carries one | 0.99 |
 | **L1** | Org rule match (contains, regex, amount range, direction, account) | any | 0.95 |
 | **L2** | Seed rules for the industry profile from the wizard | any | 0.80 |
 | **L3** | Trigram / fuzzy match against the org's own approved history, via Postgres `pg_trgm` | any | 0.50–0.79 |
@@ -203,8 +203,28 @@ Milestones: L0, L0.5, L1 and L2 ship in **Demo** (Go). L3 ships in **Product** (
 `pg_trgm`). L4 ships in **Intelligence** (Python), after the service is extracted in
 **Commercial**.
 
-L0.5 comes from the Palm spec and is the strongest layer for 1C-sourced data. It applies
-**only** to ledger rows. Never apply an account-code rule to a bank row.
+L0.5 comes from the Palm spec and is the strongest layer available whenever the source
+carries a code somebody other than the payer assigned.
+
+**Amended 2026-09-08 by change 3.2.** This paragraph used to read: *"It applies only to
+ledger rows. Never apply an account-code rule to a bank row."* That was written for 1C,
+where the code sits on a posting, and it does not hold for this market.
+
+Every Kazakh **bank** row carries КНП, the state payment-purpose classifier, filled on 1,294
+rows out of 1,294. Sixteen КНП/direction pairs classify 948 of them with no exception at
+all: 21 rules reach 86.1% of rows and 99.5% of amount, against 41 text rules for 87.5% and
+85.2% in Belarus. Poland's `Typ operacji` is the weaker version of the same idea — the bank
+chose the vocabulary rather than a regulator — and seven of its type/direction pairs classify
+without exception too.
+
+The rule that survives is the one the restriction was reaching for: **a code assigned by
+someone other than the payer is stronger evidence than the payer's own free text.** Whether
+it arrives on a bank row or a ledger row is not what makes it trustworthy, and the layer
+records its issuer in `scope` so a reader can tell a regulator's code from a bank's.
+
+What does still hold: a code from one issuer must never be read as a code from another. A
+1C account number and a КНП are both regulated codes and mean entirely different things.
+Measurements: `eval/run_eval.py`.
 
 L4 is the Palm AI design, unchanged in method. Only its position in the schedule moved.
 

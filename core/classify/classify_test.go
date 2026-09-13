@@ -20,6 +20,32 @@ type stubServer struct {
 	version string
 	err     error
 	delay   time.Duration
+
+	// What ClassifyBatch saw, and what it answers with. Recording the request
+	// is the point of the round-trip test in batch_test.go: the translation in
+	// grpcclient.go is the only code in core that knows a batch is protobuf,
+	// so it is the only code that can lose a field.
+	gotBatch  *internalv1.ClassifyBatchRequest
+	proposals []*internalv1.Proposal
+}
+
+func (s *stubServer) ClassifyBatch(ctx context.Context, req *internalv1.ClassifyBatchRequest) (*internalv1.ClassifyBatchResponse, error) {
+	if s.delay > 0 {
+		select {
+		case <-time.After(s.delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	if s.err != nil {
+		return nil, s.err
+	}
+	s.gotBatch = req
+	return &internalv1.ClassifyBatchResponse{
+		EngineVersion:  s.version,
+		RulesetVersion: req.GetRulesetVersion(),
+		Proposals:      s.proposals,
+	}, nil
 }
 
 func (s *stubServer) Version(ctx context.Context, _ *internalv1.VersionRequest) (*internalv1.VersionResponse, error) {

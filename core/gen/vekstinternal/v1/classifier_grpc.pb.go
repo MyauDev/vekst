@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ClassifierService_Version_FullMethodName = "/vekst.internal.v1.ClassifierService/Version"
+	ClassifierService_Version_FullMethodName       = "/vekst.internal.v1.ClassifierService/Version"
+	ClassifierService_ClassifyBatch_FullMethodName = "/vekst.internal.v1.ClassifierService/ClassifyBatch"
 )
 
 // ClassifierServiceClient is the client API for ClassifierService service.
@@ -30,11 +31,13 @@ const (
 // only by core. It is never exposed through the Ingress, and it never receives
 // database credentials -- ARCHITECTURE.md A-4.
 //
-// ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-// vendor memory and rule matcher, none of which exist before changes 3.1 and
-// 3.2. See ../README.md.
+// ClassifyBatch takes everything it reasons with in the request. The service
+// holds no database handle, no clock and no globals, so a batch is a pure
+// function of its arguments -- which is what lets the same request replay in
+// June and produce June's answer only if the versions in it changed.
 type ClassifierServiceClient interface {
 	Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error)
+	ClassifyBatch(ctx context.Context, in *ClassifyBatchRequest, opts ...grpc.CallOption) (*ClassifyBatchResponse, error)
 }
 
 type classifierServiceClient struct {
@@ -55,6 +58,16 @@ func (c *classifierServiceClient) Version(ctx context.Context, in *VersionReques
 	return out, nil
 }
 
+func (c *classifierServiceClient) ClassifyBatch(ctx context.Context, in *ClassifyBatchRequest, opts ...grpc.CallOption) (*ClassifyBatchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClassifyBatchResponse)
+	err := c.cc.Invoke(ctx, ClassifierService_ClassifyBatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClassifierServiceServer is the server API for ClassifierService service.
 // All implementations must embed UnimplementedClassifierServiceServer
 // for forward compatibility.
@@ -63,11 +76,13 @@ func (c *classifierServiceClient) Version(ctx context.Context, in *VersionReques
 // only by core. It is never exposed through the Ingress, and it never receives
 // database credentials -- ARCHITECTURE.md A-4.
 //
-// ClassifyBatch is deliberately absent. Its shapes depend on the taxonomy,
-// vendor memory and rule matcher, none of which exist before changes 3.1 and
-// 3.2. See ../README.md.
+// ClassifyBatch takes everything it reasons with in the request. The service
+// holds no database handle, no clock and no globals, so a batch is a pure
+// function of its arguments -- which is what lets the same request replay in
+// June and produce June's answer only if the versions in it changed.
 type ClassifierServiceServer interface {
 	Version(context.Context, *VersionRequest) (*VersionResponse, error)
+	ClassifyBatch(context.Context, *ClassifyBatchRequest) (*ClassifyBatchResponse, error)
 	mustEmbedUnimplementedClassifierServiceServer()
 }
 
@@ -80,6 +95,9 @@ type UnimplementedClassifierServiceServer struct{}
 
 func (UnimplementedClassifierServiceServer) Version(context.Context, *VersionRequest) (*VersionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Version not implemented")
+}
+func (UnimplementedClassifierServiceServer) ClassifyBatch(context.Context, *ClassifyBatchRequest) (*ClassifyBatchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClassifyBatch not implemented")
 }
 func (UnimplementedClassifierServiceServer) mustEmbedUnimplementedClassifierServiceServer() {}
 func (UnimplementedClassifierServiceServer) testEmbeddedByValue()                           {}
@@ -120,6 +138,24 @@ func _ClassifierService_Version_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClassifierService_ClassifyBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClassifyBatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClassifierServiceServer).ClassifyBatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClassifierService_ClassifyBatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClassifierServiceServer).ClassifyBatch(ctx, req.(*ClassifyBatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClassifierService_ServiceDesc is the grpc.ServiceDesc for ClassifierService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -130,6 +166,10 @@ var ClassifierService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Version",
 			Handler:    _ClassifierService_Version_Handler,
+		},
+		{
+			MethodName: "ClassifyBatch",
+			Handler:    _ClassifierService_ClassifyBatch_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

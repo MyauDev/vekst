@@ -20,7 +20,9 @@ from collections import Counter
 
 from build import (
     COMPUTED,
+    assign_scopes,
     OUT,
+    RULESET_VERSION,
     TAXONOMY_VERSION,
     build_by_template,
     build_kz_template,
@@ -72,6 +74,10 @@ def prepare():
         kept.append(r)
     for i, r in enumerate(kept, 1):
         r["priority"] = i
+
+    # Scope depends on what the rules target, so it is decided here, once the
+    # rule list is final -- never guessed from a category's depth.
+    assign_scopes(cats, kept)
 
     missing = [r for r in kept if r["path"] not in cats]
     if missing:
@@ -226,8 +232,10 @@ CATEGORIES_HEADER = """-- Category taxonomy, taxonomy_version = {tv}.
 --   is_computed, formula                   -- GM, NM, CM, IBT and NI are arithmetic
 --                                             over other lines and never a target
 --   requires_allocation                    -- payroll is known, the department is not
-BEGIN;
-INSERT INTO categories (taxonomy_version, code, parent_code, scope, org_id, name,
+-- parent_id is not in this list. Codes are hierarchical -- two characters per
+-- level -- so migration 005 resolves each parent from its child's code after
+-- the rows are in, and a second key would be a second thing to keep true.
+INSERT INTO categories (taxonomy_version, code, scope, org_id, name,
                         level, is_leaf, is_pnl, is_computed, formula, requires_allocation) VALUES
 """
 
@@ -251,44 +259,93 @@ RULES_HEADER = """-- L1 template rules. Not one of these belongs to a customer.
 --   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' |
 --                      -- 'country:PL' | 'bank:pkobp' | 'org'
 -- Without them there is nowhere to store the rules that do most of the work.
-BEGIN;
-INSERT INTO classification_rules (org_id, scope, priority, matcher, category_code,
-                                  taxonomy_version, active) VALUES
+-- The rows name a category by code and the insert resolves it, because a code is
+-- what a person reads in a review and an id is what the schema stores. The JOIN
+-- would drop a rule whose code no longer exists rather than fail, so migration
+-- 006 counts the result afterwards and raises if any went missing.
+INSERT INTO classification_rules (org_id, scope, priority, matcher, category_id,
+                                  taxonomy_version, ruleset_version, active)
+SELECT v.org_id, v.scope, v.priority, v.matcher, c.id, v.taxonomy_version, v.ruleset_version, v.active
+  FROM (VALUES
 """
+
+
+def write_industry_template(cats):
+    """The categories that belong to an organisation rather than to everyone.
+
+    These are not seeded into `categories`: a shared row belongs to nobody, and
+    these belong to whoever adopts them. They are the starting tree a new
+    customer is given at sign-up and then edits -- Merch for employees,
+    MarTech Tools, HH, IT Park - membership. Copying them per organisation is
+    right for exactly the reason copying the *shared* levels would be wrong: a
+    customer's own leaf is theirs to rename, and a correction to GM's formula is
+    ours to make once.
+
+    Nothing reads this file yet. The change that creates an organisation gives
+    it a home; change 3.1 only makes sure the rows are not lost in the meantime.
+    """
+    with open(
+        os.path.join(OUT, "industry_template.csv"), "w", newline="", encoding="utf-8-sig"
+    ) as f:
+        w = csv.writer(f, delimiter=";")
+        w.writerow(["code", "parent_code", "level", "name", "is_leaf", "in_pnl", "path"])
+        for path, c in sorted(cats.items(), key=lambda kv: kv[1]["code"]):
+            if c["scope"] == "global":
+                continue
+            code = c["code"]
+            w.writerow([
+                code,
+                code[:-2] if len(code) > 2 else "",
+                c["level"],
+                c["name"],
+                "yes" if c["leaf"] else "",
+                "yes" if c["is_pnl"] else "no",
+                " > ".join(path),
+            ])
 
 
 def write_seeds(cats, rules):
     with open(os.path.join(OUT, "seed_categories.sql"), "w", encoding="utf-8") as f:
         f.write(CATEGORIES_HEADER.format(tv=TAXONOMY_VERSION))
         rows = []
-        for path, c in sorted(cats.items(), key=lambda kv: kv[1]["code"]):
-            parent = cats[path[:-1]]["code"] if len(path) > 1 else None
+        for _, c in sorted(cats.items(), key=lambda kv: kv[1]["code"]):
+            if c["scope"] != "global":
+                continue  # the industry template, written separately below
             rows.append(
-                f"  ({_sql(TAXONOMY_VERSION)}, {_sql(c['code'])}, {_sql(parent)}, "
+                f"  ({_sql(TAXONOMY_VERSION)}, {_sql(c['code'])}, "
                 f"{_sql(c['scope'])}, NULL, {_sql(c['name'])}, {c['level']}, "
                 f"{str(c['leaf']).lower()}, {str(c['is_pnl']).lower()}, false, NULL, "
                 f"{str(c['alloc']).lower()})"
             )
         for code, name, formula in COMPUTED:
             rows.append(
-                f"  ({_sql(TAXONOMY_VERSION)}, {_sql(code)}, NULL, 'global', NULL, "
+                f"  ({_sql(TAXONOMY_VERSION)}, {_sql(code)}, 'global', NULL, "
                 f"{_sql(name)}, 1, false, true, true, {_sql(formula)}, false)"
             )
         f.write(
             ",\n".join(rows)
-            + "\nON CONFLICT (taxonomy_version, code) DO NOTHING;\nCOMMIT;\n"
+            + ";\n"
         )
 
     n = Counter(r["country"] for r in rules)
     with open(os.path.join(OUT, "seed_rules.sql"), "w", encoding="utf-8") as f:
         f.write(RULES_HEADER.format(by=n["BY"], kz=n["KZ"], pl=n["PL"]))
         rows = [
-            f"  (NULL, {_sql(r['scope'])}, {r['priority']}, "
-            f"{_sql(json.dumps(_matcher(r), ensure_ascii=False))}, "
-            f"{_sql(cats[r['path']]['code'])}, {_sql(TAXONOMY_VERSION)}, true)"
+            f"  (NULL::uuid, {_sql(r['scope'])}, {r['priority']}, "
+            f"{_sql(json.dumps(_matcher(r), ensure_ascii=False))}::jsonb, "
+            f"{_sql(cats[r['path']]['code'])}, {_sql(TAXONOMY_VERSION)}, "
+            f"{_sql(RULESET_VERSION)}, true)"
             for r in rules
         ]
-        f.write(",\n".join(rows) + ";\nCOMMIT;\n")
+        f.write(
+            ",\n".join(rows)
+            + "\n) AS v(org_id, scope, priority, matcher, category_code,"
+            + " taxonomy_version, ruleset_version, active)\n"
+            + "  JOIN categories c\n"
+            + "    ON c.taxonomy_version = v.taxonomy_version\n"
+            + "   AND c.org_id IS NULL\n"
+            + "   AND c.code = v.category_code;\n"
+        )
 
 
 def main():
@@ -296,6 +353,7 @@ def main():
     cats, customers, rules, collapsed = prepare()
     write_taxonomy_csv(cats, customers)
     write_templates_csv(cats, rules)
+    write_industry_template(cats)
     write_fixtures(cats, rules)
     write_seeds(cats, rules)
 

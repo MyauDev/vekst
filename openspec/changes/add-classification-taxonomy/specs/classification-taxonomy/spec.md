@@ -8,7 +8,34 @@ business is particular, and versioned so that a change made in June does not red
 
 ## Requirements
 
-### Requirement: A single versioned category tree, shared at the top and tenant at the leaves
+### Requirement: A category that a shared rule targets is itself shared
+
+The system SHALL make a category shared whenever a rule belonging to no organisation points
+at it, together with every ancestor of such a category and the report sections themselves.
+Everything else SHALL belong to an organisation.
+
+This is forced rather than chosen. A template rule has no `org_id`, and every organisation
+holds its own identifier for its own copy of a per-organisation category, so one rule cannot
+name them all. Depth is not the test: fourteen of the nineteen categories the templates
+target sit three to five levels down, and every one of them — bank commission, VAT, currency
+exchange, office rent — is universal rather than particular to a business.
+
+#### Scenario: Every rule resolves against the shared tree alone
+
+- **WHEN** the category codes named by the template rules are compared against the shared
+  categories
+- **THEN** every one of them is present
+- **AND** none of them belongs to an organisation
+
+#### Scenario: A category no rule targets is not shared
+
+- **WHEN** a category exists that no template rule targets and that is not an ancestor of one
+  or a report section
+- **THEN** it is not seeded as shared
+- **AND** it appears in the industry template instead, to be copied by the organisation that
+  adopts it
+
+### Requirement: A single versioned category tree, shared and tenant in one table
 
 The system SHALL store categories in one table where a row is either shared by every
 organisation or owned by exactly one. A shared row SHALL have a NULL `org_id` and

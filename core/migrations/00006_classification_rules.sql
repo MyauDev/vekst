@@ -1,27 +1,178 @@
--- L1 template rules. Not one of these belongs to a customer.
---   BY 41 rules on payment text
---   KZ 21 rules on КНП, the state payment-purpose code on every Kazakh bank row
---   PL 9 rules, mostly on the bank's own `Typ operacji`
+-- Classification rules and vendor memory. Change 3.2, capability
+-- `classification-engine`.
 --
--- Measured against real statements for 2023-2024 by eval/run_eval.py:
---   BY  87.5% of rows / 85.2% of amount   accuracy 94.8%, 15 disagreements
---   KZ  86.1% of rows / 99.5% of amount   accuracy 92.4%,  4 disagreements
---   PL  38.6% of rows / 42.5% of amount   accuracy 99.6%,  1 disagreement
---   20 disagreements with the accountant's own labelling across 4508 rows.
+-- Two tables with deliberately different shapes, and the difference is the
+-- point.
 --
--- Poland's coverage is low because of the source, not the rules: card payments
--- are 214 of its 735 rows and were never categorised, and its revenue is
--- identified by who paid -- vendor memory, not a country rule.
+-- `classification_rules` repeats the shared-and-tenant shape migration 005
+-- introduced, because most rules belong to a country and a bank rather than to
+-- a customer. Measured on the founder's own statements: 41 Belarusian rules
+-- reach 87.5% of rows, 21 Kazakh rules reach 86.1% of rows and 99.5% of amount,
+-- and not one of them names the company they were measured on. A schema where
+-- every rule has an owning organisation cannot store them.
 --
--- Columns beyond docs/ARCHITECTURE.md 5.5:
---   org_id  uuid NULL  -- NULL = a template rule, shared by every organisation
---   scope   text       -- 'country:BY' | 'bank:priorbank' | 'country:KZ' |
---                      -- 'country:PL' | 'bank:pkobp' | 'org'
--- Without them there is nowhere to store the rules that do most of the work.
--- The rows name a category by code and the insert resolves it, because a code is
--- what a person reads in a review and an id is what the schema stores. The JOIN
--- would drop a rule whose code no longer exists rather than fail, so migration
--- 006 counts the result afterwards and raises if any went missing.
+-- `vendors` is an ordinary tenant table. Memory is earned by one organisation's
+-- own decisions in its own review queue, and is shared with nobody. Sharing it
+-- across customers is BACKLOG B-6 and a consent question, not a schema one.
+
+-- +goose Up
+
+CREATE TABLE classification_rules (
+    id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    taxonomy_version text        NOT NULL,
+
+    -- Versioned apart from the taxonomy: a rule can be corrected without
+    -- redrawing the tree, and a report pins both so that March reproduces in
+    -- June whichever of them moved.
+    ruleset_version  text        NOT NULL,
+
+    -- NULL = a template rule, used by every organisation.
+    org_id           uuid        NULL REFERENCES organizations (id) ON DELETE RESTRICT,
+    scope            text        NOT NULL,   -- 'country:BY' | 'bank:priorbank' | 'org' | ...
+
+    priority         integer     NOT NULL,
+    matcher          jsonb       NOT NULL,
+    category_id      uuid        NOT NULL REFERENCES categories (id) ON DELETE RESTRICT,
+    active           boolean     NOT NULL DEFAULT true,
+    created_at       timestamptz NOT NULL DEFAULT now(),
+
+    CONSTRAINT rules_scope_matches_owner CHECK (
+        (org_id IS NULL AND scope <> 'org') OR (org_id IS NOT NULL AND scope = 'org')),
+
+    -- A matcher is an AND over named fields. Asserted here rather than
+    -- trusted, because a matcher with no conditions would fire on every
+    -- transaction.
+    --
+    -- coalesce, not a bare comparison: `'{}'::jsonb -> 'all'` is SQL NULL,
+    -- jsonb_typeof(NULL) is NULL, and a CHECK whose result is NULL passes.
+    -- A matcher with no `all` key at all is exactly the shape this constraint
+    -- exists to refuse, and without the coalesce it is the one shape that
+    -- gets through. A test asserts all three spellings.
+    CONSTRAINT rules_matcher_has_conditions CHECK (
+        coalesce(jsonb_typeof(matcher -> 'all'), '') = 'array'
+        AND jsonb_array_length(matcher -> 'all') > 0)
+);
+
+-- Priority is unique per owner: within the template set, and within each
+-- organisation's own set. It is deliberately NOT unique across the two, and
+-- the reason is that a per-org rule exists to overrule a template. Making the
+-- numbers globally unique would force a customer to know which template
+-- priorities are taken before writing a rule, and would still not say which
+-- of the two wins. The ordering does: EffectiveRules in
+-- core/internal/db/query/classify.sql puts an organisation's own rules ahead
+-- of every template rule, and only then sorts by priority. So a tie the index
+-- allows is still not a tie the engine sees.
+CREATE UNIQUE INDEX rules_priority_idx
+    ON classification_rules (taxonomy_version, ruleset_version, org_id, priority)
+    NULLS NOT DISTINCT;
+
+CREATE INDEX rules_effective_idx
+    ON classification_rules (taxonomy_version, ruleset_version, org_id, priority)
+    WHERE active;
+
+-- The same problem categories.parent_id has, for the same reason: a template
+-- rule (org_id NULL) points at a shared category (org_id NULL), and an
+-- organisation's own rule may point at a shared category or at its own. A
+-- composite foreign key cannot say "shared or mine", so a trigger says it --
+-- and raises the identical error whether the category belongs to somebody else
+-- or does not exist, which is what keeps a foreign key from reporting the
+-- existence of a row the caller may not read.
+-- +goose StatementBegin
+CREATE FUNCTION rules_category_is_visible() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $fn$
+DECLARE
+    cat_org   uuid;
+    cat_leaf  boolean;
+    cat_calc  boolean;
+    found     boolean;
+BEGIN
+    SELECT org_id, is_leaf, is_computed, true
+      INTO cat_org, cat_leaf, cat_calc, found
+      FROM categories WHERE id = NEW.category_id;
+
+    IF NOT coalesce(found, false)
+       OR (cat_org IS NOT NULL AND cat_org IS DISTINCT FROM NEW.org_id) THEN
+        RAISE EXCEPTION 'category % is not visible to this rule', NEW.category_id
+            USING ERRCODE = '23503';
+    END IF;
+
+    -- A rule that targets a section double-counts: the section's figure is
+    -- already the sum of its children. A rule that targets a computed line is
+    -- worse -- GM is NET SALES minus CS, so the amount would appear in the
+    -- formula and again in its result.
+    IF NOT cat_leaf OR cat_calc THEN
+        RAISE EXCEPTION 'category % is not classifiable: a rule may target only a leaf that is not computed',
+            NEW.category_id USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END
+$fn$;
+-- +goose StatementEnd
+
+CREATE CONSTRAINT TRIGGER rules_category_is_visible
+    AFTER INSERT OR UPDATE OF category_id, org_id ON classification_rules
+    DEFERRABLE INITIALLY IMMEDIATE
+    FOR EACH ROW EXECUTE FUNCTION rules_category_is_visible();
+
+-- ---------------------------------------------------------------------------
+-- Vendor memory. An ordinary tenant table.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE vendors (
+    id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id       uuid        NOT NULL REFERENCES organizations (id) ON DELETE RESTRICT,
+
+    -- Produced by core's counterparty_key(): 'tax:220340017991' when the
+    -- statement carried a tax identifier, 'name:ДЖОНДОРИ' when it did not.
+    key          text        NOT NULL,
+
+    -- The version of the function that produced the key. Changing that
+    -- function changes what counts as the same counterparty, which is a
+    -- backfill of this column and never a silent reinterpretation of what a
+    -- customer already approved.
+    key_version  text        NOT NULL,
+
+    display_name text        NOT NULL,
+    category_id  uuid        NOT NULL REFERENCES categories (id) ON DELETE RESTRICT,
+
+    -- Who decided, and when. A memory row is a human's answer, and the review
+    -- queue is where it comes from.
+    decided_by   uuid        NULL REFERENCES users (id) ON DELETE RESTRICT,
+    decided_at   timestamptz NOT NULL DEFAULT now(),
+
+    CONSTRAINT vendors_key_unique UNIQUE (org_id, key_version, key)
+);
+
+CREATE INDEX vendors_lookup_idx ON vendors (org_id, key_version, key);
+
+CREATE CONSTRAINT TRIGGER vendors_category_is_visible
+    AFTER INSERT OR UPDATE OF category_id, org_id ON vendors
+    DEFERRABLE INITIALLY IMMEDIATE
+    FOR EACH ROW EXECUTE FUNCTION rules_category_is_visible();
+
+-- ---------------------------------------------------------------------------
+-- The template rules, seeded before row-level security is enabled on this
+-- table, for the reason migration 005 gives at length: FORCE subjects the
+-- owner to the policies, and vekst_migrator is not a superuser.
+--
+-- The new part is the other direction. A rule names its category by code, so
+-- the seed has to READ `categories` -- and so does the trigger above, on every
+-- row it inserts. `categories` was already forced by migration 005, and its
+-- read policy calls app_current_org(), which raises 42704 when no tenant
+-- context is set. Ordering cannot help here: the table this migration reads
+-- was locked one migration ago.
+--
+-- So the migration opens a tenant context and picks the one organisation that
+-- can never exist. The nil UUID belongs to nobody, which makes
+-- `org_id IS NULL OR org_id = app_current_org()` collapse to exactly the
+-- shared rows -- the only rows a template rule is allowed to point at anyway.
+-- It is the honest reading: this migration is reading the taxonomy as no
+-- customer. RESET below puts fail-closed back before anything else runs.
+-- ---------------------------------------------------------------------------
+
+SET LOCAL app.org_id = '00000000-0000-0000-0000-000000000000';
+
 INSERT INTO classification_rules (org_id, scope, priority, matcher, category_id,
                                   taxonomy_version, ruleset_version, active)
 SELECT v.org_id, v.scope, v.priority, v.matcher, c.id, v.taxonomy_version, v.ruleset_version, v.active
@@ -102,3 +253,42 @@ SELECT v.org_id, v.scope, v.priority, v.matcher, c.id, v.taxonomy_version, v.rul
     ON c.taxonomy_version = v.taxonomy_version
    AND c.org_id IS NULL
    AND c.code = v.category_code;
+
+-- The JOIN above drops a rule whose category code no longer exists rather than
+-- failing, which would seed a smaller ruleset in silence. Count it.
+-- +goose StatementBegin
+DO $$
+DECLARE
+    seeded integer;
+BEGIN
+    SELECT count(*) INTO seeded FROM classification_rules WHERE org_id IS NULL;
+    IF seeded <> 71 THEN
+        RAISE EXCEPTION 'seeded % template rules, expected 71 -- a category code did not resolve', seeded;
+    END IF;
+END $$;
+-- +goose StatementEnd
+
+RESET app.org_id;
+
+ALTER TABLE classification_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE classification_rules FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY classification_rules_read ON classification_rules FOR SELECT
+    USING (org_id IS NULL OR org_id = app_current_org());
+
+CREATE POLICY classification_rules_write ON classification_rules FOR ALL
+    USING      (org_id = app_current_org())
+    WITH CHECK (org_id = app_current_org());
+
+ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vendors FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY vendors_tenant ON vendors FOR ALL
+    USING      (org_id = app_current_org())
+    WITH CHECK (org_id = app_current_org());
+
+-- +goose Down
+
+DROP TABLE vendors;
+DROP TABLE classification_rules;
+DROP FUNCTION rules_category_is_visible();

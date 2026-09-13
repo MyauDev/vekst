@@ -1,0 +1,61 @@
+﻿code;parent_code;level;name;is_leaf;in_pnl;path
+030101;0301;3;Prom. Commission;yes;yes;OCS > PROMOTION > Prom. Commission
+04010101;040101;4;FI Expenses;;yes;OPEX > Administration > Finance > FI Expenses
+0401010101;04010101;5;Salary;yes;yes;OPEX > Administration > Finance > FI Expenses > Salary
+0401010202;04010102;5;Acc. matters;yes;yes;OPEX > Administration > Finance > FI Services > Acc. matters
+0401010203;04010102;5;Audit;yes;yes;OPEX > Administration > Finance > FI Services > Audit
+0401010205;04010102;5;E-docs;yes;yes;OPEX > Administration > Finance > FI Services > E-docs
+0401010206;04010102;5;T&A;yes;yes;OPEX > Administration > Finance > FI Services > T&A
+04010201;040102;4;GM Expenses;;yes;OPEX > Administration > GM > GM Expenses
+0401020101;04010201;5;Salary;yes;yes;OPEX > Administration > GM > GM Expenses > Salary
+0401020201;04010202;5;BisTrips;yes;yes;OPEX > Administration > GM > GM Services > BisTrips
+0401020203;04010202;5;Domain;yes;yes;OPEX > Administration > GM > GM Services > Domain
+0401020204;04010202;5;Education;yes;yes;OPEX > Administration > GM > GM Services > Education
+0401020205;04010202;5;File storage;yes;yes;OPEX > Administration > GM > GM Services > File storage
+0401020206;04010202;5;Hosting;yes;yes;OPEX > Administration > GM > GM Services > Hosting
+0401020207;04010202;5;IT equipment repair;yes;yes;OPEX > Administration > GM > GM Services > IT equipment repair
+0401020209;04010202;5;Office supplies;yes;yes;OPEX > Administration > GM > GM Services > Office supplies
+0401020210;04010202;5;Small IT equipment;yes;yes;OPEX > Administration > GM > GM Services > Small IT equipment
+0401020211;04010202;5;Sport;yes;yes;OPEX > Administration > GM > GM Services > Sport
+0401020212;04010202;5;Stationary;yes;yes;OPEX > Administration > GM > GM Services > Stationary
+040103;0401;3;HR;;yes;OPEX > Administration > HR
+04010301;040103;4;HR Services;;yes;OPEX > Administration > HR > HR Services
+0401030101;04010301;5;HR Tools;yes;yes;OPEX > Administration > HR > HR Services > HR Tools
+0401040102;04010401;5;Court;yes;yes;OPEX > Administration > Legal > Leg. Services > Court
+0401040103;04010401;5;LE Rent;yes;yes;OPEX > Administration > Legal > Leg. Services > LE Rent
+0401040104;04010401;5;Legal - other;yes;yes;OPEX > Administration > Legal > Leg. Services > Legal - other
+0401040105;04010401;5;Relocation;yes;yes;OPEX > Administration > Legal > Leg. Services > Relocation
+040105;0401;3;Recruiting;;yes;OPEX > Administration > Recruiting
+04010501;040105;4;Rec. Services;;yes;OPEX > Administration > Recruiting > Rec. Services
+0401050101;04010501;5;Education;yes;yes;OPEX > Administration > Recruiting > Rec. Services > Education
+0401050102;04010501;5;HH;yes;yes;OPEX > Administration > Recruiting > Rec. Services > HH
+040201;0402;3;Marketing;;yes;OPEX > Marketing and Sales > Marketing
+04020101;040201;4;MRK Expenses;;yes;OPEX > Marketing and Sales > Marketing > MRK Expenses
+0402010101;04020101;5;Salary;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Expenses > Salary
+04020102;040201;4;MRK Services;;yes;OPEX > Marketing and Sales > Marketing > MRK Services
+0402010201;04020102;5;Content creation;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > Content creation
+0402010202;04020102;5;Google ADS;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > Google ADS
+0402010203;04020102;5;MarTech Tools;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > MarTech Tools
+0402010204;04020102;5;Marketing Channels;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > Marketing Channels
+0402010205;04020102;5;Marketplace adv.;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > Marketplace adv.
+0402010206;04020102;5;Merch for employees;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > Merch for employees
+0402010207;04020102;5;SEO;yes;yes;OPEX > Marketing and Sales > Marketing > MRK Services > SEO
+040202;0402;3;Sales;;yes;OPEX > Marketing and Sales > Sales
+04020201;040202;4;SL Expenses;;yes;OPEX > Marketing and Sales > Sales > SL Expenses
+0402020101;04020201;5;Salary;yes;yes;OPEX > Marketing and Sales > Sales > SL Expenses > Salary
+04020202;040202;4;SL Services;;yes;OPEX > Marketing and Sales > Sales > SL Services
+0402020201;04020202;5;Sales Activities;yes;yes;OPEX > Marketing and Sales > Sales > SL Services > Sales Activities
+0402020202;04020202;5;Sales Tools;yes;yes;OPEX > Marketing and Sales > Sales > SL Services > Sales Tools
+040501;0405;3;Developers;;yes;OPEX > Production > Developers
+04050101;040501;4;Dev Expenses;;yes;OPEX > Production > Developers > Dev Expenses
+0405010101;04050101;5;Education;yes;yes;OPEX > Production > Developers > Dev Expenses > Education
+0405010102;04050101;5;Salary;yes;yes;OPEX > Production > Developers > Dev Expenses > Salary
+04050102;040501;4;Dev Services;;yes;OPEX > Production > Developers > Dev Services
+0405010201;04050102;5;Design Tools;yes;yes;OPEX > Production > Developers > Dev Services > Design Tools
+0405010202;04050102;5;Production Tools;yes;yes;OPEX > Production > Developers > Dev Services > Production Tools
+0405010203;04050102;5;Salary;yes;yes;OPEX > Production > Developers > Dev Services > Salary
+0406;04;2;Twoj StartUp;yes;yes;OPEX > Twoj StartUp
+050102;0501;3;Expenses for 2022;yes;yes;OIE > OTHER EXPENSE > Expenses for 2022
+05010301;050103;4;1%, IT Park;yes;yes;OIE > OTHER EXPENSE > Other taxes > 1%, IT Park
+05010303;050103;4;IT Park - membership;yes;yes;OIE > OTHER EXPENSE > Other taxes > IT Park - membership
+050201;0502;3;CIT Refund;yes;yes;OIE > OTHER INCOME > CIT Refund
