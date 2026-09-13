@@ -207,23 +207,28 @@ constraint by `org_id`.
 ### Requirement: Duplicate detection is possible from the first row stored
 
 The system SHALL store a non-null `dedup_hash` on every transaction, computed from the row's
-own content, with a uniqueness constraint scoped by `org_id`.
+own content together with the occurrence index of that content within its batch, with a
+uniqueness constraint scoped by `org_id`.
 
 The hash is stored before anything consumes it, because adding a unique index to a table
-that already holds duplicates is an incident rather than a migration.
+that already holds duplicates is an incident rather than a migration. The occurrence term is
+what keeps the constraint from rejecting a payment that genuinely happened twice.
 
-#### Scenario: Identical content hashes identically
+#### Scenario: A file imported twice is rejected the second time
 
-- **WHEN** two transactions with the same account, date, amount, currency, normalised
-  description, bank reference and grain are hashed
-- **THEN** the hashes are equal
+- **WHEN** the same statement is imported again
+- **THEN** each row hashes as it did the first time
+- **AND** the second import is rejected by the unique index
+
+#### Scenario: Two genuinely identical payments are both stored
+
+- **WHEN** one statement contains two rows identical in every hashed field — same account,
+  date, amount, currency, normalised description, no bank reference
+- **THEN** they receive occurrence indices 1 and 2
+- **AND** both rows are stored
+- **AND** neither is reported as a duplicate
 
 #### Scenario: A difference in any hashed field separates them
 
 - **WHEN** two transactions differ in exactly one hashed field
 - **THEN** their hashes differ
-
-#### Scenario: A duplicate cannot be stored twice
-
-- **WHEN** a transaction is written whose `dedup_hash` already exists for that organisation
-- **THEN** the write is rejected by a unique index

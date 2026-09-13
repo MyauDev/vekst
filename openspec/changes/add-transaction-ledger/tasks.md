@@ -11,18 +11,18 @@ upload — see the proposal's assumption. `/core/internal/db` needs both reviewe
 
 ## 1. Migration 007 — the tables
 
-- [ ] 1.1 `import_batches`, minimal: `org_id`-leading primary key, composite FK to `entities`, `source_kind` and a `status` CHECK admitting one value
-- [ ] 1.2 `transactions` with the grain CHECK (`document_ref` null ⟺ `posting_no` 0), composite FKs to `entities`, `accounts` and `import_batches`
-- [ ] 1.3 Money: `amount_minor`/`currency` plus the four FX columns, with the all-or-nothing CHECK and the "a conversion converts" CHECK (design §D2)
-- [ ] 1.4 `normalize_version`, `description_norm`, `counterparty_key`, `regulated_code` — the columns change 3.2 specified (design §D3)
-- [ ] 1.5 `dedup_hash` NOT NULL with its unique index, though nothing computes it yet (design §D5)
-- [ ] 1.6 Constraint trigger: a row's `source_kind` equals its batch's (design §D1)
-- [ ] 1.7 `classifications`, append-only, with all four version columns and the partial unique index on the live row (design §D4)
-- [ ] 1.8 Constraint trigger on `classifications.category_id`: visible, a leaf, and not computed — the same function migration 006 uses, extended or reused
-- [ ] 1.9 Grants: `vekst_app` gets INSERT and SELECT on `classifications`, UPDATE on `superseded_by` alone, and no DELETE
-- [ ] 1.10 RLS: enable and `FORCE` on all three; ordinary tenant policies, no shared rows
-- [ ] 1.11 Migration 007 down, and `up → down → up` against a scratch database
-- [ ] 1.12 Bump the tripwires: `assertTableCount` and `RequiredVersion`
+- [x] 1.1 `import_batches`, minimal: `org_id`-leading primary key, composite FK to `entities`, `source_kind` and a `status` CHECK admitting one value
+- [x] 1.2 `transactions` with the grain CHECK (`document_ref` null ⟺ `posting_no` 0), composite FKs to `entities`, `accounts` and `import_batches`
+- [x] 1.3 Money: `amount_minor`/`currency` plus the four FX columns, with the all-or-nothing CHECK and the "a conversion converts" CHECK (design §D2)
+- [x] 1.4 `normalize_version`, `description_norm`, `counterparty_key`, `regulated_code` — the columns change 3.2 specified (design §D3)
+- [x] 1.5 `dedup_hash` NOT NULL with its unique index, though nothing computes it yet (design §D5)
+- [x] 1.6 Constraint trigger: a row's `source_kind` equals its batch's (design §D1)
+- [x] 1.7 `classifications`, append-only, with all four version columns and the partial unique index on the live row (design §D4)
+- [x] 1.8 Constraint trigger on `classifications.category_id`: visible, a leaf, and not computed — the same function migration 006 uses, extended or reused
+- [x] 1.9 Grants: `vekst_app` gets INSERT and SELECT on `classifications`, UPDATE on `superseded_by` alone, and no DELETE
+- [x] 1.10 RLS: enable and `FORCE` on all three; ordinary tenant policies, no shared rows
+- [x] 1.11 Migration 007 down, and `up → down → up` against a scratch database
+- [x] 1.12 Bump the tripwires: `assertTableCount` and `RequiredVersion`
 
 ## 2. Generated queries — `core/internal/db/query/ledger.sql`
 
@@ -35,7 +35,7 @@ upload — see the proposal's assumption. `/core/internal/db` needs both reviewe
 ## 3. `core/internal/ledger` — the typed seam
 
 - [ ] 3.1 `Transaction` and `Classification` domain types, money as `money.Money` in both directions
-- [ ] 3.2 `DedupHash(txn)` — the content hash of design §D5, with the field set written down in one place
+- [ ] 3.2 `DedupHash(txn, occurrence)` — the content hash of design §D5 including the occurrence term, with the field set written down in one place
 - [ ] 3.3 `Insert(ctx, tx, []Transaction)` inside `db.InTx`, never taking a pool
 - [ ] 3.4 A `ToClassifyBatch` helper turning a page of transactions into `classify.BatchRequest`, so the worker that a later change writes has nothing to invent
 
@@ -51,7 +51,7 @@ upload — see the proposal's assumption. `/core/internal/db` needs both reviewe
 - [ ] 4.8 **One live classification:** two live rows for one transaction violate the partial unique index
 - [ ] 4.9 **`source_kind` cannot drift** from its batch's, and the trigger says so
 - [ ] 4.10 **A classification cannot target a section or a computed line**, with the same error as migration 006 raises
-- [ ] 4.11 **`dedup_hash` is stable**: the same content hashes the same, and two rows differing in one field do not collide
+- [ ] 4.11 **`dedup_hash`**: the same content at the same occurrence hashes the same; two rows differing in one field differ; and two genuinely identical payments in one batch are both stored rather than one being rejected (design §D5)
 - [ ] 4.12 **RLS coverage** still passes with three new tables and no new allowlist entries
 
 ## 5. Close

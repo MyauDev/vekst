@@ -95,13 +95,12 @@ CREATE TABLE transactions (
         OR (document_ref IS NOT NULL AND posting_no > 0)),
 
     CONSTRAINT txn_fx_is_all_or_nothing CHECK (
-        (fx_rate IS NULL AND fx_rate_on IS NULL
-         AND base_amount_minor IS NULL AND base_currency IS NULL)
-        OR (fx_rate IS NOT NULL AND fx_rate_on IS NOT NULL
-            AND base_amount_minor IS NOT NULL AND base_currency IS NOT NULL)),
+        num_nonnulls(fx_rate, fx_rate_on, base_amount_minor, base_currency) IN (0, 4)),
 
     CONSTRAINT txn_fx_is_a_conversion CHECK (
-        base_currency IS NULL OR base_currency <> currency)
+        base_currency IS NULL OR base_currency <> currency),
+
+    CONSTRAINT txn_fx_rate_is_positive CHECK (fx_rate IS NULL OR fx_rate > 0)
 );
 
 CREATE TABLE classifications (
@@ -184,6 +183,23 @@ done in integer arithmetic in `core/internal/money`.
 **Alternative rejected:** store only the original amount and convert on read. Cheaper to
 write and it makes a report a function of when it was run.
 
+**What this cost, and the rule it had to buy.** `base_currency` is the second column in the
+schema naming the currency a report converts into, and migration 004 made "exactly one home"
+a *tested* invariant — `TestTheReportingCurrencyHasOneHome` failed on the first run of this
+migration, which is the test working. The escape hatch its message offers is a rule saying
+which copy applies, so this change adds one: a constraint trigger asserting a row's
+`base_currency` is the organisation's at the time of writing.
+
+The rule is deliberately not "these are always equal". A row already stored carries the
+currency its `base_amount_minor` is actually denominated in, which is the right value for
+that row rather than a disagreement. So an organisation changing its reporting currency
+becomes a visible backfill plus a re-conversion, instead of a silent reinterpretation of
+every amount ever converted. The test is now stricter than it was: a second carrier with no
+such trigger still fails.
+
+Dropping the column instead would leave `base_amount_minor` as an integer with no code
+beside it, which is the one thing money is never allowed to be.
+
 ### D3 — `normalize_version` is on the row, not in a config table
 
 The classifier matches a rule's stored text against `description_norm` exactly, and refuses
@@ -210,16 +226,36 @@ a report with a transaction counted twice.
 **Alternative rejected:** a `current` boolean. Two writers can both set it, and nothing
 notices until a report double-counts.
 
-### D5 — `dedup_hash` is NOT NULL with a unique index from the start, though nothing computes it
+### D5 — `dedup_hash` is NOT NULL with a unique index from the start, and it counts occurrences
 
 Change 2.6 owns D1/D2/D3 deduplication. The column and its index land here anyway, because
 adding a unique index to a table that already holds duplicates is not a migration — it is an
 incident with a data-cleaning exercise attached.
 
-This change computes it from the row's own content: `org_id`, `account_id`, `booked_on`,
-`amount_minor`, `currency`, `description_norm`, `bank_ref`, `document_ref`, `posting_no`.
-2.6 replaces the input set if it needs to; what it must not have to do is introduce
-uniqueness retroactively.
+The input set is the row's own content: `account_id`, `booked_on`, `amount_minor`,
+`currency`, `description_norm`, `bank_ref`, `document_ref`, `posting_no` — **plus the
+occurrence index of that content within its batch.**
+
+That last term is not a refinement, it is the difference between working and losing money.
+A hash over content alone makes two genuinely distinct payments collide: a company that buys
+coffee twice on the same day, same amount, same wording, no bank reference, has two real
+rows that a unique index would silently reduce to one. The bank statement shows two lines
+because there were two payments, and a report that shows one is wrong by the amount of a
+coffee — and by a great deal more the first time it happens to a payroll run.
+
+With the occurrence term both cases come out right:
+
+| | |
+| --- | --- |
+| Two identical payments in one statement | occurrences 1 and 2, different hashes, both stored |
+| The same file imported twice | the same occurrences, the same hashes, the second rejected |
+
+So the index still catches the duplicate that matters — a file re-imported, which is D1 and
+D3 — and stops catching the one that was never a duplicate. 2.6 may widen the input set; what
+it must not have to do is introduce uniqueness retroactively.
+
+**Alternative rejected:** no unique index, detect duplicates in application code. It works
+until two imports race, and the failure is a doubled revenue line rather than an error.
 
 ### D6 — `entity_id` is on the row, even though v1 creates one entity per organisation
 
