@@ -8,6 +8,19 @@
 -- them restates the tenant predicate: row-level security already admits this
 -- organisation's rows and nothing else, and writing it again here would be a
 -- second place to get isolation right.
+--
+-- Every insert takes org_id from app_current_org() rather than as a parameter,
+-- for the same reason. db.OrgID cannot be built outside core/internal/db and
+-- its wire form is unexported, so a caller could not supply one anyway -- but
+-- the deeper point is that a parameter is a chance to pass the wrong value,
+-- and the transaction already knows the right one. The WITH CHECK on each
+-- policy would reject a mismatch; not being able to express one is better.
+
+-- name: OrganizationBaseCurrency :one
+-- The currency every total in this file is denominated in. Read inside the
+-- same transaction that sums, rather than passed in by a caller who read it
+-- earlier: a total and the code beside it have to come from one moment.
+SELECT base_currency FROM organizations WHERE id = app_current_org();
 
 -- name: ReviewGroups :many
 -- The queue, grouped by counterparty and ordered so that the largest amount is
@@ -34,8 +47,8 @@ SELECT t.counterparty_key,
        max(t.counterparty_raw)::text AS display_name,
        count(*)                      AS row_count,
        sum(coalesce(t.base_amount_minor, t.amount_minor))::bigint AS total_minor,
-       min(t.booked_on)              AS first_seen,
-       max(t.booked_on)              AS last_seen
+       min(t.booked_on)::date        AS first_seen,
+       max(t.booked_on)::date        AS last_seen
 FROM transactions t
 WHERE t.entity_id = $1
   AND NOT EXISTS (
@@ -91,7 +104,7 @@ WHERE t.entity_id = $1
 INSERT INTO review_decisions (
     org_id, counterparty_key, key_version, outcome, category_id, decided_by,
     covered_count, covered_minor, covered_currency)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES (app_current_org(), $1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: UndoReviewDecision :one
@@ -122,7 +135,7 @@ INSERT INTO classifications (
     org_id, transaction_id, category_id, engine_layer, confidence, evidence,
     taxonomy_version, ruleset_version, engine_version, normalize_version,
     decided_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES (app_current_org(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: RetractClassificationsOfTransactions :execrows
@@ -157,7 +170,7 @@ SELECT c.* FROM classifications c
 -- for either would make L0 answer next month with something that is not a
 -- category.
 INSERT INTO vendors (org_id, key, key_version, display_name, category_id, decided_by)
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES (app_current_org(), $1, $2, $3, $4, $5)
 ON CONFLICT (org_id, key_version, key)
 DO UPDATE SET display_name = excluded.display_name,
               category_id  = excluded.category_id,

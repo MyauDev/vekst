@@ -37,12 +37,11 @@ INSERT INTO classifications (
     org_id, transaction_id, category_id, engine_layer, confidence, evidence,
     taxonomy_version, ruleset_version, engine_version, normalize_version,
     decided_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES (app_current_org(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING org_id, id, transaction_id, category_id, engine_layer, confidence, evidence, taxonomy_version, ruleset_version, engine_version, normalize_version, decided_by, decided_at, superseded_by, retracted_at, retracted_by
 `
 
 type InsertClassificationParams struct {
-	OrgID            pgtype.UUID
 	TransactionID    pgtype.UUID
 	CategoryID       pgtype.UUID
 	EngineLayer      string
@@ -63,7 +62,6 @@ type InsertClassificationParams struct {
 // anything else.
 func (q *Queries) InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error) {
 	row := q.db.QueryRow(ctx, insertClassification,
-		arg.OrgID,
 		arg.TransactionID,
 		arg.CategoryID,
 		arg.EngineLayer,
@@ -101,12 +99,11 @@ const insertReviewDecision = `-- name: InsertReviewDecision :one
 INSERT INTO review_decisions (
     org_id, counterparty_key, key_version, outcome, category_id, decided_by,
     covered_count, covered_minor, covered_currency)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES (app_current_org(), $1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING org_id, id, counterparty_key, key_version, outcome, category_id, decided_by, decided_at, covered_count, covered_minor, covered_currency, undone_at, undone_by
 `
 
 type InsertReviewDecisionParams struct {
-	OrgID           pgtype.UUID
 	CounterpartyKey string
 	KeyVersion      string
 	Outcome         string
@@ -122,7 +119,6 @@ type InsertReviewDecisionParams struct {
 // terms it was taken in.
 func (q *Queries) InsertReviewDecision(ctx context.Context, arg InsertReviewDecisionParams) (ReviewDecision, error) {
 	row := q.db.QueryRow(ctx, insertReviewDecision,
-		arg.OrgID,
 		arg.CounterpartyKey,
 		arg.KeyVersion,
 		arg.Outcome,
@@ -228,6 +224,38 @@ func (q *Queries) LiveDecisionForCounterparty(ctx context.Context, arg LiveDecis
 		&i.UndoneBy,
 	)
 	return i, err
+}
+
+const organizationBaseCurrency = `-- name: OrganizationBaseCurrency :one
+
+SELECT base_currency FROM organizations WHERE id = app_current_org()
+`
+
+// The review queue: the read that builds it, and the writes that empty it.
+//
+// The queue is not a table. A transaction needing review is one with no live
+// classification, which `classifications` already says -- so these are queries
+// over `transactions`, not over a state somebody has to keep current.
+//
+// Every statement runs inside db.InTx, which sets the tenant context. None of
+// them restates the tenant predicate: row-level security already admits this
+// organisation's rows and nothing else, and writing it again here would be a
+// second place to get isolation right.
+//
+// Every insert takes org_id from app_current_org() rather than as a parameter,
+// for the same reason. db.OrgID cannot be built outside core/internal/db and
+// its wire form is unexported, so a caller could not supply one anyway -- but
+// the deeper point is that a parameter is a chance to pass the wrong value,
+// and the transaction already knows the right one. The WITH CHECK on each
+// policy would reject a mismatch; not being able to express one is better.
+// The currency every total in this file is denominated in. Read inside the
+// same transaction that sums, rather than passed in by a caller who read it
+// earlier: a total and the code beside it have to come from one moment.
+func (q *Queries) OrganizationBaseCurrency(ctx context.Context) (string, error) {
+	row := q.db.QueryRow(ctx, organizationBaseCurrency)
+	var base_currency string
+	err := row.Scan(&base_currency)
+	return base_currency, err
 }
 
 const retractClassificationsOfTransactions = `-- name: RetractClassificationsOfTransactions :execrows
@@ -363,13 +391,12 @@ func (q *Queries) ReviewGroupRows(ctx context.Context, arg ReviewGroupRowsParams
 }
 
 const reviewGroups = `-- name: ReviewGroups :many
-
 SELECT t.counterparty_key,
        max(t.counterparty_raw)::text AS display_name,
        count(*)                      AS row_count,
        sum(coalesce(t.base_amount_minor, t.amount_minor))::bigint AS total_minor,
-       min(t.booked_on)              AS first_seen,
-       max(t.booked_on)              AS last_seen
+       min(t.booked_on)::date        AS first_seen,
+       max(t.booked_on)::date        AS last_seen
 FROM transactions t
 WHERE t.entity_id = $1
   AND NOT EXISTS (
@@ -396,20 +423,10 @@ type ReviewGroupsRow struct {
 	DisplayName     string
 	RowCount        int64
 	TotalMinor      int64
-	FirstSeen       interface{}
-	LastSeen        interface{}
+	FirstSeen       pgtype.Date
+	LastSeen        pgtype.Date
 }
 
-// The review queue: the read that builds it, and the writes that empty it.
-//
-// The queue is not a table. A transaction needing review is one with no live
-// classification, which `classifications` already says -- so these are queries
-// over `transactions`, not over a state somebody has to keep current.
-//
-// Every statement runs inside db.InTx, which sets the tenant context. None of
-// them restates the tenant predicate: row-level security already admits this
-// organisation's rows and nothing else, and writing it again here would be a
-// second place to get isolation right.
 // The queue, grouped by counterparty and ordered so that the largest amount is
 // settled first.
 //
@@ -525,7 +542,7 @@ func (q *Queries) UndoReviewDecision(ctx context.Context, arg UndoReviewDecision
 const upsertVendor = `-- name: UpsertVendor :one
 
 INSERT INTO vendors (org_id, key, key_version, display_name, category_id, decided_by)
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES (app_current_org(), $1, $2, $3, $4, $5)
 ON CONFLICT (org_id, key_version, key)
 DO UPDATE SET display_name = excluded.display_name,
               category_id  = excluded.category_id,
@@ -535,7 +552,6 @@ RETURNING id, org_id, key, key_version, display_name, category_id, decided_by, d
 `
 
 type UpsertVendorParams struct {
-	OrgID       pgtype.UUID
 	Key         string
 	KeyVersion  string
 	DisplayName string
@@ -552,7 +568,6 @@ type UpsertVendorParams struct {
 // category.
 func (q *Queries) UpsertVendor(ctx context.Context, arg UpsertVendorParams) (Vendor, error) {
 	row := q.db.QueryRow(ctx, upsertVendor,
-		arg.OrgID,
 		arg.Key,
 		arg.KeyVersion,
 		arg.DisplayName,

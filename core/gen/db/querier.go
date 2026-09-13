@@ -201,6 +201,27 @@ type Querier interface {
 	// the undo, which has a decision and needs the rows it touched.
 	LiveClassificationsForCounterparty(ctx context.Context, counterpartyKey string) ([]Classification, error)
 	LiveDecisionForCounterparty(ctx context.Context, arg LiveDecisionForCounterpartyParams) (ReviewDecision, error)
+	// The review queue: the read that builds it, and the writes that empty it.
+	//
+	// The queue is not a table. A transaction needing review is one with no live
+	// classification, which `classifications` already says -- so these are queries
+	// over `transactions`, not over a state somebody has to keep current.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context. None of
+	// them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else, and writing it again here would be a
+	// second place to get isolation right.
+	//
+	// Every insert takes org_id from app_current_org() rather than as a parameter,
+	// for the same reason. db.OrgID cannot be built outside core/internal/db and
+	// its wire form is unexported, so a caller could not supply one anyway -- but
+	// the deeper point is that a parameter is a chance to pass the wrong value,
+	// and the transaction already knows the right one. The WITH CHECK on each
+	// policy would reject a mismatch; not being able to express one is better.
+	// The currency every total in this file is denominated in. Read inside the
+	// same transaction that sums, rather than passed in by a caller who read it
+	// earlier: a total and the code beside it have to come from one moment.
+	OrganizationBaseCurrency(ctx context.Context) (string, error)
 	// The undo path. A retraction is not a supersession: supersession names the
 	// classification that replaced this one, and an undo has no replacement --
 	// the rows go back into the queue with no answer at all. Migration 007 carries
@@ -212,16 +233,6 @@ type Querier interface {
 	// for the resolve that follows it. Ordered by date so a person reading them
 	// sees a story rather than a set.
 	ReviewGroupRows(ctx context.Context, arg ReviewGroupRowsParams) ([]ReviewGroupRowsRow, error)
-	// The review queue: the read that builds it, and the writes that empty it.
-	//
-	// The queue is not a table. A transaction needing review is one with no live
-	// classification, which `classifications` already says -- so these are queries
-	// over `transactions`, not over a state somebody has to keep current.
-	//
-	// Every statement runs inside db.InTx, which sets the tenant context. None of
-	// them restates the tenant predicate: row-level security already admits this
-	// organisation's rows and nothing else, and writing it again here would be a
-	// second place to get isolation right.
 	// The queue, grouped by counterparty and ordered so that the largest amount is
 	// settled first.
 	//

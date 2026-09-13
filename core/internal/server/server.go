@@ -18,6 +18,7 @@ import (
 	"github.com/MyauDev/vekst/core/internal/buildinfo"
 	"github.com/MyauDev/vekst/core/internal/config"
 	"github.com/MyauDev/vekst/core/internal/identity"
+	"github.com/MyauDev/vekst/core/internal/review"
 )
 
 // Server owns the HTTP listener and its lifecycle.
@@ -30,7 +31,14 @@ type Server struct {
 
 // New builds the router and the HTTP server. It performs no I/O. database is
 // never nil from change 0.2 onward: core always connects to Postgres.
-func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker, ident *identity.Service) *Server {
+//
+// reviewer is the review queue, arriving already built around a database
+// handle rather than as a pool: this package must not import
+// core/internal/db at all, because the health handlers live here and liveness
+// must never be able to reach a dependency (change 0.2 guard test). A nil
+// reviewer registers no review service, which is what the tests exercising
+// only health and identity pass.
+func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker, ident *identity.Service, reviewer *review.Service) *Server {
 	s := &Server{
 		http: &http.Server{
 			Addr:              cfg.Addr,
@@ -85,6 +93,14 @@ func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, da
 
 	path, handler = vektv1connect.NewIdentityServiceHandler(&identityHandler{}, authOpt)
 	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
+
+	// The review queue. Registered only with a tenant pool, because every one
+	// of its calls opens a transaction bound to an organisation and there is
+	// nothing useful it can answer without one.
+	if reviewer != nil {
+		path, handler = vektv1connect.NewReviewServiceHandler(&reviewHandler{svc: reviewer}, authOpt)
+		r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
+	}
 
 	s.http.Handler = r
 	return s

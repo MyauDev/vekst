@@ -81,20 +81,46 @@ CREATE INDEX review_decisions_recent_idx
 -- A decision may name a category only on the same terms a classification may:
 -- visible to this organisation, a leaf, and not computed. Migration 006
 -- defined that check for rules and vendors and migration 007 reused it for
--- classifications; this is its fourth caller and the reason it is a function.
---
--- It runs only when there is a category to check. The three non-categorised
--- outcomes carry NULL, which the constraint above already pairs with the
--- outcome, so a NULL here is a decision that deliberately named no category.
+-- classifications -- but it cannot be reused here, because plpgsql has no way
+-- to call one trigger function from another, and because this table's category
+-- is legitimately NULL for three of its four outcomes. The logic is repeated
+-- rather than shared, which is what migrations are: a historical record, not
+-- code to keep dry.
 -- +goose StatementBegin
 CREATE FUNCTION review_decision_category_is_visible() RETURNS trigger
     LANGUAGE plpgsql
     AS $fn$
+DECLARE
+    cat_org  uuid;
+    cat_leaf boolean;
+    cat_calc boolean;
+    found    boolean;
 BEGIN
+    -- Three of the four outcomes carry no category, which the constraint above
+    -- already pairs with the outcome. A NULL here is a decision that
+    -- deliberately named none.
     IF NEW.category_id IS NULL THEN
         RETURN NEW;
     END IF;
-    RETURN rules_category_is_visible();
+
+    SELECT org_id, is_leaf, is_computed, true
+      INTO cat_org, cat_leaf, cat_calc, found
+      FROM categories WHERE id = NEW.category_id;
+
+    -- The same error whether the category belongs to somebody else or does not
+    -- exist: a difference between the two would tell the caller that another
+    -- organisation's row is there.
+    IF NOT coalesce(found, false)
+       OR (cat_org IS NOT NULL AND cat_org IS DISTINCT FROM NEW.org_id) THEN
+        RAISE EXCEPTION 'category % is not visible to this decision', NEW.category_id
+            USING ERRCODE = '23503';
+    END IF;
+
+    IF NOT cat_leaf OR cat_calc THEN
+        RAISE EXCEPTION 'category % is not classifiable: a decision may name only a leaf that is not computed',
+            NEW.category_id USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
 END
 $fn$;
 -- +goose StatementEnd
