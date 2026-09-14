@@ -27,7 +27,9 @@ func TestDedupHash(t *testing.T) {
 	}
 
 	t.Run("same content, same occurrence, same hash", func(t *testing.T) {
-		if DedupHash(base, 1) != DedupHash(base, 1) {
+		first := DedupHash(base, 1)
+		second := DedupHash(base, 1)
+		if first != second {
 			t.Error("identical Transaction and occurrence produced different hashes")
 		}
 	})

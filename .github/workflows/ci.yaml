@@ -398,6 +398,17 @@ jobs:
     env:
       DATABASE_URL_MIGRATOR: postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable
       DATABASE_URL: postgres://vekst_app:vekst_app@localhost:5432/vekst?sslmode=disable
+      # Without these, core/internal/blob and core/internal/ingest's own
+      # live tests skip themselves too (no OBJECT_STORE_ENDPOINT) -- the
+      # same silent-skip-not-fail gap this job's own header comment already
+      # names for the database, just on the object-store side. Found the
+      # same way: new-code coverage failing under a green build, because
+      # most of add-file-upload's and add-dedup's own code is exactly what
+      # these two packages hold.
+      OBJECT_STORE_ENDPOINT: http://localhost:9000
+      OBJECT_STORE_BUCKET: vekst
+      OBJECT_STORE_ACCESS_KEY_ID: minioadmin
+      OBJECT_STORE_SECRET_KEY: minioadmin
     steps:
       - uses: actions/checkout@v5
         with:
@@ -431,6 +442,27 @@ jobs:
       - name: migrate up
         run: go run ./core/cmd/vekst-core migrate up
 
+      # Same shape as the "ingest" job's own MinIO step: no "services:" entry
+      # can override MinIO's default command, so it runs as a plain
+      # container instead.
+      - name: start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            quay.io/minio/minio server /data
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:9000/minio/health/live && exit 0
+            sleep 1
+          done
+          echo "::error::MinIO never became healthy"; exit 1
+
+      - name: create bucket
+        env:
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin
+          AWS_DEFAULT_REGION: us-east-1
+        run: aws --endpoint-url http://localhost:9000 s3 mb s3://vekst
+
       # Coverage is produced here rather than reused from the language jobs: a
       # scan without it reports every line as untested, and a quality gate built
       # on that number is worse than no gate.
@@ -446,9 +478,17 @@ jobs:
       # CREATEDB here would widen the contract every hosted environment has to
       # satisfy for something only the tests do, so the throwaway superuser --
       # which exists in CI and nowhere else -- does the CREATE and DROP.
+      # -p 1: core/internal/ingest and core/internal/jobs both run a real
+      # River client against this same live Postgres, and different
+      # packages' test binaries otherwise run concurrently by default (up to
+      # GOMAXPROCS) -- found locally while adding this job's own MinIO step,
+      # the same way this file's other jobs each scope live-database tests
+      # to one package or a deliberately narrow set at a time. One binary
+      # running against river_job at a time, here, is what that scoping
+      # looks like across an entire module in one command instead.
       - name: go coverage
         run: |
-          go test $(go list ./core/... | grep -v internal/migrate) \
+          go test -p 1 $(go list ./core/... | grep -v internal/migrate) \
             -coverprofile=coverage.out -covermode=atomic
           DATABASE_URL_MIGRATOR="postgres://vekst_migrator:vekst_migrator@localhost:5433/vekst?sslmode=disable" \
           DATABASE_URL_ADMIN="postgres://ci_superuser:ci_superuser@localhost:5433/postgres?sslmode=disable" \
