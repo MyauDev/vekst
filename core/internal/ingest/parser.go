@@ -32,7 +32,13 @@ type Parser interface {
 
 	// Parse reads the whole file. An error names the line in the original
 	// file, because somebody will go looking for it.
-	Parse(raw []byte) (*Statement, error)
+	//
+	// params is add-import-profiles' override, field by field (design D1): a
+	// nil params, or a zero-valued field within one, means "detect this one" --
+	// the same behaviour as before params existed, byte for byte. A parser
+	// takes it directly rather than through some ambient configuration,
+	// staying a pure function of both of its arguments together.
+	Parse(raw []byte, params *Parameters) (*Statement, error)
 }
 
 var registry []Parser
@@ -94,14 +100,23 @@ func ParserFor(raw []byte) (Parser, error) {
 	}
 }
 
-// Parse detects the format and reads the file. This is the entry point every
-// caller uses; the per-bank functions stay exported only so a test can pin one.
+// Parse detects the format and reads the file with no profile overrides --
+// today's behaviour, preserved byte for byte (task 6.1) as ParseWithParams's
+// nil case.
 func Parse(raw []byte) (*Statement, error) {
+	return ParseWithParams(raw, nil)
+}
+
+// ParseWithParams detects the format and reads the file, applying params'
+// overrides field by field (design D1). This is the entry point every
+// caller uses; the per-bank functions stay exported only so a test can pin
+// one.
+func ParseWithParams(raw []byte, params *Parameters) (*Statement, error) {
 	p, err := ParserFor(raw)
 	if err != nil {
 		return nil, err
 	}
-	st, err := p.Parse(raw)
+	st, err := p.Parse(raw, params)
 	if err != nil {
 		return nil, err
 	}

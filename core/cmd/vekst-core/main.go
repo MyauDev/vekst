@@ -14,10 +14,12 @@ import (
 	"syscall"
 
 	"github.com/MyauDev/vekst/core/classify"
+	"github.com/MyauDev/vekst/core/internal/blob"
 	"github.com/MyauDev/vekst/core/internal/buildinfo"
 	"github.com/MyauDev/vekst/core/internal/config"
 	"github.com/MyauDev/vekst/core/internal/db"
 	"github.com/MyauDev/vekst/core/internal/identity"
+	"github.com/MyauDev/vekst/core/internal/ingest"
 	"github.com/MyauDev/vekst/core/internal/jobs"
 	"github.com/MyauDev/vekst/core/internal/migrate"
 	"github.com/MyauDev/vekst/core/internal/server"
@@ -128,7 +130,33 @@ func run() error {
 			identity.CodeNotConfigured)
 	}
 
-	jobsClient, err := jobs.New(database, ident)
+	// An unconfigured object store is a supported state too (add-file-upload
+	// design D5, D-6 unanswered): store stays nil, CreateImportBatch answers
+	// with a configuration error, and the workers that would need it are
+	// registered regardless -- they never run, because no batch can be
+	// created for them to act on.
+	var store blob.ObjectStore
+	if cfg.ObjectStoreConfigured() {
+		store = blob.New(blob.Config{
+			Endpoint:    cfg.ObjectStoreEndpoint,
+			Bucket:      cfg.ObjectStoreBucket,
+			Region:      cfg.ObjectStoreRegion,
+			AccessKeyID: cfg.ObjectStoreAccessKeyID,
+			SecretKey:   cfg.ObjectStoreSecretKey,
+			PathStyle:   cfg.ObjectStorePathStyle,
+		})
+		log.Info("object store configured", "endpoint", cfg.ObjectStoreEndpoint, "bucket", cfg.ObjectStoreBucket)
+	} else {
+		log.Warn("object store is not configured; CreateImportBatch will answer with " +
+			ingest.ErrObjectStoreNotConfigured.Error())
+	}
+	ingestCfg := ingest.Config{
+		UploadMaxBytes:    cfg.UploadMaxBytes,
+		UploadURLLifetime: cfg.UploadURLLifetime,
+	}
+	ingestWorkers := ingest.NewWorkers(database, store, ingestCfg)
+
+	jobsClient, err := jobs.New(database, ident, ingestWorkers)
 	if err != nil {
 		return err
 	}
@@ -145,7 +173,13 @@ func run() error {
 		}
 	}()
 
-	return server.New(cfg, log, classifier, database, ident).Run(ctx)
+	// Built after jobsClient, not passed into jobs.New: Service is the side
+	// of this package that enqueues jobs, which needs the *jobs.Client
+	// jobs.New returns, while Workers (above) is the side that only defines
+	// them and needed nothing from it. See Workers' doc comment.
+	importSvc := ingest.NewService(database, store, jobsClient, ingestCfg)
+
+	return server.New(cfg, log, classifier, database, ident, importSvc).Run(ctx)
 }
 
 func level(s string) slog.Level {

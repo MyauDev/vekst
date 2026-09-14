@@ -62,7 +62,7 @@ numbers it can *prove* are complete.
 | Date parses and is plausible | Outside [today − 10 years, today + 1 day] |
 | Amount parses to `int64` minor units | Non-numeric, or the locale was guessed wrong |
 | Currency is a valid ISO-4217 code | Unknown or empty |
-| Debit and credit are mutually exclusive | Both columns populated on one row |
+| Debit and credit are mutually exclusive | Both **non-zero** on one row — corrected 2026-09-13 (change 2.2 design D5): in every real Priorbank export both columns are populated on every row, one of them `0,00`, so "both populated" as originally written rejects every row of every file. Change 2.3's spec was drafted from the earlier, wrong wording and should be checked against this one |
 | No U+FFFD replacement characters | The charset detection was wrong |
 | Description is present | Empty after trimming |
 | The account identifier resolves | Unknown account and not creatable |
@@ -185,7 +185,7 @@ invented data. If the pipeline did not compute it, it does not count.
 | 2.2 | `add-statement-parsing` — charset, delimiter, header row, number locale, dates, XLSX, raw rows as JSONB | `file-ingestion` | A | 3 |
 | 2.3 | **`add-ingest-validation`** — the checks in 1.1, three outcome states, the error report, atomic rejection | `ingest-validation` | A | 2.5 |
 | 2.4 | `add-import-profiles` — the profile model and its application. No mapping UI yet | `file-ingestion` | A | 1 |
-| 2.5 | `add-transaction-ledger` — canonical rows, one per payment or posting, `document_ref`, money, currency, `counterparty_key`. **Change 3.2 adds three columns to this change's scope**, because the classifier is sent normalised text and never normalises any itself: `description_norm`, `normalize_version` and `regulated_code`. `normalize_version` is not decoration — `core/internal/normalize` decides what counts as a match, so changing it is a backfill of every row carrying the old value | `transaction-ledger` | A | 2 |
+| 2.5 | `add-transaction-ledger` — canonical rows, one per payment or posting, `document_ref`, money, currency, `counterparty_key`. **Change 3.2 adds three columns to this change's scope**, because the classifier is sent normalised text and never normalises any itself: `description_norm`, `normalize_version` and `regulated_code`. `normalize_version` is not decoration — `core/internal/normalize` decides what counts as a match, so changing it is a backfill of every row carrying the old value. **Delivered 2026-09-14**, migration 007: `transactions` and `classifications`, plus `import_batches` in the minimal shape this change needs to point at — the upload state machine and its own columns are 2.1's delivery, not repeated here. `core/internal/ledger` is the typed seam: `Transaction`/`Classification`, `DedupHash`, `Insert`, `ToClassifyBatch`. **Corrected during implementation**: `classifications`' append-only enforcement is a deferred constraint trigger, not the plain unique index the migration first shipped with — a plain one cannot express "insert the new live row, then point the old one at it" without a race. Still explicitly out of scope here, unchanged from the proposal: FX rate fetching, dedup_hash computation (2.6), and the classification worker that reads `UnclassifiedTransactions` (proposed by 5.4 below) | `transaction-ledger` | A | 2 |
 | 2.6 | `add-dedup` — D1 file hash, D2 in-batch, D3 cross-batch, internal-transfer pairs | `dedup-and-matching` | A | 1.5 |
 | 3.1 | `add-classification-taxonomy` — category tree, `is_pnl`, `pnl_section`, non-P&L classes, versioned. **Delivered 2026-09-08**, migration 005: 41 shared nodes + 5 computed lines, split read/write policies, a constraint trigger where a composite key cannot reach. The 60 per-organisation leaves are an industry template, not seeded — a shared row belongs to nobody and these belong to whoever adopts them | `classification-taxonomy` | B | 1.5 |
 | 3.2 | `add-classification-engine` — the `Classifier` interface plus L0, L0.5 and L1. **Delivered 2026-09-13**, migration 006: 71 template rules that belong to a country or a bank, vendor memory that belongs to one organisation, `ClassifyBatch` on the internal contract, normalisation ported to Go with a conformance fixture, and the engine in Python replaying `eval/engine.py` exactly. L2 is not here: it was listed with L0–L1 when the plan was written, and it is a separate change | `classification-engine` | B | 2.5 planned, ~3.5 actual |
@@ -215,6 +215,13 @@ invented data. If the pipeline did not compute it, it does not count.
 >
 > §2's capacity arithmetic predates all four and no longer holds. Re-derive it
 > before treating 1 October as a commitment.
+
+> **Retroactive, 2026-09-13.** 2.2 `add-statement-parsing` shipped inside PR #4 — the
+> classification-taxonomy pull request — with no change proposed for it at the time.
+> `openspec/changes/add-statement-parsing/proposal.md` is written from the code rather than
+> the code from the proposal, and says so at its head. Nothing in this row needed correcting
+> as a result; the code already carries `raw rows as JSONB` as an open task (4.1) rather than
+> a delivered one.
 
 ### 3.1 Deliberately excluded from the Demo
 
@@ -296,9 +303,9 @@ remaining report templates · mobile client · AI comments on already-highlighte
 | D-3 | The predefined output table structure | 4.1 | 15 September |
 | D-4 | Does the Demo split VAT out of gross? | 3.1, 4.1 | Default: no. Report gross and say so |
 | D-5 | FX rate source | 2.5 | Default: ECB daily reference rates, cached, rate on the booking date |
-| D-6 | Hosting target — **the Demo is confirmed hosted; the host is still unnamed** | The provisioning change | Working assumption: Hetzner Cloud (EU) with k3s, matching the local k3d environment. Docker Compose and Caddy are superseded by Kubernetes and an Ingress |
+| D-6 | Hosting target — **the Demo is confirmed hosted; the host is still unnamed** | The provisioning change, and now `add-file-upload` (change 2.1) | Working assumption: Hetzner Cloud (EU) with k3s, matching the local k3d environment. Docker Compose and Caddy are superseded by Kubernetes and an Ingress. **2026-09-13: this now blocks a merged change, not only a future one.** 2.1's presigned-upload design runs against MinIO in the local overlay and nowhere else; `deploy/k8s/base` carries no object-store host because D-6 names none, so `CreateImportBatch` answers a configuration error in every environment but a laptop until this is answered |
 | D-7 | Legal entity country | Commercial | Any Paddle-supported country. Ukraine and Kazakhstan qualify; Belarus does not |
-| D-8 | May a customer override a completeness warning, and who signs it off? | 2.3, and `add-validation-overrides` | Default: `approver` may override, with a written reason, recorded on the report |
+| D-8 | May a customer override a completeness warning, and who signs it off? | 2.3, and `add-validation-overrides` | Default: `approver` may override, with a written reason, recorded on the report. **Closed 2026-09-13, change 2.3 task 0.2:** implemented as owner, admin or approver (not the literal string "approver" alone -- a role able to run the organisation is at least as trusted as one whose only job is approving) may override, gated on a written reason of at least ten characters. Pulled forward from a later change into 2.3 itself; the two hours it cost were paid for by dropping `add-import-profiles`' (2.4) profile-name-uniqueness UI affordance, per this document's own rule that pulling scope forward means naming what leaves in exchange |
 | D-9 | Cross-client shared vendor memory: yes with consent, or never | The terms of service | Before the first invoice. Migration 006 takes the conservative side in the meantime: `vendors` is an ordinary tenant table with no shared rows, so sharing later is a schema change somebody has to make deliberately rather than a policy somebody could relax |
 | D-10 | Auto-accept confidence threshold | 3.2, 3.3 | **Closed 2026-09-13.** 0.80, and it is the engine's own default when a request leaves the field unset — proto3 cannot tell an unset double from a deliberate 0.0, so the ambiguity resolves to the stricter reading. The three layers sit at 1.00 (vendor memory), 0.99 (regulated code) and 0.95 (text rule), so today the threshold admits all three; the gaps are what will order a review queue and what a later layer will have to clear |
 | D-11 | Product name: Vekst or Palm | Anything public | Before the marketing site |

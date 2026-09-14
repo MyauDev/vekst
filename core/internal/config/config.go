@@ -71,6 +71,28 @@ type Config struct {
 	// Short on purpose: it is the window in which a state value is live.
 	AuthFlowLifetime time.Duration
 
+	// ObjectStoreEndpoint is the S3-compatible endpoint, e.g.
+	// "http://minio:9000" locally. Empty disables upload the way an empty
+	// Google client ID disables sign-in (add-file-upload design, following
+	// add-identity design D6a): core still serves, and CreateImportBatch
+	// answers with a configuration error rather than a nil dereference.
+	ObjectStoreEndpoint    string
+	ObjectStoreBucket      string
+	ObjectStoreRegion      string
+	ObjectStoreAccessKeyID string
+	ObjectStoreSecretKey   string
+	// ObjectStorePathStyle is true for MinIO: bucket.subdomain addressing
+	// needs DNS a real S3 has and a local cluster does not.
+	ObjectStorePathStyle bool
+
+	// UploadMaxBytes is the hard limit the measurement job stops streaming
+	// at -- UploadMaxBytes + 1 bytes read is a file_too_large failure, never
+	// a number the browser's declared_bytes supplied. 25 MiB, confirmed
+	// against the four real Priorbank exports on hand (35-203 KB each).
+	UploadMaxBytes int64
+
+	// UploadURLLifetime bounds how long a presigned PUT stays valid.
+	UploadURLLifetime time.Duration
 }
 
 // PlaceholderCredential is the value committed in
@@ -87,6 +109,12 @@ const PlaceholderCredential = "REPLACE_ME"
 // GoogleConfigured reports whether sign-in can work at all.
 func (c Config) GoogleConfigured() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && c.GoogleRedirectURL != ""
+}
+
+// ObjectStoreConfigured reports whether upload can work at all. An empty
+// endpoint is D-6 unanswered (add-file-upload design D5), not an error.
+func (c Config) ObjectStoreConfigured() bool {
+	return c.ObjectStoreEndpoint != ""
 }
 
 // Load reads configuration from the environment, applying defaults that are
@@ -107,6 +135,18 @@ func Load() (Config, error) {
 		SessionLifetime:        14 * 24 * time.Hour,
 		SessionRetention:       7 * 24 * time.Hour,
 		AuthFlowLifetime:       10 * time.Minute,
+		ObjectStoreEndpoint:    env("VEKST_OBJECT_STORE_ENDPOINT", ""),
+		ObjectStoreBucket:      env("VEKST_OBJECT_STORE_BUCKET", "vekst"),
+		ObjectStoreRegion:      env("VEKST_OBJECT_STORE_REGION", "us-east-1"),
+		ObjectStoreAccessKeyID: env("VEKST_OBJECT_STORE_ACCESS_KEY_ID", ""),
+		ObjectStoreSecretKey:   env("VEKST_OBJECT_STORE_SECRET_KEY", ""),
+		UploadMaxBytes:         26_214_400, // 25 MiB
+		UploadURLLifetime:      15 * time.Minute,
+	}
+
+	var errPathStyle error
+	if c.ObjectStorePathStyle, errPathStyle = envBool("VEKST_OBJECT_STORE_PATH_STYLE", true); errPathStyle != nil {
+		return Config{}, errPathStyle
 	}
 
 	var err error
@@ -127,6 +167,16 @@ func Load() (Config, error) {
 	}
 	if c.AuthFlowLifetime, err = envDuration("VEKST_AUTH_FLOW_LIFETIME", c.AuthFlowLifetime); err != nil {
 		return Config{}, err
+	}
+	if c.UploadURLLifetime, err = envDuration("VEKST_UPLOAD_URL_LIFETIME", c.UploadURLLifetime); err != nil {
+		return Config{}, err
+	}
+	if raw, ok := os.LookupEnv("VEKST_UPLOAD_MAX_BYTES"); ok && raw != "" {
+		n, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || n <= 0 {
+			return Config{}, fmt.Errorf("VEKST_UPLOAD_MAX_BYTES: %q is not a positive integer", raw)
+		}
+		c.UploadMaxBytes = n
 	}
 	if c.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is not set")

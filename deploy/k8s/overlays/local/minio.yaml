@@ -1,0 +1,85 @@
+# Development object store. It lives in this overlay and NEVER in the base,
+# by the same precedent postgres.yaml sets and for the same reason: no
+# deployment overlay should inherit a store with no rehearsed backup and
+# restore procedure -- design D5.
+#
+# D-6 names no production host, so this is also the only place this change
+# can run at all (proposal non-goals): it is developable and testable here,
+# and undeployable everywhere else until that decision is made.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  labels: { app.kubernetes.io/name: minio }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: minio }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: minio }
+    spec:
+      containers:
+        - name: minio
+          image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+          args: ["server", "/data"]
+          env:
+            # Throwaway local credentials, committed exactly like Postgres's
+            # in postgres.yaml -- this MinIO exists only on a laptop, so
+            # there is nothing here a real secret would protect.
+            - { name: MINIO_ROOT_USER, value: minioadmin }
+            - { name: MINIO_ROOT_PASSWORD, value: minioadmin }
+          ports:
+            - { name: s3, containerPort: 9000 }
+          readinessProbe:
+            httpGet: { path: /minio/health/live, port: s3 }
+            periodSeconds: 5
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        # emptyDir: `make down` deletes the cluster, and the environment must
+        # be reproducible from manifests alone -- same reasoning as
+        # postgres.yaml's volume.
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: minio }
+  ports:
+    - { name: s3, port: 9000, targetPort: s3 }
+---
+# The bucket core reads and writes, created out of band -- blob.New performs
+# no I/O and expects it to already exist, the same way core never creates its
+# own database. A Job rather than an initContainer on minio itself: an
+# initContainer runs before its Pod's main container starts, so it cannot
+# reach the server it is meant to configure. This Job runs after, against the
+# Service, and retries until MinIO is actually accepting connections --
+# mirroring migrate-job.yaml's shape for "a one-time setup step that depends
+# on another workload being up," the same way Tiltfile's resource_deps
+# already orders migrate after postgres.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-minio-bucket
+  labels: { app.kubernetes.io/name: create-minio-bucket }
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: create-minio-bucket }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: create-bucket
+          image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+          command:
+            - sh
+            - -c
+            - |
+              until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done
+              mc mb --ignore-existing local/vekst

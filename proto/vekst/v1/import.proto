@@ -1,0 +1,391 @@
+syntax = "proto3";
+
+package vekst.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
+
+// ImportService is browser-facing, served over Connect. It is how a file's
+// bytes get in (add-file-upload design D1): the browser never sends them to
+// core. CreateImportBatch returns a presigned PUT, the browser puts the file
+// directly to the object store, and ConfirmImportUpload tells core to go
+// measure what actually arrived.
+service ImportService {
+  // Reserves a batch and returns a presigned PUT. The batch exists in
+  // awaiting_upload from this moment, so an upload that never arrives is
+  // visible rather than absent.
+  rpc CreateImportBatch(CreateImportBatchRequest) returns (CreateImportBatchResponse);
+
+  // The browser reports that the PUT finished. This records nothing from the
+  // request: it enqueues the job that measures the object, because nothing
+  // the client says about its own upload is a fact (design D2).
+  rpc ConfirmImportUpload(ConfirmImportUploadRequest) returns (ConfirmImportUploadResponse);
+
+  rpc GetImportBatch(GetImportBatchRequest) returns (GetImportBatchResponse);
+  rpc ListImportBatches(ListImportBatchesRequest) returns (ListImportBatchesResponse);
+
+  // add-ingest-validation (change 2.3).
+  rpc GetValidationReport(GetValidationReportRequest) returns (GetValidationReportResponse);
+
+  // A completeness warning may be overridden; a correctness error may not
+  // (design D1) -- enforced by a database constraint, not by this handler
+  // alone.
+  rpc OverrideValidation(OverrideValidationRequest) returns (OverrideValidationResponse);
+
+  // add-import-profiles (change 2.4). Create/Get/Update/Delete is the CRUD
+  // the design calls out; List is added alongside them for the same reason
+  // ListImportBatches sits beside GetImportBatch above -- a profile picker
+  // needs to enumerate what exists before naming one on a batch (design D3).
+  rpc CreateImportProfile(CreateImportProfileRequest) returns (CreateImportProfileResponse);
+  rpc GetImportProfile(GetImportProfileRequest) returns (GetImportProfileResponse);
+  rpc ListImportProfiles(ListImportProfilesRequest) returns (ListImportProfilesResponse);
+  rpc UpdateImportProfile(UpdateImportProfileRequest) returns (UpdateImportProfileResponse);
+  rpc DeleteImportProfile(DeleteImportProfileRequest) returns (DeleteImportProfileResponse);
+
+  // add-dedup (change 2.6). GetDedupSummary and ListSkippedRows read what
+  // one batch's persist decided; ListInternalTransfers and
+  // DismissInternalTransfer are entity-wide, since a pair's two sides can
+  // come from different batches.
+  rpc GetDedupSummary(GetDedupSummaryRequest) returns (GetDedupSummaryResponse);
+  rpc ListSkippedRows(ListSkippedRowsRequest) returns (ListSkippedRowsResponse);
+  rpc ListInternalTransfers(ListInternalTransfersRequest) returns (ListInternalTransfersResponse);
+  rpc DismissInternalTransfer(DismissInternalTransferRequest) returns (DismissInternalTransferResponse);
+}
+
+enum SourceKind {
+  SOURCE_KIND_UNSPECIFIED = 0;
+  SOURCE_KIND_LEDGER = 1;
+  SOURCE_KIND_BANK = 2;
+}
+
+enum ImportStatus {
+  IMPORT_STATUS_UNSPECIFIED = 0;
+  IMPORT_STATUS_AWAITING_UPLOAD = 1;
+  IMPORT_STATUS_ABANDONED = 2;
+  IMPORT_STATUS_UPLOADED = 3;
+  IMPORT_STATUS_PARSING = 4;
+  IMPORT_STATUS_PARSED = 5;
+  IMPORT_STATUS_VALIDATING = 6;
+  IMPORT_STATUS_VALIDATED = 7;
+  IMPORT_STATUS_REJECTED = 8;
+  IMPORT_STATUS_PERSISTING = 9;
+  IMPORT_STATUS_IMPORTED = 10;
+  IMPORT_STATUS_FAILED = 11;
+}
+
+// Every request below carries org_id explicitly. This is the first
+// tenant-scoped surface in the browser contract, and it establishes the wire
+// shape add-tenancy-and-rls design D7 specifies but had no caller to write yet:
+// the organisation a request acts for travels on the request, is resolved
+// against the caller's own memberships by db.OrgIDForSession, and only that
+// resolved value ever reaches db.InTx. A client cannot bind a transaction to
+// an organisation by naming it -- naming one you do not belong to is a
+// permission error, not a wider read.
+
+message CreateImportBatchRequest {
+  string org_id = 1;
+  string entity_id = 2;
+  SourceKind source_kind = 3;
+  string file_name = 4;
+  int64 declared_bytes = 5;
+  string declared_type = 6;
+
+  // add-import-profiles (change 2.4), design D3: named on the batch, never
+  // inferred. Unset means no profile -- the detector decides everything,
+  // exactly as before this field existed.
+  optional string import_profile_id = 7;
+}
+
+message CreateImportBatchResponse {
+  ImportBatch batch = 1;
+
+  // Presigned. The browser PUTs the file here with exactly these headers, and
+  // the store rejects anything else.
+  string upload_url = 2;
+  map<string, string> upload_headers = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message ConfirmImportUploadRequest {
+  string org_id = 1;
+  string batch_id = 2;
+}
+
+message ConfirmImportUploadResponse {
+  ImportBatch batch = 1;
+}
+
+message GetImportBatchRequest {
+  string org_id = 1;
+  string batch_id = 2;
+}
+
+message GetImportBatchResponse {
+  ImportBatch batch = 1;
+}
+
+message ListImportBatchesRequest {
+  string org_id = 1;
+  string entity_id = 2;
+}
+
+message ListImportBatchesResponse {
+  repeated ImportBatch batches = 1;
+}
+
+message ImportBatch {
+  string id = 1;
+  string entity_id = 2;
+  SourceKind source_kind = 3;
+  ImportStatus status = 4;
+  string file_name = 5;
+
+  // int64 crosses the wire as a string in protobuf-JSON, which is what makes
+  // it safe in a browser. This is a byte count and not an amount; no field in
+  // this file carries money, and none may be added without the Money message.
+  int64 byte_length = 6;
+
+  // A code, never a sentence. The client owns the words.
+  string failure_code = 7;
+
+  google.protobuf.Timestamp created_at = 8;
+}
+
+// --- add-ingest-validation (change 2.3) ------------------------------------
+
+enum ValidationOutcome {
+  VALIDATION_OUTCOME_UNSPECIFIED = 0;
+  VALIDATION_OUTCOME_VALID = 1;
+  VALIDATION_OUTCOME_VALID_WITH_WARNINGS = 2;
+  VALIDATION_OUTCOME_REJECTED = 3;
+}
+
+// One entry per correctness error, keyed to the line in the original file
+// (CLAUDE.md: never by parsed row index).
+message ValidationError {
+  int32 line = 1;
+  string field = 2;
+  string code = 3; // A code. The client owns the words.
+  // The offending source text, capped: a customer has to find it in Excel,
+  // and an unbounded value here would let a hostile file make the report
+  // itself unreadable.
+  string raw = 4;
+}
+
+// Populated when code == "balance_mismatch". No other warning code carries
+// a detail today; this message grows a field per warning that needs one,
+// not a generic map, the same reasoning report_jsonb's own shape follows
+// (design D5).
+message BalanceMismatchDetail {
+  // Minor units, like every other amount in this system -- never a double.
+  int64 opening = 1;
+  int64 movements = 2;
+  int64 closing = 3;
+  int64 difference = 4;
+  string currency = 5;
+}
+
+message ValidationWarning {
+  string code = 1;
+  BalanceMismatchDetail balance_mismatch = 2;
+}
+
+message ValidationReport {
+  string batch_id = 1;
+  ValidationOutcome outcome = 2;
+  int32 row_count = 3;
+  int32 error_count = 4;
+  int32 warning_count = 5;
+
+  // Tri-state: unset means the file declared no balances to check, which is
+  // a fact distinct from "did not reconcile" (design: import_validations'
+  // own balance_check_passed is NULL, not FALSE, for that case). proto3's
+  // bare bool cannot distinguish false from unset, so this is a wrapper.
+  google.protobuf.BoolValue balance_check_passed = 6;
+
+  repeated ValidationError errors = 7;
+  repeated ValidationWarning warnings = 8;
+
+  // Empty when the batch has never been overridden.
+  string overridden_by_user_id = 9;
+  string override_reason = 10;
+  google.protobuf.Timestamp overridden_at = 11;
+}
+
+message GetValidationReportRequest {
+  string org_id = 1;
+  string batch_id = 2;
+}
+
+message GetValidationReportResponse {
+  ValidationReport report = 1;
+}
+
+message OverrideValidationRequest {
+  string org_id = 1;
+  string batch_id = 2;
+  // Stored, and shown on every report computed from this batch (design D4).
+  string reason = 3;
+}
+
+message OverrideValidationResponse {
+  ValidationReport report = 1;
+}
+
+// --- add-import-profiles (change 2.4) --------------------------------------
+
+// ImportProfile is the wire view of an import_profiles row. column_map keys
+// are the source file's own column names and cannot be constrained; values
+// are canonical fields, enforced at write time by a database trigger rather
+// than by this message (design D2).
+message ImportProfile {
+  string id = 1;
+  string name = 2;
+  SourceKind source_kind = 3;
+  map<string, string> column_map = 4;
+
+  // Empty means "let the detector decide" (design D1). Never a required
+  // field: a profile may override as few or as many of these as it needs to.
+  string charset = 5;
+  string delimiter = 6;
+  string decimal_sep = 7;
+  string date_fmt = 8;
+
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CreateImportProfileRequest {
+  string org_id = 1;
+  string name = 2;
+  SourceKind source_kind = 3;
+  map<string, string> column_map = 4;
+  string charset = 5;
+  string delimiter = 6;
+  string decimal_sep = 7;
+  string date_fmt = 8;
+}
+
+message CreateImportProfileResponse {
+  ImportProfile profile = 1;
+}
+
+message GetImportProfileRequest {
+  string org_id = 1;
+  string profile_id = 2;
+}
+
+message GetImportProfileResponse {
+  ImportProfile profile = 1;
+}
+
+message ListImportProfilesRequest {
+  string org_id = 1;
+}
+
+message ListImportProfilesResponse {
+  repeated ImportProfile profiles = 1;
+}
+
+message UpdateImportProfileRequest {
+  string org_id = 1;
+  string profile_id = 2;
+  // source_kind is not here: it is immutable once written, the same
+  // reasoning as import_batches' own source_kind (UpdateImportProfile's
+  // query does not set it).
+  string name = 3;
+  map<string, string> column_map = 4;
+  string charset = 5;
+  string delimiter = 6;
+  string decimal_sep = 7;
+  string date_fmt = 8;
+}
+
+message UpdateImportProfileResponse {
+  ImportProfile profile = 1;
+}
+
+message DeleteImportProfileRequest {
+  string org_id = 1;
+  string profile_id = 2;
+}
+
+message DeleteImportProfileResponse {}
+
+// --- add-dedup (change 2.6) -------------------------------------------------
+
+// DedupSummary is the one number an import screen shows -- "412 rows
+// imported, 88 duplicates skipped" -- with enough of a breakdown that the
+// two skip levels and internal transfers are each their own line rather
+// than one folded-together count.
+message DedupSummary {
+  int32 imported_rows       = 1;
+  int32 skipped_in_batch    = 2; // D2
+  int32 skipped_cross_batch = 3; // D3
+  // Active pairs (not dismissed) with at least one side among this
+  // batch's own transactions. The other side may belong to a different
+  // batch -- a transfer's two legs are not necessarily uploaded together.
+  int32 internal_transfers  = 4;
+}
+
+message GetDedupSummaryRequest {
+  string org_id = 1;
+  string batch_id = 2;
+}
+
+message GetDedupSummaryResponse {
+  DedupSummary summary = 1;
+}
+
+// SkippedRow is one line dedup_skips holds: no money field -- a skipped
+// row's amount is read from the transaction it matched, through that
+// transaction's own Money, never carried a second time here.
+message SkippedRow {
+  int32 line_no = 1;
+  int32 posting_no = 2;
+  string level = 3; // D2 | D3
+  string dedup_hash = 4;
+  // Empty for D2, where the original is another line of this same file.
+  string matched_transaction_id = 5;
+  string matched_batch_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListSkippedRowsRequest {
+  string org_id = 1;
+  string batch_id = 2;
+}
+
+message ListSkippedRowsResponse {
+  repeated SkippedRow rows = 1;
+}
+
+message InternalTransfer {
+  string id = 1;
+  string out_transaction_id = 2;
+  string in_transaction_id = 3;
+  google.protobuf.Timestamp detected_at = 4;
+  // Empty when the pair is still active (excluded from the P&L).
+  string dismissed_by_user_id = 5;
+  google.protobuf.Timestamp dismissed_at = 6;
+}
+
+message ListInternalTransfersRequest {
+  string org_id = 1;
+  string entity_id = 2;
+}
+
+message ListInternalTransfersResponse {
+  repeated InternalTransfer transfers = 1;
+}
+
+message DismissInternalTransferRequest {
+  string org_id = 1;
+  string transfer_id = 2;
+}
+
+message DismissInternalTransferResponse {
+  InternalTransfer transfer = 1;
+}

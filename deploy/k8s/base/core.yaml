@@ -44,6 +44,27 @@ spec:
             - name: VEKST_GOOGLE_REDIRECT_URL
               valueFrom:
                 secretKeyRef: { name: vekst-google-oidc, key: redirect_url, optional: true }
+            # Object store. optional: true throughout, the same shape as
+            # Google above: an empty endpoint disables upload, core still
+            # serves, and only CreateImportBatch answers with a configuration
+            # error -- add-file-upload design D5. No environment but the
+            # local overlay defines vekst-object-store today, because D-6
+            # names no production host for any other one to point at.
+            - name: VEKST_OBJECT_STORE_ENDPOINT
+              valueFrom:
+                secretKeyRef: { name: vekst-object-store, key: endpoint, optional: true }
+            - name: VEKST_OBJECT_STORE_BUCKET
+              valueFrom:
+                secretKeyRef: { name: vekst-object-store, key: bucket, optional: true }
+            - name: VEKST_OBJECT_STORE_REGION
+              valueFrom:
+                secretKeyRef: { name: vekst-object-store, key: region, optional: true }
+            - name: VEKST_OBJECT_STORE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef: { name: vekst-object-store, key: access_key_id, optional: true }
+            - name: VEKST_OBJECT_STORE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: vekst-object-store, key: secret_access_key, optional: true }
           # Liveness is dependency-free on purpose: it answers "is this process
           # broken", not "is the system healthy". A liveness probe that checks
           # a dependency turns a recoverable outage into a crash loop.

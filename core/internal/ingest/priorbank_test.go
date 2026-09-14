@@ -167,6 +167,57 @@ func TestStatementMetadataIsRead(t *testing.T) {
 	}
 }
 
+// A malformed amount is the customer's problem, reported by change 2.3 with
+// the line this row still carries. It must not take the rest of their file
+// down with it -- which returning a hard error from ParsePriorbank used to
+// do, discovered while building the validation change this fixes for.
+func TestAMalformedAmountDoesNotAbortTheWholeFile(t *testing.T) {
+	const doc = "Приорбанк Открытое акционерное общество, БИК PJCBBY2X;01.01.2026;\n" +
+		"\n" +
+		"Дата док.;N док.;Код опер;Корреспондент.Код;Корреспондент.Счет;Корреспондент.Название;Номинал.Дебет;Номинал.Кредит;Назначение;\n" +
+		"01.01.2026;1;100;EUR;BY00TEST1;GOOD ROW;0,00;50,00;payment one;\n" +
+		"02.01.2026;2;100;EUR;BY00TEST2;BAD ROW;NOTANUMBER;0,00;payment two;\n" +
+		"03.01.2026;3;100;EUR;BY00TEST3;GOOD ROW TWO;0,00;25,00;payment three;\n"
+
+	st, err := ingest.ParsePriorbank([]byte(doc))
+	if err != nil {
+		t.Fatalf("ParsePriorbank: %v", err)
+	}
+	if len(st.Rows) != 3 {
+		t.Fatalf("got %d rows, want 3 (the bad row must still appear, for validation to report it)", len(st.Rows))
+	}
+
+	bad := st.Rows[1]
+	if bad.DebitRaw != "NOTANUMBER" {
+		t.Errorf("bad row DebitRaw = %q, want the original text preserved for validation to inspect", bad.DebitRaw)
+	}
+	if bad.Debit.MinorUnits != 0 {
+		t.Errorf("bad row Debit = %d minor units, want a safe zero placeholder", bad.Debit.MinorUnits)
+	}
+
+	good := st.Rows[0]
+	if good.Credit.MinorUnits != 5000 {
+		t.Errorf("good row Credit = %d, want 5000 -- the fix must not affect rows that parse fine", good.Credit.MinorUnits)
+	}
+	if good.CreditRaw != "50,00" {
+		t.Errorf("good row CreditRaw = %q, want %q", good.CreditRaw, "50,00")
+	}
+}
+
+// The declared period, read from the same preamble line as the account and
+// holder -- change 2.3's "declared period is covered continuously" check
+// needs it.
+func TestStatementPeriodIsRead(t *testing.T) {
+	for _, path := range fixtures(t) {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			st := parse(t, path)
+			if st.PeriodFrom == "" || st.PeriodTo == "" {
+				t.Errorf("PeriodFrom=%q PeriodTo=%q, want both populated from the preamble", st.PeriodFrom, st.PeriodTo)
+			}
+		})
+	}
+}
+
 func TestNotAPriorbankExportIsRejected(t *testing.T) {
 	_, err := ingest.ParsePriorbank([]byte("col a;col b\n1;2\n"))
 	if err == nil {
