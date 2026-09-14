@@ -199,6 +199,78 @@ jobs:
       - name: InTx and River tests against a live database
         run: go test ./core/internal/db/... ./core/internal/jobs/... -run 'TestInSystemTx|TestInsertTx' -v
 
+  # --- object storage: add-file-upload's presigned PUT, end to end --------
+  #
+  # A separate job, not folded into "database" above: core/internal/ingest's
+  # tests run a real River client against Postgres *and* a real S3-compatible
+  # store, and two jobs.Client instances polling the same river_job queue
+  # concurrently pick up jobs neither one has a worker for -- found by running
+  # this suite alongside "database" locally. One job, one queue, no
+  # contention.
+  ingest:
+    name: file upload (live database + object store)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci_superuser
+          POSTGRES_PASSWORD: ci_superuser
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci_superuser -d postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL_MIGRATOR: postgres://vekst_migrator:vekst_migrator@localhost:5432/vekst?sslmode=disable
+      DATABASE_URL: postgres://vekst_app:vekst_app@localhost:5432/vekst?sslmode=disable
+      OBJECT_STORE_ENDPOINT: http://localhost:9000
+      OBJECT_STORE_BUCKET: vekst
+      OBJECT_STORE_ACCESS_KEY_ID: minioadmin
+      OBJECT_STORE_SECRET_KEY: minioadmin
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with: { go-version: "${{ env.GO_VERSION }}", cache: true }
+      - name: install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: provision vekst_migrator (non-superuser owner)
+        run: |
+          psql "postgres://ci_superuser:ci_superuser@localhost:5432/postgres?sslmode=disable" \
+            -v ON_ERROR_STOP=1 -q -f deploy/db/provision-migrator.sql
+      - name: migrate up
+        run: go run ./core/cmd/vekst-core migrate up
+
+      # MinIO has no official GitHub Actions "services" entry that overrides
+      # its default command, so it runs as a plain container instead of a
+      # services: block -- the same shape deploy/k8s/overlays/local uses it
+      # in (task 7.1), started explicitly rather than left to an image
+      # default.
+      - name: start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            quay.io/minio/minio server /data
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:9000/minio/health/live && exit 0
+            sleep 1
+          done
+          echo "::error::MinIO never became healthy"; exit 1
+
+      # The bucket is expected to already exist by the time core starts
+      # (blob.New performs no I/O, the same way core never creates its own
+      # database) -- so CI, like the local overlay, creates it out of band.
+      - name: create bucket
+        env:
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin
+          AWS_DEFAULT_REGION: us-east-1
+        run: aws --endpoint-url http://localhost:9000 s3 mb s3://vekst
+
+      - name: blob and ingest tests against a live store
+        run: go test ./core/internal/blob/... ./core/internal/ingest/... -v
+
   python:
     name: python
     runs-on: ubuntu-latest

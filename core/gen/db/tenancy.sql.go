@@ -23,6 +23,36 @@ func (q *Queries) DeleteMembership(ctx context.Context, userID pgtype.UUID) (int
 	return result.RowsAffected(), nil
 }
 
+const findAccountByExternalRef = `-- name: FindAccountByExternalRef :one
+SELECT id, org_id, entity_id, name, currency, external_ref, created_at
+FROM accounts
+WHERE entity_id = $1 AND external_ref = $2
+`
+
+type FindAccountByExternalRefParams struct {
+	EntityID    pgtype.UUID
+	ExternalRef pgtype.Text
+}
+
+// add-ingest-validation's "account identifier resolves" check (change 2.3):
+// the bank's own account identifier (an IBAN, here) matched against what
+// this entity already has on file. pgx.ErrNoRows means create one, not that
+// the row is missing some other query would supply.
+func (q *Queries) FindAccountByExternalRef(ctx context.Context, arg FindAccountByExternalRefParams) (Account, error) {
+	row := q.db.QueryRow(ctx, findAccountByExternalRef, arg.EntityID, arg.ExternalRef)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.EntityID,
+		&i.Name,
+		&i.Currency,
+		&i.ExternalRef,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getAccount = `-- name: GetAccount :one
 SELECT id, org_id, entity_id, name, currency, external_ref, created_at
 FROM accounts

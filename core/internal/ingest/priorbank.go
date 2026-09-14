@@ -22,12 +22,35 @@ type Statement struct {
 	Currency string
 	Holder   string
 
+	// DeclaredRowCount is how many rows the file itself says it carries.
+	// Priorbank declares none -- this stays nil for every statement this
+	// parser produces -- but 1C ledger exports often do (ARCHITECTURE.md
+	// §4a.1), and change 2.3's row-count check needs somewhere to read one
+	// from once a parser exists that has one to give.
+	DeclaredRowCount *int
+
+	// PeriodFrom and PeriodTo are the bank's own declared statement period,
+	// raw (ParseDate is applied by validation, the same as Row.BookedOn).
+	// Empty when the preamble carries no period line -- change 2.3's
+	// "declared period is covered continuously" check treats that as
+	// nothing to check, not as a failure.
+	PeriodFrom string
+	PeriodTo   string
+
 	// Declared by the bank, not computed by us. BalanceCheck compares the two,
 	// and that comparison is the only proof available that no row was dropped.
 	Opening        money.Money
 	Closing        money.Money
 	DeclaredDebit  money.Money
 	DeclaredCredit money.Money
+
+	// HasDeclaredBalance is false when the file carried no "Входящее сальдо"
+	// / "Исходящее сальдо" summary rows at all -- 1C exports often omit them.
+	// Opening and Closing stay at zero either way, which is indistinguishable
+	// from a genuinely zero declared balance without this flag. Change 2.3's
+	// tri-state balance_check_passed needs the distinction: NULL means "the
+	// file declared no balances", not "they were zero".
+	HasDeclaredBalance bool
 
 	Rows []Row
 }
@@ -53,8 +76,23 @@ type Row struct {
 	// adding the column later means migrating transactions.
 	RegulatedCode string
 
+	// Debit and Credit are this package's own best-effort parse, kept for
+	// Statement.BalanceCheck()'s convenience. They are not the authority on
+	// whether the amount actually parses -- change 2.3's validation is, and
+	// it re-parses DebitRaw/CreditRaw itself, with whatever locale an import
+	// profile (2.4) may later override the detector's guess with. A row this
+	// package could not parse carries a zero Money here, which is safe only
+	// because such a row is always a correctness error (task 2.3), which
+	// always rejects the batch regardless of what the balance difference
+	// says -- see the comment on the row loop in ParsePriorbank.
 	Debit  money.Money
 	Credit money.Money
+
+	// DebitRaw and CreditRaw are the bank's own text for the two columns,
+	// unparsed. Validation is what actually decides whether an amount
+	// parses (task 2.3); this package's own attempt above is provisional.
+	DebitRaw  string
+	CreditRaw string
 }
 
 func init() { Register(priorbankParser{}) }
@@ -64,7 +102,9 @@ type priorbankParser struct{}
 
 func (priorbankParser) Name() string { return "priorbank-by" }
 
-func (priorbankParser) Parse(raw []byte) (*Statement, error) { return ParsePriorbank(raw) }
+func (priorbankParser) Parse(raw []byte, params *Parameters) (*Statement, error) {
+	return ParsePriorbankWithParams(raw, params)
+}
 
 // Detect looks for the bank's own name in the preamble together with the
 // header row. Either alone is too loose: another Belarusian bank could use the
@@ -104,13 +144,29 @@ func (priorbankParser) Detect(raw []byte) bool {
 //     which would reject every row of every file. The check has to be "both
 //     non-zero".
 func ParsePriorbank(raw []byte) (*Statement, error) {
-	text, err := Decode(raw, DetectCharset(raw))
+	return ParsePriorbankWithParams(raw, nil)
+}
+
+// ParsePriorbankWithParams is ParsePriorbank with add-import-profiles'
+// overrides applied, field by field (design D1). A nil params, or any
+// zero-valued field within one, reproduces ParsePriorbank's own behaviour
+// exactly (task 6.1) -- Parameters.sourceColumn and the checks below all
+// fall back to this parser's built-in choice whenever a field says nothing.
+func ParsePriorbankWithParams(raw []byte, params *Parameters) (*Statement, error) {
+	charset := DetectCharset(raw)
+	if params != nil && params.Charset != "" {
+		charset = params.Charset
+	}
+	text, err := Decode(raw, charset)
 	if err != nil {
 		return nil, err
 	}
 
 	reader := csv.NewReader(strings.NewReader(text))
 	reader.Comma = ';'
+	if params != nil && params.Delimiter != 0 {
+		reader.Comma = rune(params.Delimiter)
+	}
 	reader.FieldsPerRecord = -1 // ragged on purpose: preamble and totals differ
 	reader.LazyQuotes = true
 
@@ -140,8 +196,8 @@ func ParsePriorbank(raw []byte) (*Statement, error) {
 	for i, name := range records[headerAt] {
 		col[strings.TrimSpace(name)] = i
 	}
-	debitAt, okD := col["Номинал.Дебет"]
-	creditAt, okC := col["Номинал.Кредит"]
+	debitAt, okD := col[params.sourceColumn("debit", "Номинал.Дебет")]
+	creditAt, okC := col[params.sourceColumn("credit", "Номинал.Кредит")]
 	if !okD || !okC {
 		return nil, fmt.Errorf("ingest: priorbank: header has no nominal debit/credit columns")
 	}
@@ -174,10 +230,12 @@ func ParsePriorbank(raw []byte) (*Statement, error) {
 			if cur := currencyFromSummary(rec); cur != "" {
 				st.Currency = cur
 			}
+			st.HasDeclaredBalance = true
 		case strings.HasPrefix(first, "Исходящее сальдо"):
 			if st.Closing, err = summaryBalance(rec, st.Currency, hasEquivalent); err != nil {
 				return nil, fmt.Errorf("ingest: priorbank: line %d: closing balance: %w", lineNo, err)
 			}
+			st.HasDeclaredBalance = true
 		case strings.HasPrefix(first, "Обороты"):
 			d, c, err := summaryPair(rec, st.Currency, hasEquivalent)
 			if err != nil {
@@ -185,7 +243,7 @@ func ParsePriorbank(raw []byte) (*Statement, error) {
 			}
 			st.DeclaredDebit, st.DeclaredCredit = d, c
 		case datePrefix.MatchString(first):
-			row, err := parseRow(rec, lineNo, col, debitAt, creditAt, st.Currency)
+			row, err := parseRow(rec, lineNo, col, debitAt, creditAt, st.Currency, params)
 			if err != nil {
 				return nil, fmt.Errorf("ingest: priorbank: line %d: %w", lineNo, err)
 			}
@@ -202,6 +260,7 @@ var (
 	currencyCell = regexp.MustCompile(`^[A-Z]{3}$`)
 	accountLine  = regexp.MustCompile(`^Счет клиента\**\s*(\S+)(?:\s+([A-Z]{3}))?`)
 	holderLine   = regexp.MustCompile(`^Наименование счета\**\s*(.+)$`)
+	periodLine   = regexp.MustCompile(`^ВЫПИСКА ПО СЧЕТУ \S+ С (\d{2}\.\d{2}\.\d{4}) ПО (\d{2}\.\d{2}\.\d{4})`)
 )
 
 // readAllWithLines returns every record together with the line it started on.
@@ -234,6 +293,10 @@ func parsePreamble(records [][]string, st *Statement) {
 		}
 		if m := holderLine.FindStringSubmatch(line); m != nil {
 			st.Holder = strings.TrimSpace(m[1])
+			continue
+		}
+		if m := periodLine.FindStringSubmatch(line); m != nil {
+			st.PeriodFrom, st.PeriodTo = m[1], m[2]
 		}
 	}
 }
@@ -289,25 +352,48 @@ func currencyFromSummary(rec []string) string {
 	return ""
 }
 
-func parseRow(rec []string, lineNo int, col map[string]int, debitAt, creditAt int, currency string) (Row, error) {
-	debit, err := ParseAmount(currency, cell(rec, debitAt))
+// parseRow never fails on a malformed amount. A single bad row is the
+// customer's problem, reported by change 2.3 with the line this row still
+// carries -- it is not a defect that should take the rest of their file
+// down with it, which returning an error here (and aborting ParsePriorbank
+// entirely) used to do. debit and credit fall back to a zero Money in their
+// row's currency when they fail to parse; DebitRaw and CreditRaw always
+// carry the original text regardless, which is what validation actually
+// checks.
+//
+// BookedOn is deliberately not one of column_map's overridable fields for
+// this parser: reading column 0 is also how a data row is told apart from a
+// summary row (datePrefix.MatchString(first) in ParsePriorbankWithParams),
+// so moving where the date is read from would move the row boundary itself,
+// not just a canonical field mapping. document_ref, counterparty and
+// description are ordinary header lookups and take an override freely.
+func parseRow(rec []string, lineNo int, col map[string]int, debitAt, creditAt int, currency string, params *Parameters) (Row, error) {
+	debitRaw, creditRaw := cell(rec, debitAt), cell(rec, creditAt)
+
+	debit, err := ParseAmount(currency, debitRaw)
 	if err != nil {
-		return Row{}, fmt.Errorf("debit: %w", err)
+		if debit, err = money.New(currency, 0); err != nil {
+			return Row{}, fmt.Errorf("row currency: %w", err)
+		}
 	}
-	credit, err := ParseAmount(currency, cell(rec, creditAt))
+	credit, err := ParseAmount(currency, creditRaw)
 	if err != nil {
-		return Row{}, fmt.Errorf("credit: %w", err)
+		if credit, err = money.New(currency, 0); err != nil {
+			return Row{}, fmt.Errorf("row currency: %w", err)
+		}
 	}
 	return Row{
 		LineNo:              lineNo,
 		BookedOn:            strings.TrimSpace(cell(rec, 0)),
-		DocumentNo:          strings.TrimSpace(named(rec, col, "N док.")),
-		CounterpartyName:    strings.TrimSpace(named(rec, col, "Корреспондент.Название")),
+		DocumentNo:          strings.TrimSpace(named(rec, col, params.sourceColumn("document_ref", "N док."))),
+		CounterpartyName:    strings.TrimSpace(named(rec, col, params.sourceColumn("counterparty", "Корреспондент.Название"))),
 		CounterpartyTaxID:   strings.TrimSpace(named(rec, col, "Корреспондент.УНП")),
 		CounterpartyAccount: strings.TrimSpace(named(rec, col, "Корреспондент.Счет")),
-		Description:         strings.TrimSpace(named(rec, col, "Назначение")),
+		Description:         strings.TrimSpace(named(rec, col, params.sourceColumn("description", "Назначение"))),
 		Debit:               debit,
 		Credit:              credit,
+		DebitRaw:            strings.TrimSpace(debitRaw),
+		CreditRaw:           strings.TrimSpace(creditRaw),
 	}, nil
 }
 

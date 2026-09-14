@@ -17,7 +17,7 @@ func TestRequiredVersionSeesEverySQLAndGoMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RequiredVersion: %v", err)
 	}
-	if got != 7 {
-		t.Fatalf("RequiredVersion() = %d, want 7 (00001 + 00003 + 00004 + 00005 + 00006 + 00007 SQL, 00002 Go)", got)
+	if got != 12 {
+		t.Fatalf("RequiredVersion() = %d, want 12 (00001 + 00003 + 00004 + 00005 + 00006 + 00007 + 00008 + 00009 + 00010 + 00011 + 00012 SQL, 00002 Go)", got)
 	}
 }

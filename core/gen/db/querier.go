@@ -11,6 +11,14 @@ import (
 )
 
 type Querier interface {
+	// Abandons only if the row is still awaiting_upload, in the same statement
+	// that checks it -- so a late expiry job racing a real upload cannot win:
+	// exactly one UPDATE can match the predicate and return a row. :one rather
+	// than :execrows because affecting zero rows is not an error here the way it
+	// is for RecordUploadMeasurement and SetImportBatchStatus -- it is the
+	// expected outcome when the upload already arrived, and the caller reads
+	// pgx.ErrNoRows as "nothing to do", not as db.ErrNoRowsAffected.
+	AbandonExpiredBatch(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	// The highest version goose has recorded as applied. /readyz compares this
 	// against the binary's required version, derived from its embedded
 	// migrations (design D6/Q5), and fails naming both when the schema is
@@ -36,11 +44,36 @@ type Querier interface {
 	// indistinguishable, which is deliberate -- the caller learns nothing from
 	// the difference.
 	ConsumeAuthFlow(ctx context.Context, state string) (ConsumeAuthFlowRow, error)
+	// GetDedupSummary's own internal_transfers count: active pairs with at
+	// least one side among this batch's transactions. The other side may
+	// belong to a different batch -- a transfer's two legs are not
+	// necessarily uploaded together.
+	CountActiveTransfersForBatch(ctx context.Context, batchID pgtype.UUID) (int64, error)
+	// GetDedupSummary derives its counts from this table rather than from a
+	// stored counter (design D3, task 3.5) -- filtered by level so the two D2
+	// and D3 numbers in the summary come from one query each, not from one
+	// query and a second pass in Go.
+	CountDedupSkipsForBatch(ctx context.Context, arg CountDedupSkipsForBatchParams) (int64, error)
+	// add-dedup's GetDedupSummary (change 2.6): how many of a batch's parsed
+	// rows actually became transactions, alongside dedup_skips' own counts.
+	CountTransactionsForBatch(ctx context.Context, batchID pgtype.UUID) (int64, error)
+	CurrentClassification(ctx context.Context, transactionID pgtype.UUID) (Classification, error)
 	DeleteExpiredAuthFlows(ctx context.Context) (int64, error)
 	// Sessions outlive their expiry by a retention window so a recently expired
 	// session is still visible to an operator asking what happened.
 	DeleteExpiredSessions(ctx context.Context, expiresAt pgtype.Timestamptz) (int64, error)
+	// ON DELETE RESTRICT on import_batches.import_profile_id is what actually
+	// enforces "a used profile cannot be deleted" (task 6.9); this statement is
+	// refused by that foreign key, not by an application-level check first.
+	DeleteImportProfile(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteMembership(ctx context.Context, userID pgtype.UUID) (int64, error)
+	// Both columns set together (internal_transfers_dismissal_is_whole,
+	// migration 012) -- who and when travel as one fact, never separately.
+	// :one rather than :execrows: the caller returns the pair it just
+	// dismissed, and pgx.ErrNoRows (already dismissed, or never existed) is
+	// the same answer either way -- a policy denial, not a distinguishable
+	// not-found.
+	DismissInternalTransfer(ctx context.Context, arg DismissInternalTransferParams) (InternalTransfer, error)
 	// Queries that assemble a ClassifyBatch request.
 	//
 	// The classifier holds no database credentials and no state, so everything it
@@ -93,6 +126,11 @@ type Querier interface {
 	// leaves, in code order, which is also report order because a code carries its
 	// own position (two characters per level).
 	EffectiveTaxonomy(ctx context.Context, taxonomyVersion string) ([]EffectiveTaxonomyRow, error)
+	// add-ingest-validation's "account identifier resolves" check (change 2.3):
+	// the bank's own account identifier (an IBAN, here) matched against what
+	// this entity already has on file. pgx.ErrNoRows means create one, not that
+	// the row is missing some other query would supply.
+	FindAccountByExternalRef(ctx context.Context, arg FindAccountByExternalRefParams) (Account, error)
 	// Queries for the four identity tables: users, user_identities, sessions and
 	// auth_flows.
 	//
@@ -112,28 +150,114 @@ type Querier interface {
 	// over time, so matching a login by address is the standard account-takeover
 	// path.
 	FindIdentity(ctx context.Context, arg FindIdentityParams) (UserIdentity, error)
+	// D1 (add-dedup, change 2.6): looks first, so a genuine collision names the
+	// earlier batch rather than surfacing a raw constraint violation. The
+	// guarantee against two concurrent uploads winning is import_batches_file_once
+	// (migration 012) -- this SELECT narrows the race window, it does not close
+	// it.
+	FindImportedBatchAlreadyHoldingThisFile(ctx context.Context, fileSha256 []byte) (pgtype.UUID, error)
 	// The middleware's one read per request: a unique-index probe on the token
 	// hash, joined to the session's own user. Both tables are inside the exempt
 	// four, so this join stays within the boundary the narrowness check draws.
 	// Expiry and revocation are predicates here rather than checks in Go, so a
 	// revoked or expired session simply matches nothing.
 	FindLiveSessionWithUser(ctx context.Context, tokenSha256 []byte) (FindLiveSessionWithUserRow, error)
+	// D3's cross-batch lookup. transactions_dedup_idx (migration 007, corrected
+	// by this change's own task 0.4) is not unique, so this can return any one
+	// of several matches under a true hash collision -- naming the most
+	// recent, which is the one most useful for a customer checking "did I
+	// already import this".
+	FindTransactionByDedupHash(ctx context.Context, dedupHash string) (FindTransactionByDedupHashRow, error)
 	FindUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetAccount(ctx context.Context, id pgtype.UUID) (Account, error)
 	// id alone, with no org_id beside it. entities is keyed (org_id, id) and the
 	// policy supplies the org_id half, so this cannot resolve outside the caller's
 	// own organisation however the identifier was obtained.
 	GetEntity(ctx context.Context, id pgtype.UUID) (Entity, error)
+	// id alone, with no org_id beside it -- entities is keyed (org_id, id) and the
+	// policy supplies the org_id half, so this cannot resolve outside the caller's
+	// own organisation however the identifier was obtained (same shape as
+	// tenancy.sql's GetEntity).
+	GetImportBatch(ctx context.Context, id pgtype.UUID) (GetImportBatchRow, error)
+	// id alone, with no org_id beside it -- entities is keyed (org_id, id) and
+	// the policy supplies the org_id half, the same shape as tenancy.sql's
+	// GetEntity.
+	GetImportProfile(ctx context.Context, id pgtype.UUID) (ImportProfile, error)
 	// No WHERE clause: the policy admits exactly one row, the caller's own. A
 	// predicate here could only ever narrow that to zero.
 	GetOrganization(ctx context.Context) (Organization, error)
+	// batch_id alone, with no org_id beside it -- the row is keyed (org_id, id)
+	// and the policy supplies the org_id half, the same shape as ingest.sql's
+	// GetImportBatch.
+	GetValidationForBatch(ctx context.Context, batchID pgtype.UUID) (ImportValidation, error)
 	InsertAccount(ctx context.Context, arg InsertAccountParams) (Account, error)
 	InsertAuthFlow(ctx context.Context, arg InsertAuthFlowParams) (pgtype.UUID, error)
+	// A correction is an insert plus a pointer, never an update: this is the
+	// insert half.
+	InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error)
+	// Queries for dedup_skips, internal_transfers and internal_transfer_members
+	// (change 2.6, migration 012).
+	//
+	// No statement here carries a `WHERE org_id = ...` predicate -- the same
+	// reason as every other file in this directory: each table's FORCE'd
+	// row-level-security policy already restricts every statement to
+	// app_current_org(). INSERT is the exception, as it is everywhere else
+	// here: org_id is bound explicitly because the row does not exist yet for a
+	// policy to restrict.
+	//
+	// InsertInternalTransferPair writes the pair and both its members in one
+	// statement: internal_transfer_members' own primary key,
+	// (org_id, txn_id), is what refuses a transaction already spoken for, and a
+	// pair whose sides are already taken must fail outright rather than
+	// half-inserting one member and not the other.
+	// A skip is written once and never updated (migration 012's own REVOKE) --
+	// like import_validations' report, it is a record of what happened during
+	// one persist.
+	InsertDedupSkip(ctx context.Context, arg InsertDedupSkipParams) (DedupSkip, error)
 	InsertEntity(ctx context.Context, arg InsertEntityParams) (Entity, error)
 	// Insert-once, with no ON CONFLICT clause. Repointing a subject at another
 	// user is account takeover; vekst_app has no UPDATE privilege here, so this
 	// cannot become an upsert without a migration that CODEOWNERS would catch.
 	InsertIdentity(ctx context.Context, arg InsertIdentityParams) error
+	// Queries for import_batches (change 2.5's migration 007, widened by 2.1's
+	// migration 008).
+	//
+	// No statement here carries a `WHERE org_id = ...` predicate, for the same
+	// reason none do in tenancy.sql: the table's FORCE'd row-level-security policy
+	// already restricts every statement to app_current_org(), and db.InTx sets
+	// that context before any of these run. A hand-written predicate would return
+	// the right rows whether or not the policy existed, which is exactly the
+	// silent failure mode the policy's absence is supposed to be loud about.
+	// INSERT is the one exception -- org_id is bound explicitly there, the same
+	// way InsertEntity and InsertAccount bind it in tenancy.sql, because the row
+	// does not exist yet for a policy to restrict and WITH CHECK is what verifies
+	// the value against app_current_org().
+	//
+	// RecordUploadMeasurement and SetImportBatchStatus never list source_kind
+	// among the columns they set. source_kind is chosen at creation and immutable
+	// (design D4): migration 008 revokes table-level UPDATE and grants it back
+	// column by column, and source_kind is not one of the columns granted back.
+	// A query that named it here would not even compile against that grant.
+	// Reserves a batch in awaiting_upload. status is a literal, not a parameter:
+	// this is the one statement that creates a row, and the row's first state is
+	// not the caller's to choose. id is supplied explicitly rather than left to
+	// the column's own DEFAULT gen_random_uuid(): the object key is
+	// org/<org_id>/batch/<batch_id> (blob.Key), built from identifiers only, so
+	// the id has to exist before this statement runs, not come back from it.
+	InsertImportBatch(ctx context.Context, arg InsertImportBatchParams) (InsertImportBatchRow, error)
+	// Queries for import_profiles (change 2.4, migration 011).
+	//
+	// No statement here carries a `WHERE org_id = ...` predicate -- the table's
+	// FORCE'd row-level-security policy already restricts every statement to
+	// app_current_org() (see tenancy.sql's header for the full reasoning).
+	// INSERT is the exception, the same as everywhere else in this directory:
+	// org_id is bound explicitly because the row does not exist yet for a
+	// policy to restrict.
+	InsertImportProfile(ctx context.Context, arg InsertImportProfileParams) (ImportProfile, error)
+	// Both members in the same statement as the pair: a pair whose sides are
+	// already taken fails here rather than half-inserting one side. See this
+	// file's header.
+	InsertInternalTransferPair(ctx context.Context, arg InsertInternalTransferPairParams) (InsertInternalTransferPairRow, error)
 	// The creator's own membership, written in the same transaction that creates
 	// the organisation (design D4). role is stored and nothing checks it yet --
 	// enforcement is Product's, per the proposal's non-goals.
@@ -164,30 +288,180 @@ type Querier interface {
 	// OrgIDForNewOrg and InTx arrange. WITH CHECK passes because the identifiers
 	// match, and no privileged path is needed to create an organisation.
 	InsertOrganization(ctx context.Context, arg InsertOrganizationParams) (Organization, error)
+	// Bulk insert, not one round trip per line: a real statement is hundreds of
+	// rows. This is a `SELECT ... FROM unnest(...)` rather than sqlc's
+	// `:copyfrom` (COPY FROM) deliberately -- verified on PostgreSQL 16 that
+	// COPY FROM refuses outright against a row-level-security table, forced or
+	// not: "ERROR: COPY FROM not supported with row-level security" (SQLSTATE
+	// 0A000), with no tenant context to blame. An ordinary INSERT, even one
+	// driven by unnest(), goes through the same WITH CHECK every other write
+	// here does.
+	//
+	// Two single-argument unnest() calls joined by WITH ORDINALITY, not the
+	// two-argument unnest($1, $2) form that zips a pair of arrays directly:
+	// sqlc's analyzer cannot resolve the two-argument form's parameter types
+	// ("function unnest(unknown, unknown) does not exist") even though
+	// PostgreSQL itself accepts it fine. This is the shape sqlc can see through.
+	InsertRawRows(ctx context.Context, arg InsertRawRowsParams) (int64, error)
 	// token_sha256 is the SHA-256 of 32 random bytes; the raw value lives only in
 	// the cookie and is never stored, so a read of this table yields nothing a
 	// browser could present.
 	InsertSession(ctx context.Context, arg InsertSessionParams) (InsertSessionRow, error)
+	// Queries for import_batches (this change's minimal shape), transactions
+	// and classifications (change 2.5, migration 007).
+	//
+	// No statement here carries a `WHERE org_id = ...` predicate -- the same
+	// reason as every other file in this directory: each table's FORCE'd
+	// row-level-security policy already restricts every statement to
+	// app_current_org(), and db.InTx sets that context before any of these run.
+	// INSERT is the exception, as it is everywhere else here: org_id is bound
+	// explicitly because the row does not exist yet for a policy to restrict.
+	//
+	// InsertClassification never sets superseded_by -- a classification is
+	// always born live -- and SupersedeClassification never sets anything but
+	// it: migration 007 revokes table-level UPDATE and grants back only that one
+	// column (design D4), so a query naming another would not even compile
+	// against that grant. Its own comment explains why an ordinary insert then
+	// an ordinary update is correct here: the deferred constraint trigger is
+	// what makes the momentary two-live-rows state between them safe, not a
+	// single combined statement.
+	InsertTransaction(ctx context.Context, arg InsertTransactionParams) (Transaction, error)
 	// Provisioning, and the only statement that ever writes a user row. A
 	// duplicate address raises 23505 on users_email_key, which the caller
 	// translates into the email_taken code -- the constraint is the check, so two
 	// concurrent first sign-ins on one address cannot both succeed.
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
+	// Queries for import_validations (change 2.3, migration 010).
+	//
+	// No statement here carries a `WHERE org_id = ...` predicate -- the same
+	// reason as every other file in this directory: the table's FORCE'd
+	// row-level-security policy already restricts every statement to
+	// app_current_org(), and db.InTx sets that context before any of these run.
+	// INSERT is the exception, the same way it is in ingest.sql: org_id is bound
+	// explicitly because the row does not exist yet for a policy to restrict.
+	//
+	// RecordOverride never lists outcome, row_count, error_count, warning_count,
+	// balance_check_passed or report_jsonb among the columns it sets. Migration
+	// 010 revokes table-level UPDATE and grants back only the three override
+	// columns, so a query naming any of the six would not even compile against
+	// that grant.
+	InsertValidation(ctx context.Context, arg InsertValidationParams) (ImportValidation, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
 	ListAccountsForEntity(ctx context.Context, entityID pgtype.UUID) ([]Account, error)
+	// Every undismissed pair for this entity, on either side -- what
+	// ListInternalTransfers (task 5.1) returns, and what a later change's P&L
+	// query excludes (task 4.5).
+	ListActiveInternalTransfers(ctx context.Context, entityID pgtype.UUID) ([]InternalTransfer, error)
+	ListDedupSkipsForBatch(ctx context.Context, batchID pgtype.UUID) ([]DedupSkip, error)
 	ListEntities(ctx context.Context) ([]Entity, error)
+	// One entity's batches, most recent first -- what the Imports screen
+	// (add-web-experience §6) lists. No pagination: Demo scale is a handful of
+	// imports per organisation, and ListEntities/ListAccounts set the same
+	// precedent of adding it only once a real page needs it.
+	ListImportBatches(ctx context.Context, entityID pgtype.UUID) ([]ListImportBatchesRow, error)
+	ListImportProfiles(ctx context.Context) ([]ImportProfile, error)
 	// The current organisation's members. This deliberately does not join users:
 	// users is global and outside row-level security, and
 	// scripts/check-identity-queries.sh keeps the four identity tables reachable
 	// from one query file only. A member list showing names and addresses is a
 	// browser-facing read, which arrives with 2.1 and brings that decision with it.
 	ListMemberships(ctx context.Context) ([]Membership, error)
+	// Change 4.1 calls this and puts what it returns on the report (design D4).
+	// A report that does not call it is a report that hides an override, so
+	// 4.1's own task list carries a test that fails when the call is missing.
+	// Unused here -- this change has no report to put it on yet.
+	OverriddenBatchesForPeriod(ctx context.Context, arg OverriddenBatchesForPeriodParams) ([]OverriddenBatchesForPeriodRow, error)
+	// Task 4.5: the query a later change (the P&L) uses to exclude paired
+	// transactions from every line. Unused by this change itself -- add-dedup
+	// excludes nothing from a report that does not exist yet; it only detects
+	// and records pairs.
+	PairedTransactionIDsForEntity(ctx context.Context, entityID pgtype.UUID) ([]pgtype.UUID, error)
+	// Written once (design D4): nothing here reads the current row first to
+	// decide whether to write, because there is no legitimate second write --
+	// overridden_at IS NULL is not checked here because the CHECK constraint
+	// import_validations_override_only_over_warnings and the handler's own
+	// lookup (task 5.3) are what refuse a second override, not this statement's
+	// WHERE clause.
+	RecordOverride(ctx context.Context, arg RecordOverrideParams) (int64, error)
+	// The measurement job's success write (design D2): what core actually
+	// measured after reading the object back, and the only place status becomes
+	// 'uploaded'. A batch this job could not measure -- a missing object, one
+	// over the size limit -- goes through SetImportBatchStatus instead, with
+	// these three columns left NULL, which import_batches_measured_past_upload
+	// permits only for a 'failed' row.
+	RecordUploadMeasurement(ctx context.Context, arg RecordUploadMeasurementParams) (int64, error)
 	// Sign-out marks the row revoked rather than deleting it, so the session is
 	// auditable afterwards and the expiry job is what finally removes it.
 	RevokeSession(ctx context.Context, tokenSha256 []byte) error
+	// The generic transition: a status and, for a failure, the code that explains
+	// it. failure_code is NULL for every non-failure transition -- a code is
+	// never invented for a row that did not fail, and clearing a stale one is
+	// what lets a later stage's own failure be the one a customer sees.
+	SetImportBatchStatus(ctx context.Context, arg SetImportBatchStatusParams) (int64, error)
+	// add-import-profiles task 5.3: what a batch was actually parsed with,
+	// recorded separately from the profile it names -- a profile may be edited
+	// afterward, and this is what keeps an old batch's numbers explainable
+	// regardless (design D1's stated cost). Written once, by the same job that
+	// parses the batch; nothing here stops a second write, because re-parsing
+	// is not a thing this pipeline does outside a fresh batch.
+	SetResolvedParameters(ctx context.Context, arg SetResolvedParametersParams) (int64, error)
+	// The pointer half of design D4's "an insert plus a pointer". Column-scoped
+	// to superseded_by alone -- see this file's header.
+	//
+	// Called after InsertClassification, in the same db.InTx, as two ordinary
+	// statements. Between them there is a moment with two live rows for this
+	// transaction_id, which classifications_one_live_per_transaction (migration
+	// 007) is a DEFERRABLE INITIALLY DEFERRED constraint trigger specifically so
+	// that moment is safe: it is checked once, at commit, by which point this
+	// statement has already run and settled the count back to one. A plain
+	// unique index -- what migration 007 first shipped with -- checks
+	// immediately and cannot express this; verified directly, not assumed,
+	// against the live schema before it was corrected.
+	SupersedeClassification(ctx context.Context, arg SupersedeClassificationParams) (int64, error)
 	TouchSession(ctx context.Context, id pgtype.UUID) error
+	// One entity, one source kind (design D1: a report line is computed from one
+	// kind and never both), a date range.
+	TransactionsForReport(ctx context.Context, arg TransactionsForReportParams) ([]Transaction, error)
+	// D5's pairing rule, as a read: candidates for txn $3 (whose signed
+	// base_amount_minor is $4, account is $5, and source_kind is $7) in
+	// entity $1's own accounts, excluding $5 itself, within $2 days of
+	// booked_on $6, opposite sign, equal absolute amount, the same
+	// source_kind, not already a member of any pair. Ordered nearest by date
+	// then lowest id, so the caller's greedy take-first is deterministic
+	// (design D5) without re-sorting in Go.
+	//
+	// The same source_kind: a ledger row and a bank row are never paired as an
+	// internal transfer -- that is D4's job (ledger-to-bank matching), and D4
+	// is Product's, out of scope here (proposal's non-goals, §6.12).
+	//
+	// amount_minor is signed here (income positive, expense negative,
+	// direction denormalised alongside it for readability) -- design D5's
+	// "opposite signs, equal absolute amount" is exactly
+	// "candidate's base-currency amount = -this row's base-currency amount".
+	//
+	// COALESCE(base_amount_minor, amount_minor), not base_amount_minor alone:
+	// migration 007's own all-or-nothing FX check guarantees that a row with a
+	// NULL base_amount_minor is already denominated in the organisation's base
+	// currency (design D2 in add-transaction-ledger), so amount_minor already
+	// *is* the base-currency amount for exactly the rows that were never
+	// converted. Reading base_amount_minor alone would silently exclude every
+	// transaction in an organisation's own base currency from ever pairing --
+	// the common case, not the rare one. $4 is the same coalesced value, read
+	// for the transaction this is candidates for.
+	TransferCandidatesForTransaction(ctx context.Context, arg TransferCandidatesForTransactionParams) ([]TransferCandidatesForTransactionRow, error)
+	// A page of rows with no live classification, oldest booked_on first, for
+	// the worker a later change writes. Self-advancing: once the worker inserts
+	// a classification for a row in one page, that row's classification is live
+	// and the next call no longer returns it -- there is no offset to track or
+	// to get out of step with a concurrent insert.
+	UnclassifiedTransactions(ctx context.Context, limit int32) ([]Transaction, error)
 	UpdateAccountName(ctx context.Context, arg UpdateAccountNameParams) (int64, error)
 	UpdateEntityName(ctx context.Context, arg UpdateEntityNameParams) (int64, error)
+	// source_kind is deliberately absent from the SET list: a profile's kind is
+	// chosen at creation, the same reasoning as import_batches' own
+	// source_kind (design D4 in add-file-upload) -- a ledger profile silently
+	// becoming a bank one would re-baseline every batch that already used it.
+	UpdateImportProfile(ctx context.Context, arg UpdateImportProfileParams) (int64, error)
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) (int64, error)
 	UpdateOrganizationName(ctx context.Context, name string) (int64, error)
 	// L0: what this organisation has already decided about a counterparty.

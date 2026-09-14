@@ -128,6 +128,46 @@ const messages = {
     "error.debit_and_credit_both_set": "Debit and credit are both filled in.",
     "error.description_missing": "The description is empty.",
 
+    // add-file-upload's six codes. upload_missing and file_too_large are
+    // failure_code values a batch can carry; the other four are RPC-level
+    // codes the same handful of calls can answer with.
+    "error.upload_missing": "The file never reached us. Please upload it again.",
+    "error.file_too_large": "This file is larger than the 25 MB limit.",
+    "error.object_store_not_configured": "File upload is not configured on this server.",
+    "error.invalid_argument": "That request was not valid.",
+    "error.batch_not_found": "This import no longer exists, or it belongs to another organisation.",
+    "error.not_a_member": "You do not have access to that organisation.",
+
+    // add-ingest-validation's remaining seven codes (five of the twelve
+    // already have keys above, from the earlier mock fixtures).
+    "error.replacement_character": "This file contains corrupted text. Re-export it and try again.",
+    "error.account_unresolved": "This file's account could not be matched to one on file.",
+    "error.balance_mismatch": "Opening balance plus movements does not equal the declared closing balance.",
+    "error.row_count_mismatch": "The number of rows does not match what the file declares.",
+    "error.period_gap": "A row falls outside the period this file declares.",
+    "error.mixed_currency": "This account is on file in a different currency.",
+    "error.duplicate_bank_reference": "The same posting appears twice in this file.",
+
+    // The three outcomes.
+    "validation.outcome.valid": "Valid",
+    "validation.outcome.valid_with_warnings": "Valid, with warnings",
+    "validation.outcome.rejected": "Rejected",
+
+    // The override RPC's own codes.
+    "error.validation_not_found": "This import has not been validated, or it belongs to another organisation.",
+    "error.override_reason_too_short": "Write at least ten characters explaining the override.",
+    "error.override_requires_approver_role": "Only an owner, admin or approver may override a validation warning.",
+    "error.already_overridden": "This import was already overridden.",
+    "error.override_only_over_warnings": "A file with errors cannot be overridden — only one with warnings can.",
+
+    // add-dedup's own codes.
+    "error.already_imported": "This file has already been imported.",
+    "error.transfer_not_found": "This transfer no longer exists, or belongs to another organisation.",
+    "dedup.level.D2": "Duplicate within this file",
+    "dedup.level.D3": "Already imported previously",
+    "dedup.transfer.active": "Excluded as a transfer between your own accounts",
+    "dedup.transfer.dismissed": "Included",
+
     "review.title": "Review",
     "review.remaining": "remaining",
     "review.suggested": "Suggested",
@@ -286,6 +326,40 @@ const messages = {
     "error.currency_unknown": "Недопустимый код валюты ISO-4217.",
     "error.debit_and_credit_both_set": "Заполнены и дебет, и кредит.",
     "error.description_missing": "Описание пустое.",
+
+    "error.upload_missing": "Файл не был получен. Пожалуйста, загрузите его снова.",
+    "error.file_too_large": "Файл превышает ограничение в 25 МБ.",
+    "error.object_store_not_configured": "Загрузка файлов не настроена на этом сервере.",
+    "error.invalid_argument": "Некорректный запрос.",
+    "error.batch_not_found": "Этот импорт больше не существует или принадлежит другой организации.",
+    "error.not_a_member": "У вас нет доступа к этой организации.",
+
+    "error.replacement_character": "Файл содержит повреждённый текст. Экспортируйте его заново и повторите попытку.",
+    "error.account_unresolved": "Не удалось сопоставить счёт из этого файла с уже имеющимся.",
+    "error.balance_mismatch": "Входящий остаток плюс обороты не равны заявленному исходящему остатку.",
+    "error.row_count_mismatch": "Количество строк не совпадает с заявленным в файле.",
+    "error.period_gap": "Есть строка вне периода, заявленного в файле.",
+    "error.mixed_currency": "Этот счёт уже числится в другой валюте.",
+    "error.duplicate_bank_reference": "Одна и та же проводка встречается в файле дважды.",
+
+    "validation.outcome.valid": "Корректно",
+    "validation.outcome.valid_with_warnings": "Корректно, с замечаниями",
+    "validation.outcome.rejected": "Отклонено",
+
+    "error.validation_not_found": "Этот импорт ещё не проверен либо принадлежит другой организации.",
+    "error.override_reason_too_short": "Укажите не менее десяти символов, поясняющих решение об исключении.",
+    "error.override_requires_approver_role": "Исключить предупреждение может только владелец, администратор или утверждающий.",
+    "error.already_overridden": "Это решение об исключении уже было принято ранее.",
+    "error.override_only_over_warnings": "Файл с ошибками нельзя исключить из проверки — только файл с замечаниями.",
+
+    // add-dedup's own codes. Russian wording has not been checked by a
+    // native speaker.
+    "error.already_imported": "Этот файл уже был импортирован.",
+    "error.transfer_not_found": "Этот перевод больше не существует либо принадлежит другой организации.",
+    "dedup.level.D2": "Дублируется внутри этого файла",
+    "dedup.level.D3": "Уже был импортирован ранее",
+    "dedup.transfer.active": "Исключено как перевод между вашими счетами",
+    "dedup.transfer.dismissed": "Учтено",
 
     "review.title": "Проверка",
     "review.remaining": "осталось",

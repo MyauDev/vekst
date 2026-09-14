@@ -241,6 +241,15 @@ nil dereference, so a developer with no credentials still gets a working stack.
 Browser-facing, served over Connect. New file `proto/vekst/v1/import.proto`. Both reviewers,
 per CODEOWNERS.
 
+**Correction made during implementation, 2026-09-13.** Every request message below gained an
+`org_id` field the first draft omitted. `add-tenancy-and-rls` design D7 specifies the wire
+shape this needs — `req.Msg.OrgId` resolved by `db.OrgIDForSession` before anything reaches
+`db.InTx` — but no change before this one had a tenant-scoped RPC to write it against, so
+nothing enforced it yet. `ImportService` is that RPC, so it is what establishes the pattern
+for real: an organisation cannot be read from ambient state (there is none) or inferred from
+`entity_id` alone (resolving org from entity would need the tenant context the resolution is
+supposed to produce). The five messages below carry the corrected shape.
+
 ```protobuf
 service ImportService {
   // Reserves a batch and returns a presigned PUT. The batch exists in

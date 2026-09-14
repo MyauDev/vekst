@@ -35,6 +35,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -110,11 +111,23 @@ func (c *Client) Stop(ctx context.Context) error {
 	return nil
 }
 
-// InsertTx enqueues args inside tx. The job exists if and only if tx
-// commits -- design D3, exercised by TestInsertTx in noop_test.go.
+// InsertTx enqueues args inside tx, to run as soon as a worker is free. The
+// job exists if and only if tx commits -- design D3, exercised by
+// TestInsertTx in noop_test.go.
 func (c *Client) InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs) error {
 	if _, err := c.river.InsertTx(ctx, tx, args, nil); err != nil {
 		return fmt.Errorf("jobs: insert: %w", err)
+	}
+	return nil
+}
+
+// InsertTxAt is InsertTx with a scheduled time: the job does not become
+// eligible to run until at. add-file-upload's expiry job is the first caller
+// -- a batch that never receives its upload has to be swept only once its
+// signed URL has actually expired, not the moment it was created.
+func (c *Client) InsertTxAt(ctx context.Context, tx pgx.Tx, args river.JobArgs, at time.Time) error {
+	if _, err := c.river.InsertTx(ctx, tx, args, &river.InsertOpts{ScheduledAt: at}); err != nil {
+		return fmt.Errorf("jobs: insert scheduled: %w", err)
 	}
 	return nil
 }

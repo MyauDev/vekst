@@ -163,3 +163,39 @@ statement.
 - **WHEN** a file is parsed
 - **THEN** no tenant context is required
 - **AND** no row is read from or written to any table
+
+### Requirement: A parsed line is stored so its parse can be re-examined
+
+The system SHALL persist one row per parsed line, keyed to the batch and the line number it
+came from, under the same row-level security every tenant table carries. The stored payload
+SHALL be the cells this capability extracted, not a re-encoding of the file's decoded text —
+decoding is reproducible exactly from the object store's original bytes, so storing it again
+adds nothing; what is not reproducible after a later change to this capability's own parsing
+logic is what a given parse actually decided at the time.
+
+This is a persistence step performed with the parser's output, not by the parser itself —
+the requirement above that a parser has no side effects is unchanged.
+
+#### Scenario: A parsed batch's lines are stored under its own tenant
+
+- **WHEN** a batch belonging to organisation A is parsed
+- **THEN** one `raw_rows` row exists per parsed line
+- **AND** each carries A's `org_id` and the batch's id
+
+#### Scenario: One organisation cannot see or write another's raw rows
+
+- **WHEN** organisation B addresses A's batch by id, under B's own tenant context
+- **THEN** no row is returned
+- **AND** an attempt to insert against A's batch id under B's context is refused, because no
+  row satisfies the composite foreign key `(org_id, batch_id)` for B
+
+#### Scenario: A read without tenant context raises
+
+- **WHEN** `raw_rows` is queried outside a tenant transaction
+- **THEN** the database raises `42704`
+- **AND** it does not return zero rows
+
+#### Scenario: A line is stored once
+
+- **WHEN** the same batch and line number are persisted a second time
+- **THEN** the write is refused by a uniqueness constraint

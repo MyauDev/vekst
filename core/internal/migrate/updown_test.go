@@ -86,9 +86,13 @@ func TestUpDownUp(t *testing.T) {
 	}
 	// goose_db_version + 5 River tables + 4 identity tables (00003) + 4
 	// tenancy tables (00004) + categories (00005) + classification_rules
-	// and vendors (00006).
+	// and vendors (00006) + import_batches, transactions and
+	// classifications (00007) + raw_rows (00009) + import_validations
+	// (00010) + import_profiles (00011) + dedup_skips, internal_transfers
+	// and internal_transfer_members (00012). 00008 adds no table of its
+	// own -- it only widens import_batches.
 
-	assertTableCount(t, url, 20)
+	assertTableCount(t, url, 26)
 
 	// Down once per migration that creates a table, newest first. Named
 	// rather than counted: when the count is wrong the failure says which
@@ -100,7 +104,8 @@ func TestUpDownUp(t *testing.T) {
 	// database has ever been migrated. This test runs against a scratch
 	// database beside the real one, which is the case that cannot work.
 	for _, name := range []string{
-		"00007 transaction ledger", "00006 classification rules",
+		"00012 dedup", "00011 import profiles", "00010 ingest validation", "00009 raw rows",
+		"00008 file upload", "00007 transaction ledger", "00006 classification rules",
 		"00005 taxonomy", "00004 tenancy",
 		"00003 identity", "00002 River",
 	} {
@@ -117,7 +122,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 20)
+	assertTableCount(t, url, 26)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {

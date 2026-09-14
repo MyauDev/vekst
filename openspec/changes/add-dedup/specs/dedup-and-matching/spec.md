@@ -7,7 +7,7 @@ money the customer moved between their own accounts being read as income. Both a
 by comparison, and comparison is never proof — so nothing here deletes anything, and every
 decision it takes can be inspected and reversed.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: The same file cannot be imported twice
 
@@ -20,7 +20,7 @@ uploadable.
 
 - **WHEN** the same file is uploaded twice at the same moment
 - **THEN** exactly one batch reaches imported
-- **AND** the other fails with `already_imported` naming the first
+- **AND** the other fails with `already_imported`
 
 #### Scenario: The same file from two customers is two files
 
@@ -34,11 +34,20 @@ uploadable.
 - **THEN** the upload proceeds
 - **AND** it is not refused as already imported
 
-### Requirement: A repeated row is skipped, never rejected and never deleted
+### Requirement: A row already imported under another batch is skipped, never rejected and never deleted
 
-The system SHALL skip a row that duplicates another row in the same batch, or a row already
-imported by that organisation, and SHALL import the remainder of the file. It SHALL NOT
-treat a duplicate as a validation failure.
+The system SHALL skip a row that matches a row already imported by that organisation under
+a different batch, and SHALL import the remainder of the file. It SHALL NOT treat a
+duplicate as a validation failure.
+
+Within one batch, the system SHALL NOT skip two rows merely for sharing every hashed field:
+the content hash includes the occurrence of that content within the batch specifically so
+that two genuinely distinct rows — two coffees, same day, same amount, same wording, no
+bank reference — are not mistaken for one row repeated. **Corrected from this
+specification's own first draft** during change 2.6's implementation, once
+`add-transaction-ledger`'s occurrence term made the original "first imported, second
+skipped" reading of an in-batch duplicate impossible to produce from real distinct rows —
+confirmed with the founder before this delta was corrected to match.
 
 #### Scenario: A monthly re-export imports only what is new
 
@@ -47,10 +56,11 @@ treat a duplicate as a validation failure.
 - **AND** the new rows are imported
 - **AND** the batch is not rejected
 
-#### Scenario: A duplicate inside one file
+#### Scenario: Two genuinely repeated rows inside one file both import
 
-- **WHEN** one file contains the same row twice
-- **THEN** the first is imported and the second is skipped
+- **WHEN** one file contains two rows identical in every hashed field
+- **THEN** both are imported
+- **AND** neither is recorded as a skip
 
 #### Scenario: Nothing is removed
 
@@ -75,11 +85,12 @@ Counts SHALL be derived from these records.
 - **THEN** the balance check reconciles over every parsed row
 - **AND** skipping rows afterwards does not make the batch fail reconciliation
 
-#### Scenario: An indistinguishable repeat is still recorded
+#### Scenario: A cross-batch repeat is recorded even when the row is otherwise ordinary
 
-- **WHEN** two genuinely separate payments are identical in every hashed field
-- **THEN** the second is skipped
-- **AND** the skip record names its line, so the customer can find it
+- **WHEN** a row matches one already imported under a different batch
+- **THEN** it is skipped
+- **AND** the skip record names its line, and the transaction and batch it matched, so the
+  customer can find and verify it
 
 ### Requirement: Money moved between the customer's own accounts is detected and excluded
 
