@@ -101,14 +101,16 @@ func (w *persistWorker) Work(ctx context.Context, job *river.Job[PersistImportAr
 			candidates[i] = dedup.Candidate{LineNo: r.LineNo, Txn: txn}
 		}
 
-		// D2: safety net against this job itself processing one line
-		// twice. Two genuinely repeated rows in the file are kept, not
-		// skipped -- see dedup.Partition's own doc comment.
-		afterD2, skips := dedup.Partition(candidates)
+		// D2: assigns each row its occurrence-aware hash. Two genuinely
+		// repeated rows in the file get different occurrences and are both
+		// kept -- see dedup.Partition's own doc comment for why there is
+		// no skip logic left to run here.
+		withHashes := dedup.Partition(candidates)
 
 		// D3: against everything this organisation has already imported.
 		var toInsert []ledger.Transaction
-		for _, c := range afterD2 {
+		var skips []dedup.Skip
+		for _, c := range withHashes {
 			matchedTxnID, matchedBatchID, found, err := dedup.FindByHash(ctx, tx, c.Txn.DedupHash)
 			if err != nil {
 				return fmt.Errorf("checking line %d against prior imports: %w", c.LineNo, err)

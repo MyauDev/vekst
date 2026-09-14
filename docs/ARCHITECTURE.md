@@ -327,7 +327,7 @@ Its own capability: `dedup-and-matching`. Four levels, each with a different act
 | Level | Detects | Key | Action |
 | --- | --- | --- | --- |
 | **D1** | The same file uploaded twice | SHA-256 of the file bytes | Fail the batch as `already_imported`, naming the earlier one |
-| **D2** | The same line processed twice by this pipeline itself | `dedup_hash` within one persist | Skip and record — but see the note below: this almost never fires |
+| **D2** | Nothing, in the current implementation | `dedup_hash` within one persist | None — see the note below: unreachable, not merely rare, once `occurrence` exists |
 | **D3** | Rows already imported from another file | `dedup_hash` lookup across batches | Skip, count, show which batch and transaction holds the original |
 | **D4** | The same economic event in two sources — a ledger invoice and its bank payment | amount + counterparty + date window | **Propose a link. Never delete.** Human confirms |
 
@@ -343,17 +343,27 @@ dedup_hash = sha256(
 (`add-dedup`) discovered while implementing D2: two coffees bought on the same day, for the
 same amount, with the same wording and no bank reference, are two real rows, not a
 duplicate of each other. `occurrence` is the Nth time that exact content has been seen so
-far while building one batch, so the two coffees get different hashes and both import. The
-consequence for D2 is that it essentially never fires on real customer data — the case it
-still catches is this pipeline itself processing one line twice, a defect in the pipeline,
-not a fact about the file. D3 is unaffected: a genuine re-upload reproduces the same
-occurrences and therefore the same hashes, so the cross-batch lookup still finds it. What
-occurrence does *not* prevent is two unrelated real transactions, in two unrelated batches,
-coincidentally landing on the same content and the same occurrence — which is exactly why
-`transactions_dedup_idx` is an ordinary index, not a unique one: a hash match is skipped and
-recorded, with the line and the transaction it matched, never rejected outright. A false
-positive here would otherwise be indistinguishable from a customer permanently losing a
-real row with no record it ever existed.
+far while building one batch — a plain incrementing counter — so the two coffees get
+different hashes and both import.
+
+The consequence for D2 is not that it rarely fires; it is that it **cannot** fire, in the
+current implementation, on any input short of a SHA-256 collision. Occurrence is a
+bijection between (content, its Kth repeat within one persist) and a hash, so two rows in
+one batch can only produce the same hash if the same content repeats at the same position
+twice — which a single pass, counting as it goes, cannot itself produce, however the
+content came to repeat. `core/internal/dedup.Partition` shipped with a second check for
+exactly this case and it was dead code from the day it was written; removed once its own
+test proved so, rather than left in place looking like a safety net (CLAUDE.md: no
+validation for a scenario that cannot happen).
+
+D3 is unaffected: a genuine re-upload reproduces the same occurrences and therefore the
+same hashes, so the cross-batch lookup still finds it. What occurrence does *not* prevent
+is two unrelated real transactions, in two unrelated batches, coincidentally landing on the
+same content and the same occurrence — which is exactly why `transactions_dedup_idx` is an
+ordinary index, not a unique one: a hash match is skipped and recorded, with the line and
+the transaction it matched, never rejected outright. A false positive here would otherwise
+be indistinguishable from a customer permanently losing a real row with no record it ever
+existed.
 
 ### 5.0 The canonical grain
 

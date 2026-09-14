@@ -19,7 +19,11 @@ import (
 	"github.com/MyauDev/vekst/core/internal/db"
 )
 
-// Level values dedup_skips admits.
+// Level values dedup_skips admits. LevelD2 is never written by this
+// package's own code -- see partition.go's own doc comment for why an
+// in-batch collision is unreachable once dedup_hash carries occurrence --
+// but the schema still admits it, and GetDedupSummary still counts it, on
+// the chance a future parser's own bug produces one.
 const (
 	LevelD2 = "D2"
 	LevelD3 = "D3"
@@ -35,11 +39,11 @@ type Skip struct {
 	BatchID   uuid.UUID
 	LineNo    int
 	PostingNo int32
-	// D2 or D3.
+	// D2 or D3 -- see this file's own note on LevelD2.
 	Level     string
 	DedupHash string
-	// Set for D3 only; the zero UUID for D2, where the original is another
-	// line of this same file rather than an existing transaction.
+	// Set for D3 only; the zero UUID for D2, where the original would be
+	// another line of this same file rather than an existing transaction.
 	MatchedTransactionID uuid.UUID
 	MatchedBatchID       uuid.UUID
 	CreatedAt            time.Time

@@ -11,44 +11,37 @@ type Candidate struct {
 	Txn    ledger.Transaction
 }
 
-// Partition is D2: it assigns every candidate its DedupHash (design D5,
-// occurrence included, via ledger.DedupHash) and separates out any
-// candidate whose (content, occurrence) pair already appeared earlier in
-// this same call.
+// Partition assigns every candidate its DedupHash (design D5, occurrence
+// included, via ledger.DedupHash).
 //
-// That case does not happen for rows processed once each in one pass --
-// occurrence is exactly the Nth time ledger.ContentKey repeats within this
-// slice, so two genuinely distinct payments (design D5's own two coffees)
-// get occurrences 1 and 2 and never collide here. This exists as a defence
-// against this job somehow being handed the same line twice -- a raw_rows
-// read that ran twice, a retry that did not deduplicate its own input --
-// which is a defect in the caller, not a fact about the customer's file.
-// See ledger.DedupHash's own doc comment, and the confirmation this
-// package's own design note records: two genuinely repeated rows within
-// one file are correct data and are both kept, never skipped as D2.
-func Partition(candidates []Candidate) (keep []Candidate, skips []Skip) {
+// This is D2's whole implementation, and design D2 turned out to need no
+// skip logic at all: occurrence is exactly the Nth time
+// ledger.ContentKey(candidate) repeats within this slice, a plain
+// incrementing counter, so it is a bijection between (content, its Kth
+// repeat) and a occurrence number -- two candidates can share a DedupHash
+// here only if a caller hands Partition the same content-key at the same
+// repeat count twice in one call, which cannot happen from a single pass
+// over one slice counting as it goes. Two genuinely distinct payments
+// (design D5's own two coffees) get occurrences 1 and 2 and are both kept,
+// correctly, by construction rather than by a check.
+//
+// An earlier version of this function kept a second map to skip a
+// "repeated hash" as level D2 -- confirmed, while adding this function's
+// own tests, to be dead code: nothing can reach it without a SHA-256
+// collision. Removed rather than kept as a defensive-looking no-op
+// (CLAUDE.md: no validation for a scenario that cannot happen). What
+// actually stands in for "this job processed one line twice" is
+// persistWorker's own transaction: a failed attempt rolls back everything
+// it wrote, so a retry recomputes occurrence fresh and never sees a
+// partial result from the attempt before it.
+func Partition(candidates []Candidate) []Candidate {
 	seen := map[string]int{}
-	hashSeen := map[string]bool{}
-
-	for _, c := range candidates {
+	keep := make([]Candidate, len(candidates))
+	for i, c := range candidates {
 		key := ledger.ContentKey(c.Txn)
 		seen[key]++
-		occurrence := seen[key]
-		hash := ledger.DedupHash(c.Txn, occurrence)
-
-		if hashSeen[hash] {
-			skips = append(skips, Skip{
-				LineNo:    c.LineNo,
-				PostingNo: c.Txn.PostingNo,
-				Level:     LevelD2,
-				DedupHash: hash,
-			})
-			continue
-		}
-		hashSeen[hash] = true
-
-		c.Txn.DedupHash = hash
-		keep = append(keep, c)
+		c.Txn.DedupHash = ledger.DedupHash(c.Txn, seen[key])
+		keep[i] = c
 	}
-	return keep, skips
+	return keep
 }

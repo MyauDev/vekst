@@ -43,11 +43,14 @@ duplicate as a validation failure.
 Within one batch, the system SHALL NOT skip two rows merely for sharing every hashed field:
 the content hash includes the occurrence of that content within the batch specifically so
 that two genuinely distinct rows — two coffees, same day, same amount, same wording, no
-bank reference — are not mistaken for one row repeated. **Corrected from this
-specification's own first draft** during change 2.6's implementation, once
+bank reference — are not mistaken for one row repeated. **Corrected twice from this
+specification's own first draft**, both during change 2.6's implementation: first, once
 `add-transaction-ledger`'s occurrence term made the original "first imported, second
-skipped" reading of an in-batch duplicate impossible to produce from real distinct rows —
-confirmed with the founder before this delta was corrected to match.
+skipped" reading of an in-batch duplicate impossible to produce from real distinct rows
+(confirmed with the founder); second, on realising occurrence is a plain counter over
+content repeats within one pass, which makes an in-batch hash collision not merely rare but
+unreachable by any input short of an actual hash collision. There is no in-batch skip case
+left to specify.
 
 #### Scenario: A monthly re-export imports only what is new
 
