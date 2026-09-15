@@ -40,6 +40,7 @@
 /core/internal/report/       @MyauDev/admin
 /core/internal/normalize/    @MyauDev/admin
 /core/internal/review/       @MyauDev/admin
+/core/internal/report/       @MyauDev/admin
 /classifier/                 @MyauDev/admin
 
 # --- Both reviewers required (branch protection enforces the count) -------
@@ -116,3 +117,10 @@
 # migration 005 created and left NULL on every row.
 /core/migrations/00013_review_decisions.sql   @MyauDev/admin
 /core/migrations/00014_pnl_sections.sql       @MyauDev/admin
+
+# The report's reads (change 4.1). Every statement in this file filters on one
+# source_kind: a line summing ledger and bank rows together counts an invoice
+# and its payment twice, which is the single most likely way this product
+# prints a wrong number. A test over the file enforces it -- read that test
+# before adding a query here.
+/core/internal/db/query/report.sql          @MyauDev/admin

@@ -13,13 +13,13 @@ const ccy = "NOK"
 
 func spec(periods ...string) report.Spec {
 	return report.Spec{
-		Basis:            report.BasisBank,
-		Periods:          periods,
-		BaseCurrency:     ccy,
-		TaxonomyVersion:  "v1",
-		RulesetVersion:   "v1",
-		EngineVersion:    "human",
-		NormalizeVersion: "v1",
+		Basis:             report.BasisBank,
+		Periods:           periods,
+		BaseCurrency:      ccy,
+		TaxonomyVersions:  []string{"v1"},
+		RulesetVersions:   []string{"v1"},
+		EngineVersions:    []string{"human"},
+		NormalizeVersions: []string{"v1"},
 	}
 }
 
@@ -322,16 +322,161 @@ func TestASecondCurrencyIsAnError(t *testing.T) {
 	}
 }
 
-func TestPeriodsBetween(t *testing.T) {
-	got, err := report.PeriodsBetween("2025-11", "2026-02")
+func TestMonths(t *testing.T) {
+	got, err := report.Months("2025-11", "2026-02")
 	if err != nil {
-		t.Fatalf("PeriodsBetween: %v", err)
+		t.Fatalf("Months: %v", err)
 	}
 	want := []string{"2025-11", "2025-12", "2026-01", "2026-02"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	if _, err := report.PeriodsBetween("2026-05", "2026-01"); err == nil {
+	if _, err := report.Months("2026-05", "2026-01"); err == nil {
 		t.Error("a range running backwards was accepted")
+	}
+	for _, bad := range []string{"2026", "2026-13", "2026-00", "march", ""} {
+		if _, err := report.Months(bad, "2026-12"); err == nil {
+			t.Errorf("Months(%q) was accepted", bad)
+		}
+	}
+}
+
+// A quarter is three months folded, and the label says so. Columns stay in
+// order and a quarter appears once however many of its months are in range --
+// a half-quarter at the edge of a range is still that quarter's column.
+func TestPeriodsFoldMonthsByGranularity(t *testing.T) {
+	for _, c := range []struct {
+		g        report.Granularity
+		from, to string
+		want     []string
+	}{
+		{report.Monthly, "2026-01", "2026-03", []string{"2026-01", "2026-02", "2026-03"}},
+		{report.Quarterly, "2026-01", "2026-07", []string{"2026-Q1", "2026-Q2", "2026-Q3"}},
+		{report.Quarterly, "2026-02", "2026-02", []string{"2026-Q1"}},
+		{report.Yearly, "2025-11", "2026-02", []string{"2025", "2026"}},
+	} {
+		got, err := report.Periods(c.from, c.to, c.g)
+		if err != nil {
+			t.Fatalf("Periods(%s, %s, %s): %v", c.from, c.to, c.g, err)
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("Periods(%s, %s, %s) = %v, want %v", c.from, c.to, c.g, got, c.want)
+		}
+	}
+
+	if _, err := report.Periods("2026-01", "2026-03", report.Granularity("fortnight")); err == nil {
+		t.Error("an unknown granularity was accepted")
+	}
+}
+
+// Every month of a range folds onto exactly one column of that range. A month
+// that folded onto nothing would take its transactions out of the report
+// without saying so, which is the one thing a period may never do.
+func TestEveryMonthFoldsOntoAColumn(t *testing.T) {
+	for _, g := range []report.Granularity{report.Monthly, report.Quarterly, report.Yearly} {
+		months, err := report.Months("2024-01", "2026-12")
+		if err != nil {
+			t.Fatal(err)
+		}
+		periods, err := report.Periods("2024-01", "2026-12", g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		known := map[string]bool{}
+		for _, p := range periods {
+			known[p] = true
+		}
+		for _, m := range months {
+			label, err := g.Label(m)
+			if err != nil {
+				t.Fatalf("%s.Label(%s): %v", g, m, err)
+			}
+			if !known[label] {
+				t.Errorf("%s: month %s folds onto %q, which is not a column", g, m, label)
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Task 0.5 -- D-3, the output table structure
+// ---------------------------------------------------------------------------
+
+// The table is printed in one order and it is not "sections, then results".
+// Each computed line follows the operands it consumes, so the reader never has
+// to hold two figures in their head to see where a third came from.
+func TestTheTableIsPrintedInReadingOrder(t *testing.T) {
+	r := compute(t, nil, spec("2026-03"))
+
+	want := []string{"01", "02", "91", "03", "92", "04", "05", "93", "06", "94", "07", "95"}
+	got := make([]string, 0, len(r.Lines))
+	for _, l := range r.Lines {
+		got = append(got, l.Code)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("line order = %v, want %v", got, want)
+	}
+
+	// A computed line carries the prose a reader wants beside it; a section
+	// has none, because there is no arithmetic to explain.
+	for _, l := range r.Lines {
+		if l.Computed != (l.Formula != "") {
+			t.Errorf("line %s: computed=%v but formula=%q", l.Code, l.Computed, l.Formula)
+		}
+	}
+}
+
+// Every line in the printed order is one the report actually computes, and
+// every line the report computes is printed. A section added to the taxonomy
+// and forgotten here would otherwise vanish from the table while still being
+// summed into the chain.
+func TestTheOrderCoversEverySectionAndEveryComputedLine(t *testing.T) {
+	inOrder := map[string]bool{}
+	for _, c := range report.Order {
+		if inOrder[c] {
+			t.Errorf("code %s appears twice in Order", c)
+		}
+		inOrder[c] = true
+	}
+
+	for _, c := range report.Sections {
+		if !inOrder[c] {
+			t.Errorf("section %s is summed but never printed", c)
+		}
+		delete(inOrder, c)
+	}
+	for _, l := range report.Chain {
+		if !inOrder[l.Code] {
+			t.Errorf("computed line %s is never printed", l.Code)
+		}
+		delete(inOrder, l.Code)
+	}
+	for c := range inOrder {
+		t.Errorf("Order prints %s, which is neither a section nor a computed line", c)
+	}
+}
+
+// The buckets are printed too, and all four of them. One quietly dropped from
+// BucketOrder would be computed, returned in the map, and never shown -- which
+// is precisely the silent omission D6 exists to prevent.
+func TestEveryBucketIsPrinted(t *testing.T) {
+	r := compute(t, nil, spec("2026-03"))
+
+	printed := map[report.Bucket]bool{}
+	for _, b := range report.BucketOrder {
+		if printed[b] {
+			t.Errorf("bucket %s appears twice in BucketOrder", b)
+		}
+		printed[b] = true
+	}
+	for b := range r.Totals {
+		if !printed[b] {
+			t.Errorf("bucket %s is computed but never printed", b)
+		}
+	}
+	for b := range printed {
+		if _, ok := r.Totals[b]; !ok {
+			t.Errorf("BucketOrder names %s, which the report does not compute", b)
+		}
 	}
 }

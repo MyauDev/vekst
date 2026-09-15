@@ -14,6 +14,13 @@
 -- reading the prefix would be reading a habit.
 --
 -- So it is stored, and a trigger keeps it true.
+--
+-- It stores the ancestor's *code*, not its name. A name is unique by nothing,
+-- validated by nothing and stable by nothing -- renaming NET SALES would move
+-- every row out of the section it is in, silently -- which is the same reason
+-- the report's arithmetic is a table over codes rather than the prose in
+-- `formula` (design D1). The name is what a screen prints; the code is what
+-- the computer groups by.
 
 -- +goose Up
 
@@ -24,7 +31,7 @@
 ALTER TABLE categories NO FORCE ROW LEVEL SECURITY;
 
 UPDATE categories c
-   SET pnl_section = root.name
+   SET pnl_section = root.code
   FROM categories root
  WHERE root.taxonomy_version = c.taxonomy_version
    AND root.org_id IS NOT DISTINCT FROM c.org_id
@@ -70,7 +77,7 @@ DECLARE
     inherited text;
 BEGIN
     IF NEW.parent_id IS NULL THEN
-        inherited := NEW.name;
+        inherited := NEW.code;
     ELSE
         SELECT pnl_section INTO inherited FROM categories WHERE id = NEW.parent_id;
         IF inherited IS NULL THEN
@@ -93,7 +100,7 @@ $fn$;
 -- +goose StatementEnd
 
 CREATE TRIGGER category_section_follows_parent
-    BEFORE INSERT OR UPDATE OF pnl_section, parent_id, name ON categories
+    BEFORE INSERT OR UPDATE OF pnl_section, parent_id, code ON categories
     FOR EACH ROW EXECUTE FUNCTION category_section_follows_parent();
 
 -- Every report read groups by it.

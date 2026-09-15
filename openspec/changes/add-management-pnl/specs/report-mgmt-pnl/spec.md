@@ -136,6 +136,63 @@ ask.
 - **THEN** the versions it reports are those recorded on the classification rows
 - **AND** not constants compiled into the binary
 
+#### Scenario: A report produced under two versions names both
+
+- **WHEN** the classifications a report sums were made under two different engine versions
+- **THEN** both are returned
+- **AND** neither is chosen over the other
+
+#### Scenario: A report that summed no classification names no version
+
+- **WHEN** a range contains no live classification
+- **THEN** the versions are empty rather than the running binary's own
+
+### Requirement: The table is printed in one order
+
+The system SHALL return the report's lines in a fixed order in which each computed line
+immediately follows the operands it consumes, and SHALL return every section it sums and
+every line it computes.
+
+A table listing seven sections and then five results is a spreadsheet the reader has to
+reassemble mentally, and the reassembly is where a misreading happens.
+
+#### Scenario: A computed line follows its operands
+
+- **WHEN** a report is produced
+- **THEN** the lines are NET SALES, CS, GM, OCS, NM, OPEX, OIE, CM, FR, IBT, CIT, NI in that
+  order
+
+#### Scenario: Nothing computed goes unprinted
+
+- **WHEN** the printed order is compared with what the report computes
+- **THEN** every section and every computed line appears exactly once
+- **AND** every exclusion total appears exactly once
+
+### Requirement: Costs are stored signed and printed positive
+
+The system SHALL store money out as a negative amount and SHALL present a cost line as a
+positive figure, with the sign carried by the line's role.
+
+An owner reading "OPEX −412,000" beside "NET SALES 1,200,000" is reading a spreadsheet, not
+a report. The inversion is one place in the calculation and nowhere else.
+
+#### Scenario: The store and the page disagree by construction
+
+- **WHEN** a cost transaction is summed onto a line
+- **THEN** the stored amount is negative
+- **AND** the figure on the report is positive
+
+### Requirement: Columns follow the requested granularity
+
+The system SHALL group periods by month, quarter or year as the request names, and SHALL
+label a column so that its granularity is readable from the label alone.
+
+#### Scenario: A quarter is its months folded
+
+- **WHEN** a quarterly report covers January to July
+- **THEN** its columns are 2026-Q1, 2026-Q2 and 2026-Q3
+- **AND** every month of the range contributes to exactly one column
+
 ### Requirement: Periods are complete and explicit
 
 The system SHALL produce one column per period in the requested range, including periods
@@ -165,3 +222,14 @@ naming an entity that does not exist.
 - **WHEN** organisation A requests a report for an entity owned by organisation B
 - **THEN** the result is empty
 - **AND** it is indistinguishable from the entity not existing
+
+#### Scenario: A non-member is refused the same way twice
+
+- **WHEN** somebody who belongs to no such organisation requests a report
+- **THEN** the request is refused
+- **AND** refused identically whether the organisation exists or not
+
+#### Scenario: Any member may read a report
+
+- **WHEN** a member holding the viewer role requests a report
+- **THEN** it is produced

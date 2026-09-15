@@ -19,6 +19,7 @@ import (
 	"github.com/MyauDev/vekst/core/internal/config"
 	"github.com/MyauDev/vekst/core/internal/identity"
 	"github.com/MyauDev/vekst/core/internal/ingest"
+	"github.com/MyauDev/vekst/core/internal/report"
 	"github.com/MyauDev/vekst/core/internal/review"
 )
 
@@ -32,7 +33,8 @@ type Server struct {
 
 // New builds the router and the HTTP server. It performs no I/O. database is
 // never nil from change 0.2 onward: core always connects to Postgres.
-func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker, ident *identity.Service, importSvc *ingest.Service, reviewer *review.Service) *Server {
+func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker, ident *identity.Service, importSvc *ingest.Service,
+	reviewer *review.Service, reporter *report.Service) *Server {
 	s := &Server{
 		http: &http.Server{
 			Addr:              cfg.Addr,
@@ -97,6 +99,12 @@ func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, da
 	// tests exercising only health and identity pass.
 	if reviewer != nil {
 		path, handler = vektv1connect.NewReviewServiceHandler(&reviewHandler{svc: reviewer}, authOpt)
+		r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
+	}
+
+	// The management P&L, on the same terms and for the same reason.
+	if reporter != nil {
+		path, handler = vektv1connect.NewReportServiceHandler(&reportHandler{svc: reporter}, authOpt)
 		r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
 	}
 

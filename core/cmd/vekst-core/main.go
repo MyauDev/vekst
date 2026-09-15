@@ -22,6 +22,7 @@ import (
 	"github.com/MyauDev/vekst/core/internal/ingest"
 	"github.com/MyauDev/vekst/core/internal/jobs"
 	"github.com/MyauDev/vekst/core/internal/migrate"
+	"github.com/MyauDev/vekst/core/internal/report"
 	"github.com/MyauDev/vekst/core/internal/review"
 	"github.com/MyauDev/vekst/core/internal/server"
 )
@@ -181,7 +182,8 @@ func run() error {
 	importSvc := ingest.NewService(database, store, jobsClient, ingestCfg)
 
 	return server.New(cfg, log, classifier, database, ident, importSvc,
-		review.New(database, review.HumanVersions(taxonomyVersion, rulesetVersion))).Run(ctx)
+		review.New(database, review.HumanVersions(taxonomyVersion, rulesetVersion)),
+		report.New(database)).Run(ctx)
 }
 
 func level(s string) slog.Level {

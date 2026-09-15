@@ -471,7 +471,8 @@ transaction_links(id, org_id, ledger_txn_id, bank_txn_id,            -- D4
              confidence, confirmed_by, confirmed_at)
 
 vendors(id, org_id, key, display_name, default_category_id)          -- L0 memory
-categories(id, taxonomy_version, code, parent_id, name_i18n, pnl_section, is_pnl)
+categories(id, taxonomy_version, code, parent_id, name_i18n, pnl_section,
+             is_pnl, is_leaf, is_computed, formula, requires_allocation)
 account_code_maps(id, taxonomy_version, chart, account_code, category_id)  -- L0.5
 classification_rules(id, org_id, priority, matcher_jsonb, category_id, active)
 classifications(org_id, id, transaction_id, category_id,
@@ -506,6 +507,20 @@ then point the old one at it" impossible without a race; this was found by
 writing the test for it, not by inspection, and no combination of statement
 ordering rescues a plain index here. See §6 and migration `00007`'s own
 comment on `classifications_one_live_per_transaction`.
+
+`categories.pnl_section` is populated, as of migration `00014`
+(`add-management-pnl`), and it holds the **code** of the level-1 ancestor --
+`'04'`, not `'OPEX'`. 005 created the column and left it NULL on all 46 seeded
+rows; a column read by nothing and populated nowhere is not a decision somebody
+made, it is one nobody finished. The section of a category is derivable from
+the code prefix, and that derivation is true of the seeded tree rather than
+guaranteed of an organisation's own leaf hanging under a shared parent -- so the
+report reads a stored column and a `BEFORE` trigger keeps a new row's section
+equal to its parent's, filling it where the caller omitted it and refusing it
+where the caller stated a different one. The code and not the name for the same
+reason the report's arithmetic is a table over codes: a name is unique by
+nothing and stable by nothing, and renaming NET SALES would otherwise move
+every row out of the section it is in, silently.
 
 - **`org_id` leads the primary key** on `entities` and `accounts`. Referential
   integrity checks — unique and primary key constraints as much as foreign keys

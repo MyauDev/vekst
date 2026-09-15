@@ -6,6 +6,12 @@
 // from stored versions six months later, and an accountant will ask. It also
 // means the whole of the arithmetic is tested without Postgres, and the query
 // is tested separately for the things queries get wrong.
+//
+// That property belongs to this file and is asserted of this file:
+// `purity_test.go` parses pnl.go's imports and fails if a database, a clock or
+// an environment appears among them. `service.go` is the other half -- it reads
+// the rows and calls `Compute` -- and it is deliberately somewhere the compiler
+// can tell apart.
 package report
 
 import (
@@ -64,6 +70,38 @@ var Chain = []computedLine{
 
 // Sections are the lines that receive transactions, in report order.
 var Sections = []string{NetSales, CS, OCS, OPEX, OIE, FR, CIT}
+
+// Order is the table as it is printed: decision D-3, the output structure.
+//
+// Sections and computed lines interleave rather than being stacked in two
+// blocks, because each computed line is read immediately after the operands it
+// consumes -- NET SALES, CS, then the GM those two make. A table listing seven
+// sections and then five results is a spreadsheet the reader has to reassemble
+// mentally, and the reassembly is where a misreading happens.
+//
+// Below the table, in this order, come the four exclusion buckets of D6. They
+// are not lines: they carry no percentage of revenue and nothing is computed
+// from them.
+var Order = []string{NetSales, CS, GM, OCS, NM, OPEX, OIE, CM, FR, IBT, CIT, NI}
+
+// BucketOrder is the order the buckets are printed in, unclassified first
+// because it is the one that decides whether the table above can be trusted.
+var BucketOrder = []Bucket{
+	BucketUnclassified, BucketNonPNL, BucketUnallocated, BucketOtherBasis,
+}
+
+// NonPNLSections receive transactions and reach no line. They are sections in
+// every other sense -- a category hangs under them and `pnl_section` names
+// them -- which is why they are here rather than absent.
+var NonPNLSections = []string{CAPEX, OutOfPNL}
+
+var nonPNLSection = func() map[string]bool {
+	m := map[string]bool{}
+	for _, c := range NonPNLSections {
+		m[c] = true
+	}
+	return m
+}()
 
 // Basis is which half of the business a report is computed from. A line is
 // computed from one of these and never from both: mixing them counts an invoice
@@ -137,14 +175,27 @@ type Spec struct {
 	// one of those is a business fact.
 	Periods []string
 
+	// Granularity, and the closed month range the periods were derived from.
+	// Carried so the response can state what was asked for rather than
+	// leaving a reader to infer it from the column labels -- "2026-Q1" alone
+	// does not say whether January was in the request.
+	Granularity Granularity
+	From        string
+	To          string
+
 	// BaseCurrency labels every figure. A total with no code beside it is not
 	// money.
 	BaseCurrency string
 
-	TaxonomyVersion  string
-	RulesetVersion   string
-	EngineVersion    string
-	NormalizeVersion string
+	// The versions the summed classifications were made under, distinct and
+	// sorted. Sets rather than single strings because a report summing rows
+	// classified under two engine versions was produced under two engine
+	// versions, and printing one of them is a claim about reproducibility that
+	// is not true. In the ordinary case each holds one element.
+	TaxonomyVersions  []string
+	RulesetVersions   []string
+	EngineVersions    []string
+	NormalizeVersions []string
 }
 
 // Figure is one cell: an amount, and its share of revenue where that means
@@ -241,13 +292,25 @@ func Compute(rows []Row, spec Spec) (Report, error) {
 		case r.RequiresAllocation:
 			buckets[BucketUnallocated][i] += r.Amount.MinorUnits
 		default:
-			s, ok := sums[r.Section]
-			if !ok {
+			switch s, ok := sums[r.Section]; {
+			case ok:
+				s[i] += r.Amount.MinorUnits
+			case nonPNLSection[r.Section]:
+				// CAPEX and OUT OF P&L. The leaf's own is_pnl is the first
+				// answer and this is the second: an organisation's own leaf
+				// hanging under CAPEX takes the column's default of true, and
+				// a report that believed it would put a machine purchase in
+				// OPEX. The section is the fact; the flag is the claim.
+				buckets[BucketNonPNL][i] += r.Amount.MinorUnits
+			default:
+				// Neither a P&L section nor one of the two excluded ones. The
+				// level-1 codes are a closed, seeded set, so this is a bug
+				// rather than data -- and bucketing it as "excluded" would
+				// print the bug as a business fact.
 				return Report{}, fmt.Errorf(
-					"report: category %s is in section %q, which is not a P&L section",
+					"report: category %s is in section %q, which is not a section of the taxonomy",
 					r.CategoryCode, r.Section)
 			}
-			s[i] += r.Amount.MinorUnits
 		}
 	}
 
@@ -278,13 +341,18 @@ func Compute(rows []Row, spec Spec) (Report, error) {
 		Totals:  map[Bucket]money.Money{},
 	}
 
-	for _, code := range Sections {
+	chain := map[string]computedLine{}
+	for _, line := range Chain {
+		chain[line.Code] = line
+	}
+	for _, code := range Order {
+		if line, ok := chain[code]; ok {
+			report.Lines = append(report.Lines, buildLine(
+				line.Code, line.Label, line.Formula, true, computed[line.Code], revenue, spec))
+			continue
+		}
 		report.Lines = append(report.Lines, buildLine(
 			code, sectionLabel(code), "", false, present(code, sums[code]), revenue, spec))
-	}
-	for _, line := range Chain {
-		report.Lines = append(report.Lines, buildLine(
-			line.Code, line.Label, line.Formula, true, computed[line.Code], revenue, spec))
 	}
 
 	for name, series := range buckets {
@@ -354,17 +422,80 @@ var sectionLabels = map[string]string{
 
 func sectionLabel(code string) string { return sectionLabels[code] }
 
-// PeriodsBetween produces the month columns of a closed range, including the
-// months with no rows.
-func PeriodsBetween(from, to string) ([]string, error) {
+// Granularity is the width of a column.
+//
+// The database groups by month and nothing else. Quarters and years are months
+// folded here, because folding is date arithmetic and date arithmetic belongs
+// where it has tests -- rather than being three `to_char` format strings
+// repeated across four queries, where the one that is wrong is the one nobody
+// reads.
+type Granularity string
+
+const (
+	Monthly   Granularity = "month"
+	Quarterly Granularity = "quarter"
+	Yearly    Granularity = "year"
+)
+
+// Label folds a month onto the column it belongs to. The label says which
+// granularity produced it -- "2026-Q1" is not "2026-03" with a wider meaning,
+// and a reader comparing two reports should not have to ask.
+func (g Granularity) Label(month string) (string, error) {
+	y, m, err := parseMonth(month)
+	if err != nil {
+		return "", err
+	}
+	switch g {
+	case Monthly:
+		return fmt.Sprintf("%04d-%02d", y, m), nil
+	case Quarterly:
+		return fmt.Sprintf("%04d-Q%d", y, (m-1)/3+1), nil
+	case Yearly:
+		return fmt.Sprintf("%04d", y), nil
+	default:
+		return "", fmt.Errorf("report: %q is not a granularity", g)
+	}
+}
+
+// Periods are the columns of a closed month range, in order and without gaps.
+//
+// A period with no rows is a column of zeros rather than an absent column: a
+// month missing from a report is indistinguishable from a month with no trade,
+// and only one of those is a business fact.
+func Periods(from, to string, g Granularity) ([]string, error) {
+	months, err := Months(from, to)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, month := range months {
+		label, err := g.Label(month)
+		if err != nil {
+			return nil, err
+		}
+		if !seen[label] {
+			seen[label] = true
+			out = append(out, label)
+		}
+	}
+	return out, nil
+}
+
+// Months produces every month of a closed range, the ones with no rows
+// included.
+func Months(from, to string) ([]string, error) {
 	if from > to {
 		return nil, fmt.Errorf("report: period %s is after %s", from, to)
 	}
-	var out []string
-	var y, m int
-	if _, err := fmt.Sscanf(from, "%4d-%2d", &y, &m); err != nil {
-		return nil, fmt.Errorf("report: %q is not a month: %w", from, err)
+	y, m, err := parseMonth(from)
+	if err != nil {
+		return nil, err
 	}
+	if _, _, err := parseMonth(to); err != nil {
+		return nil, err
+	}
+	var out []string
 	for {
 		p := fmt.Sprintf("%04d-%02d", y, m)
 		if p > to {
@@ -377,4 +508,20 @@ func PeriodsBetween(from, to string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// parseMonth reads YYYY-MM and refuses anything else. A month is a label, not
+// an instant: a booking date carries no time zone and parsing one into a
+// time.Time would invent the offset this package is careful never to have.
+func parseMonth(month string) (year, m int, err error) {
+	if len(month) != len("2006-01") {
+		return 0, 0, fmt.Errorf("report: %q is not a month (YYYY-MM)", month)
+	}
+	if _, err := fmt.Sscanf(month, "%4d-%2d", &year, &m); err != nil {
+		return 0, 0, fmt.Errorf("report: %q is not a month: %w", month, err)
+	}
+	if m < 1 || m > 12 {
+		return 0, 0, fmt.Errorf("report: %q names month %d", month, m)
+	}
+	return year, m, nil
 }
