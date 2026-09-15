@@ -8,6 +8,8 @@ import (
 
 	vektv1 "github.com/MyauDev/vekst/core/gen/vekst/v1"
 	typev1 "github.com/MyauDev/vekst/core/gen/vekstype/v1"
+	"github.com/google/uuid"
+
 	"github.com/MyauDev/vekst/core/internal/money"
 	"github.com/MyauDev/vekst/core/internal/report"
 )
@@ -103,7 +105,112 @@ func (h *reportHandler) GetManagementPNL(
 		out.Buckets = append(out.Buckets, bucket)
 	}
 
+	for _, r := range r.Reconciliation {
+		out.Reconciliation = append(out.Reconciliation, &vektv1.ReconciliationLine{
+			Period:           r.Period,
+			Opening:          toReportMoney(r.Opening),
+			In:               toReportMoney(r.In),
+			Out:              toReportMoney(r.Out),
+			Transfers:        toReportMoney(r.Transfers),
+			TransferRowCount: int32(r.TransferRowCount),
+			Closing:          toReportMoney(r.Closing),
+			Balances:         r.Balances,
+			Derived:          r.Derived,
+		})
+	}
+
 	return connect.NewResponse(out), nil
+}
+
+func (h *reportHandler) ListLineTransactions(
+	ctx context.Context,
+	req *connect.Request[vektv1.ListLineTransactionsRequest],
+) (*connect.Response[vektv1.ListLineTransactionsResponse], error) {
+	user, orgID, err := caller(ctx, req.Msg.GetOrganizationId())
+	if err != nil {
+		return nil, err
+	}
+	entity, err := parseUUID(req.Msg.GetEntityId(), "entity_id")
+	if err != nil {
+		return nil, err
+	}
+	basis, err := fromProtoBasis(req.Msg.GetBasis())
+	if err != nil {
+		return nil, err
+	}
+	granularity, err := fromProtoGranularity(req.Msg.GetGranularity())
+	if err != nil {
+		return nil, err
+	}
+	line, err := report.ParseLineRef(req.Msg.GetLine())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			errors.New(report.CodeUnknownLine))
+	}
+	cursor, err := report.ParseCursor(req.Msg.GetCursor())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			errors.New(report.CodeBadCursor))
+	}
+
+	d, err := h.svc.LineTransactions(ctx, user, orgID, report.Request{
+		EntityID:    entity,
+		From:        req.Msg.GetFrom(),
+		To:          req.Msg.GetTo(),
+		Granularity: granularity,
+		Basis:       basis,
+	}, req.Msg.GetPeriod(), line, cursor, req.Msg.GetLimit())
+	if err != nil {
+		return nil, reportErr(err)
+	}
+
+	out := &vektv1.ListLineTransactionsResponse{
+		Kind:       toProtoAnswer(d.Kind),
+		RowCount:   int32(d.RowCount),
+		Total:      toReportMoney(d.Total),
+		NextCursor: d.NextCursor,
+	}
+	for _, o := range d.Operands {
+		out.Operands = append(out.Operands, &vektv1.ReportOperand{
+			Code: o.Code, Label: o.Label, Subtracted: o.Subtracted,
+		})
+	}
+	for _, r := range d.Rows {
+		row := &vektv1.DrillTransaction{
+			Id:              r.ID.String(),
+			BookedOn:        r.BookedOn,
+			BatchId:         r.BatchID.String(),
+			LineNo:          r.LineNo,
+			PostingNo:       r.PostingNo,
+			DocumentRef:     r.DocumentRef,
+			Amount:          toReportMoney(r.Amount),
+			BaseAmount:      toMoney(r.BaseAmount),
+			CounterpartyRaw: r.CounterpartyRaw,
+			Description:     r.Description,
+			RegulatedCode:   r.RegulatedCode,
+			SourceKind:      r.SourceKind,
+			CategoryCode:    r.CategoryCode,
+			CategoryName:    r.CategoryName,
+			EngineLayer:     r.EngineLayer,
+			Evidence:        r.Evidence,
+		}
+		if r.HasConfidence {
+			c := r.Confidence
+			row.Confidence = &c
+		}
+		if r.DecidedBy != uuid.Nil {
+			row.DecidedBy = r.DecidedBy.String()
+		}
+		out.Transactions = append(out.Transactions, row)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func toProtoAnswer(a report.Answer) vektv1.ReportAnswerKind {
+	if a == report.AnswerOperands {
+		return vektv1.ReportAnswerKind_REPORT_ANSWER_KIND_OPERANDS
+	}
+	return vektv1.ReportAnswerKind_REPORT_ANSWER_KIND_TRANSACTIONS
 }
 
 // toFigure carries a zero amount as a zero amount and an absent percentage as

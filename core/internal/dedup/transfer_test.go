@@ -27,6 +27,11 @@ func insertTxn(t *testing.T, d *db.DB, org db.OrgID, txn ledger.Transaction) led
 	if txn.DedupHash == "" {
 		txn.DedupHash = ledger.DedupHash(txn, 1)
 	}
+	if txn.LineNo == 0 {
+		// These tests are about pairing, not provenance. One is as good as
+		// any: nothing here reads it back.
+		txn.LineNo = 1
+	}
 	var out []ledger.Transaction
 	err := d.InTx(context.Background(), org, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
@@ -231,6 +236,11 @@ func insertViaTx(t *testing.T, tx pgx.Tx, org db.OrgID, txn ledger.Transaction) 
 	}
 	if txn.DedupHash == "" {
 		txn.DedupHash = ledger.DedupHash(txn, 1)
+	}
+	if txn.LineNo == 0 {
+		// These tests are about pairing, not provenance. One is as good as
+		// any: nothing here reads it back.
+		txn.LineNo = 1
 	}
 	out, err := ledger.Insert(context.Background(), tx, org, []ledger.Transaction{txn})
 	if err != nil {

@@ -119,6 +119,7 @@ func (s *Service) ManagementPNL(ctx context.Context, userID, orgID uuid.UUID, re
 		To:          req.To,
 	}
 	var rows []Row
+	var strip []Reconciliation
 
 	err = s.db.InTx(ctx, org, func(ctx context.Context, tx pgx.Tx) error {
 		q := gendb.New(tx)
@@ -136,8 +137,8 @@ func (s *Service) ManagementPNL(ctx context.Context, userID, orgID uuid.UUID, re
 		args := gendb.ReportLinesParams{
 			EntityID:   pgUUID(req.EntityID),
 			SourceKind: string(req.Basis),
-			FromDate:   from,
-			ToDate:     to,
+			FromDate:   pgDate(from),
+			ToDate:     pgDate(to),
 		}
 
 		lines, err := q.ReportLines(ctx, args)
@@ -202,6 +203,11 @@ func (s *Service) ManagementPNL(ctx context.Context, userID, orgID uuid.UUID, re
 			})
 		}
 
+		strip, err = reconciliation(ctx, q, req, periods, baseCcy)
+		if err != nil {
+			return err
+		}
+
 		versions, err := q.ReportVersions(ctx, gendb.ReportVersionsParams(args))
 		if err != nil {
 			return fmt.Errorf("report: reading the pinned versions: %w", err)
@@ -218,30 +224,12 @@ func (s *Service) ManagementPNL(ctx context.Context, userID, orgID uuid.UUID, re
 		return Report{}, err
 	}
 
-	return Compute(rows, spec)
-}
-
-// monthRange turns two months into the closed interval of dates they span. The
-// end is the last day of its month, found by stepping back a day from the
-// first of the next: February has three lengths and none of them belong in a
-// constant here.
-func monthRange(from, to string) (pgtype.Date, pgtype.Date, error) {
-	fy, fm, err := parseMonth(from)
+	report, err := Compute(rows, spec)
 	if err != nil {
-		return pgtype.Date{}, pgtype.Date{}, err
+		return Report{}, err
 	}
-	ty, tm, err := parseMonth(to)
-	if err != nil {
-		return pgtype.Date{}, pgtype.Date{}, err
-	}
-	if from > to {
-		return pgtype.Date{}, pgtype.Date{}, fmt.Errorf("report: period %s is after %s", from, to)
-	}
-
-	start := time.Date(fy, time.Month(fm), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(ty, time.Month(tm), 1, 0, 0, 0, 0, time.UTC).
-		AddDate(0, 1, 0).AddDate(0, 0, -1)
-	return pgtype.Date{Time: start, Valid: true}, pgtype.Date{Time: end, Valid: true}, nil
+	report.Reconciliation = strip
+	return report, nil
 }
 
 // appendDistinct keeps the version sets small and stable. The query already
@@ -257,3 +245,5 @@ func appendDistinct(xs []string, x string) []string {
 }
 
 func pgUUID(id uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: id, Valid: true} }
+
+func pgDate(t time.Time) pgtype.Date { return pgtype.Date{Time: t, Valid: true} }

@@ -254,6 +254,7 @@ type Transaction struct {
 	BankRef          string
 	DedupHash        string
 	CreatedAt        pgtype.Timestamptz
+	LineNo           int32
 }
 
 type User struct {

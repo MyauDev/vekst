@@ -17,6 +17,15 @@ option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
 // the one sanctioned door, which proves membership in the same step.
 service ReportService {
   rpc GetManagementPNL(GetManagementPNLRequest) returns (GetManagementPNLResponse);
+
+  // Open one figure.
+  //
+  // A cell is addressed by the four things that computed it -- entity, basis,
+  // period and line -- and by nothing else. The alternative is an opaque handle
+  // returned with each figure and passed back, which is state the server has to
+  // keep or sign, and a report whose drill-down needs server state is no longer
+  // reproducible from its own inputs.
+  rpc ListLineTransactions(ListLineTransactionsRequest) returns (ListLineTransactionsResponse);
 }
 
 // Which half of the business a report is computed from.
@@ -179,4 +188,172 @@ message GetManagementPNLResponse {
   repeated ReportBucketLine buckets = 8;
 
   ReportVersions versions = 9;
+
+  // One per entry in `periods`, in that order.
+  repeated ReconciliationLine reconciliation = 10;
+}
+
+// What kind of answer a drill-down came back with, so a screen renders a list
+// of rows or a list of lines without guessing.
+enum ReportAnswerKind {
+  REPORT_ANSWER_KIND_UNSPECIFIED = 0;
+  REPORT_ANSWER_KIND_TRANSACTIONS = 1;
+
+  // What a computed line gives back. GM has no transactions of its own: it is
+  // NET SALES minus CS, and both of those have transactions.
+  REPORT_ANSWER_KIND_OPERANDS = 2;
+}
+
+message ListLineTransactionsRequest {
+  string organization_id = 1;
+  string entity_id = 2;
+
+  // The same four fields the report was produced from. They have to match, or
+  // the rows returned are not the rows the figure was summed from -- which is
+  // the one failure this endpoint exists to make impossible.
+  ReportBasis basis = 3;
+  ReportGranularity granularity = 4;
+  string from = 5;
+  string to = 6;
+
+  // One of the labels in the report's `periods`.
+  string period = 7;
+
+  // A line's code ('01', '91') or a bucket's name ('unclassified',
+  // 'non_pnl', 'unallocated', 'other_basis'). The two vocabularies are closed
+  // and disjoint, so no prefix is needed to tell them apart.
+  string line = 8;
+
+  // From a previous response's next_cursor. Empty is the first page.
+  string cursor = 9;
+  int32 limit = 10;
+}
+
+// One transaction behind a figure.
+message DrillTransaction {
+  string id = 1;
+
+  // YYYY-MM-DD.
+  string booked_on = 2;
+
+  // Where it came from. The batch says which file and the line says where in
+  // it, and the pair is the row's provenance -- either alone is half an answer.
+  // A customer checking a figure has that file open, and a drill-down that
+  // cannot point at the line is asking them to match on amount and date and
+  // hope.
+  string batch_id = 3;
+  int32 line_no = 4;
+
+  // The grain: 0 with no document_ref for a bank payment, 1..n for the
+  // postings of one ledger document.
+  int32 posting_no = 5;
+  string document_ref = 6;
+
+  // What the source said, and the conversion into the organisation's base
+  // currency. base_amount is absent when the row needed no conversion: "no
+  // conversion happened" is a different claim from "converted at a rate of
+  // one".
+  vekst.type.v1.Money amount = 7;
+  vekst.type.v1.Money base_amount = 8;
+
+  string counterparty_raw = 9;
+  string description = 10;
+
+  // КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+  string regulated_code = 11;
+
+  // ledger | bank
+  string source_kind = 12;
+
+  // The live classification. Empty on a row in one of the exclusion buckets --
+  // which is the fact that put it there, not a missing value.
+  string category_code = 13;
+  string category_name = 14;
+
+  // Why this row is on this line. L0 memory, L0.5 a regulated code, L1 a rule,
+  // human a person -- with the evidence beside it. "Because a Belarusian
+  // country rule matched this wording" and "because you told us in March" are
+  // different claims about the same figure, and a reviewer trusts them
+  // differently.
+  //
+  // matched_rule_priority is deliberately not here. It is an internal ordering
+  // number, it means nothing to a reader, and returning it invites a client to
+  // reason about rule order it has no business knowing.
+  string engine_layer = 15;
+  string evidence = 16;
+
+  // A probability and not money, which is why a double is right here. Absent on
+  // an unclassified row.
+  optional double confidence = 17;
+
+  // Set exactly when a person decided.
+  string decided_by = 18;
+}
+
+// One line a computed line is made of.
+message ReportOperand {
+  string code = 1;
+  string label = 2;
+
+  // Whether the formula takes this operand away. How the line reads on the
+  // page, not how the arithmetic runs: a cost is already negative in the store,
+  // so a "minus" there is an addition here.
+  bool subtracted = 3;
+}
+
+message ListLineTransactionsResponse {
+  ReportAnswerKind kind = 1;
+
+  // Set when kind is TRANSACTIONS.
+  repeated DrillTransaction transactions = 2;
+
+  // Set when kind is OPERANDS, each openable in turn.
+  repeated ReportOperand operands = 3;
+
+  // The whole cell, not this page. A reader has to know whether what they are
+  // looking at is the answer or the start of it -- and this total is what the
+  // figure on the report should equal.
+  int32 row_count = 4;
+  vekst.type.v1.Money total = 5;
+
+  // Empty when the page just returned is the last one.
+  string next_cursor = 6;
+}
+
+// The strip at the foot of the table, for one period.
+//
+//   opening + in - out - transfers = closing
+//
+// `balances` is that identity, checked rather than asserted: the three
+// movements come from one aggregation and the two balances from another, so a
+// row dropped or double-counted by either breaks it. When it does not hold the
+// report says so rather than printing five numbers that do not add up.
+message ReconciliationLine {
+  string period = 1;
+
+  vekst.type.v1.Money opening = 2;
+
+  // Positive magnitudes, because that is how they read on a page. The store's
+  // signs are what separates them.
+  vekst.type.v1.Money in = 3;
+  vekst.type.v1.Money out = 4;
+
+  // The organisation moving its own money. Counted apart from in and out,
+  // because calling it revenue in one account and an expense in another is how
+  // a business appears to trade with itself. Both legs of a pair inside one
+  // entity net to zero -- which is why the count is here too: "0 across 4 rows"
+  // and "0 across none" are different facts.
+  vekst.type.v1.Money transfers = 5;
+  int32 transfer_row_count = 6;
+
+  vekst.type.v1.Money closing = 7;
+
+  bool balances = 8;
+
+  // True while opening and closing are computed from the rows rather than read
+  // from what the statement itself declared -- which nothing stores yet. The
+  // identity then checks this system against itself and not against the bank,
+  // and a client that renders it as "reconciled with your bank" would be
+  // claiming more than it can.
+  bool derived = 9;
 }

@@ -26,6 +26,18 @@ and its evidence drift apart, and the drift is silent.
 - **THEN** it is identified by entity, basis, period and line
 - **AND** no server-held handle or token is required
 
+#### Scenario: A column clipped by the requested range opens to what it counted
+
+- **WHEN** a quarterly report is requested for a range starting mid-quarter
+- **THEN** opening that quarter's cell returns only the months in the range
+- **AND** the rows it returns sum to the figure
+
+#### Scenario: A cell that does not exist is refused
+
+- **WHEN** a line or a period that is not part of the report is opened
+- **THEN** the request is refused with an error code
+- **AND** it is not answered with an empty page
+
 ### Requirement: A computed line opens to its operands
 
 The system SHALL return the lines a computed figure is made of, rather than a set of
@@ -135,3 +147,48 @@ The system SHALL page a drill-down by a stable key rather than by an offset.
 
 - **WHEN** a drill-down of a thousand rows is read page by page
 - **THEN** every row appears exactly once
+
+### Requirement: A row shows its own amount and contributes its converted one
+
+The system SHALL return, for every drill-down row, the amount as the source recorded it and
+the amount in the organisation's base currency, and SHALL sum a cell from the converted
+amounts only.
+
+A person checking a figure of 7,000 against a line reading 1,000,000 in their own file needs
+to see both numbers to believe either. Summing face values across currencies is arithmetic on
+incompatible units.
+
+#### Scenario: A foreign row carries both amounts
+
+- **WHEN** a cell containing a row in a non-base currency is opened
+- **THEN** the row shows the amount the statement recorded, in its own currency
+- **AND** the cell's total is the sum of the base amounts
+
+#### Scenario: An unconverted row claims no conversion
+
+- **WHEN** a row is already in the organisation's base currency
+- **THEN** its converted amount is absent rather than a conversion at a rate of one
+
+### Requirement: No money in a drill-down is a floating-point number
+
+The system SHALL carry every drill-down amount as integer minor units with an ISO-4217 code.
+
+#### Scenario: Confidence is the only float
+
+- **WHEN** the drill-down types are inspected
+- **THEN** no field carrying an amount is floating point
+- **AND** the only floating-point field is the classification's confidence
+
+### Requirement: Provenance is complete or the row is not written
+
+The system SHALL store the original file's line number on every transaction, and SHALL refuse
+a transaction that carries none rather than storing a placeholder.
+
+A sentinel in this column is a number a customer reads as a line in their own file. A missing
+provenance that says so is better than a confident wrong one.
+
+#### Scenario: A transaction with no line number is refused
+
+- **WHEN** a transaction is written without a line number
+- **THEN** the write is refused
+- **AND** no placeholder value is stored in its place

@@ -36,11 +36,22 @@ const (
 	// ReportServiceGetManagementPNLProcedure is the fully-qualified name of the ReportService's
 	// GetManagementPNL RPC.
 	ReportServiceGetManagementPNLProcedure = "/vekst.v1.ReportService/GetManagementPNL"
+	// ReportServiceListLineTransactionsProcedure is the fully-qualified name of the ReportService's
+	// ListLineTransactions RPC.
+	ReportServiceListLineTransactionsProcedure = "/vekst.v1.ReportService/ListLineTransactions"
 )
 
 // ReportServiceClient is a client for the vekst.v1.ReportService service.
 type ReportServiceClient interface {
 	GetManagementPNL(context.Context, *connect.Request[v1.GetManagementPNLRequest]) (*connect.Response[v1.GetManagementPNLResponse], error)
+	// Open one figure.
+	//
+	// A cell is addressed by the four things that computed it -- entity, basis,
+	// period and line -- and by nothing else. The alternative is an opaque handle
+	// returned with each figure and passed back, which is state the server has to
+	// keep or sign, and a report whose drill-down needs server state is no longer
+	// reproducible from its own inputs.
+	ListLineTransactions(context.Context, *connect.Request[v1.ListLineTransactionsRequest]) (*connect.Response[v1.ListLineTransactionsResponse], error)
 }
 
 // NewReportServiceClient constructs a client for the vekst.v1.ReportService service. By default, it
@@ -60,12 +71,19 @@ func NewReportServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(reportServiceMethods.ByName("GetManagementPNL")),
 			connect.WithClientOptions(opts...),
 		),
+		listLineTransactions: connect.NewClient[v1.ListLineTransactionsRequest, v1.ListLineTransactionsResponse](
+			httpClient,
+			baseURL+ReportServiceListLineTransactionsProcedure,
+			connect.WithSchema(reportServiceMethods.ByName("ListLineTransactions")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // reportServiceClient implements ReportServiceClient.
 type reportServiceClient struct {
-	getManagementPNL *connect.Client[v1.GetManagementPNLRequest, v1.GetManagementPNLResponse]
+	getManagementPNL     *connect.Client[v1.GetManagementPNLRequest, v1.GetManagementPNLResponse]
+	listLineTransactions *connect.Client[v1.ListLineTransactionsRequest, v1.ListLineTransactionsResponse]
 }
 
 // GetManagementPNL calls vekst.v1.ReportService.GetManagementPNL.
@@ -73,9 +91,22 @@ func (c *reportServiceClient) GetManagementPNL(ctx context.Context, req *connect
 	return c.getManagementPNL.CallUnary(ctx, req)
 }
 
+// ListLineTransactions calls vekst.v1.ReportService.ListLineTransactions.
+func (c *reportServiceClient) ListLineTransactions(ctx context.Context, req *connect.Request[v1.ListLineTransactionsRequest]) (*connect.Response[v1.ListLineTransactionsResponse], error) {
+	return c.listLineTransactions.CallUnary(ctx, req)
+}
+
 // ReportServiceHandler is an implementation of the vekst.v1.ReportService service.
 type ReportServiceHandler interface {
 	GetManagementPNL(context.Context, *connect.Request[v1.GetManagementPNLRequest]) (*connect.Response[v1.GetManagementPNLResponse], error)
+	// Open one figure.
+	//
+	// A cell is addressed by the four things that computed it -- entity, basis,
+	// period and line -- and by nothing else. The alternative is an opaque handle
+	// returned with each figure and passed back, which is state the server has to
+	// keep or sign, and a report whose drill-down needs server state is no longer
+	// reproducible from its own inputs.
+	ListLineTransactions(context.Context, *connect.Request[v1.ListLineTransactionsRequest]) (*connect.Response[v1.ListLineTransactionsResponse], error)
 }
 
 // NewReportServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -91,10 +122,18 @@ func NewReportServiceHandler(svc ReportServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(reportServiceMethods.ByName("GetManagementPNL")),
 		connect.WithHandlerOptions(opts...),
 	)
+	reportServiceListLineTransactionsHandler := connect.NewUnaryHandler(
+		ReportServiceListLineTransactionsProcedure,
+		svc.ListLineTransactions,
+		connect.WithSchema(reportServiceMethods.ByName("ListLineTransactions")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/vekst.v1.ReportService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ReportServiceGetManagementPNLProcedure:
 			reportServiceGetManagementPNLHandler.ServeHTTP(w, r)
+		case ReportServiceListLineTransactionsProcedure:
+			reportServiceListLineTransactionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -106,4 +145,8 @@ type UnimplementedReportServiceHandler struct{}
 
 func (UnimplementedReportServiceHandler) GetManagementPNL(context.Context, *connect.Request[v1.GetManagementPNLRequest]) (*connect.Response[v1.GetManagementPNLResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("vekst.v1.ReportService.GetManagementPNL is not implemented"))
+}
+
+func (UnimplementedReportServiceHandler) ListLineTransactions(context.Context, *connect.Request[v1.ListLineTransactionsRequest]) (*connect.Response[v1.ListLineTransactionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("vekst.v1.ReportService.ListLineTransactions is not implemented"))
 }

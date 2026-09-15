@@ -160,9 +160,21 @@ type txn struct {
 	key      string
 	amount   int64
 
+	// currency and baseAmount together are a converted row: what the statement
+	// said, and what it is worth in the organisation's own currency. Leaving
+	// both empty is a row already in NOK, which is the ordinary case.
+	currency   string
+	baseAmount int64
+
 	// The leaf to classify it into. Empty leaves the row unclassified, which
 	// is not a missing value -- it is the fact that puts it in a bucket.
 	code string
+
+	// How it came to be on that line. Defaults to an L1 rule; `human` needs a
+	// decider, which migration 007 checks.
+	layer     string
+	evidence  string
+	decidedBy uuid.UUID
 }
 
 func (f *fixture) insert(t *testing.T, rows ...txn) []uuid.UUID {
@@ -184,29 +196,46 @@ func (f *fixture) insert(t *testing.T, rows ...txn) []uuid.UUID {
 				batch = f.ledgerBatch
 			}
 
+			currency := r.currency
+			if currency == "" {
+				currency = "NOK"
+			}
+			var fxRate, fxOn, base, baseCcy any
+			if r.baseAmount != 0 {
+				fxRate, fxOn, base, baseCcy = "1.5", r.bookedOn, r.baseAmount, "NOK"
+			}
+
 			var id pgtype.UUID
 			if err := tx.QueryRow(ctx, `
 				INSERT INTO transactions (
-					org_id, entity_id, account_id, batch_id, source_kind,
+					org_id, entity_id, account_id, batch_id, line_no, source_kind,
 					booked_on, amount_minor, currency,
+					fx_rate, fx_rate_on, base_amount_minor, base_currency,
 					counterparty_raw, counterparty_key, description_raw,
 					description_norm, normalize_version, dedup_hash)
-				SELECT app_current_org(), $1, a.id, $2, $3,
-				       $4::date, $5, 'NOK',
+				SELECT app_current_org(), $1, a.id, $2, $9, $3,
+				       $4::date, $5, $10,
+				       $11::numeric, $12::date, $13::bigint, $14,
 				       $6, $6, $6, $6, $7, $8
 				  FROM accounts a WHERE a.entity_id = $1 LIMIT 1
 				RETURNING id`,
 				pgtype.UUID{Bytes: f.entity, Valid: true},
 				pgtype.UUID{Bytes: batch, Valid: true},
 				r.kind, r.bookedOn, r.amount, r.key, normalize.Version,
-				uuid.NewString(),
+				uuid.NewString(), int32(i+1), currency,
+				fxRate, fxOn, base, baseCcy,
 			).Scan(&id); err != nil {
 				return fmt.Errorf("row %d: %w", i, err)
 			}
 			ids = append(ids, uuid.UUID(id.Bytes))
 
 			if r.code != "" {
-				if err := classify(ctx, tx, uuid.UUID(id.Bytes), r.code, "L1", "engine-1"); err != nil {
+				layer := r.layer
+				if layer == "" {
+					layer = "L1"
+				}
+				if err := classifyAs(ctx, tx, uuid.UUID(id.Bytes), r.code, layer,
+					"engine-1", r.evidence, r.decidedBy); err != nil {
 					return fmt.Errorf("row %d: %w", i, err)
 				}
 			}
@@ -223,16 +252,42 @@ func (f *fixture) insert(t *testing.T, rows ...txn) []uuid.UUID {
 // core/internal/ledger because these tests need to plant engine versions that
 // differ from each other, which is the point of the versions test below.
 func classify(ctx context.Context, tx pgx.Tx, txnID uuid.UUID, code, layer, engineVersion string) error {
+	return classifyAs(ctx, tx, txnID, code, layer, engineVersion, "", uuid.Nil)
+}
+
+func classifyAs(
+	ctx context.Context, tx pgx.Tx, txnID uuid.UUID,
+	code, layer, engineVersion, evidence string, decidedBy uuid.UUID,
+) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO classifications (
-			org_id, transaction_id, category_id, engine_layer, confidence,
-			taxonomy_version, ruleset_version, engine_version, normalize_version)
-		SELECT app_current_org(), $1, c.id, $2, 1.000, $3, $4, $5, $6
+			org_id, transaction_id, category_id, engine_layer, confidence, evidence,
+			taxonomy_version, ruleset_version, engine_version, normalize_version,
+			decided_by)
+		SELECT app_current_org(), $1, c.id, $2, $8, $9, $3, $4, $5, $6, $10
 		  FROM categories c
 		 WHERE c.taxonomy_version = $3 AND c.code = $7 AND c.org_id IS NULL`,
 		pgtype.UUID{Bytes: txnID, Valid: true}, layer,
-		taxonomyV, rulesetV, engineVersion, normalize.Version, code)
+		taxonomyV, rulesetV, engineVersion, normalize.Version, code,
+		confidenceOf(layer), evidence,
+		pgtype.UUID{Bytes: decidedBy, Valid: decidedBy != uuid.Nil})
 	return err
+}
+
+// The layer's own certainty, as migration 006's rule set assigns it: vendor
+// memory is sure, a regulated code nearly so, a text rule less. A fixture that
+// wrote 1.000 everywhere would make the drill-down's confidence column
+// untestable, and it is one of the four fields that answer "why is this row on
+// this line".
+func confidenceOf(layer string) string {
+	switch layer {
+	case "L0", "human":
+		return "1.000"
+	case "L0.5":
+		return "0.990"
+	default:
+		return "0.950"
+	}
 }
 
 func (f *fixture) pnl(t *testing.T, basis report.Basis) report.Report {

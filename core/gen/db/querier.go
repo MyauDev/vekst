@@ -359,6 +359,50 @@ type Querier interface {
 	// columns, so a query naming any of the six would not even compile against
 	// that grant.
 	InsertValidation(ctx context.Context, arg InsertValidationParams) (ImportValidation, error)
+	// The same cell, summed. What the screen puts above the list -- "9 rows,
+	// 412,000" -- so a reader knows whether the page they are looking at is the
+	// whole answer.
+	//
+	// The predicate is copied from the query above, deliberately and visibly: sqlc
+	// generates static SQL, so a shared fragment is not available, and the two must
+	// be read together. What keeps them equal is not proximity but the test, which
+	// compares this total, the sum of the paged rows, and the report's own figure
+	// -- three numbers from three code paths, and any two disagreeing names which
+	// one drifted.
+	LineTotal(ctx context.Context, arg LineTotalParams) (LineTotalRow, error)
+	// Opening a figure. Change 4.2, capability `report-mgmt-pnl`.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context, and none
+	// of them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else.
+	//
+	// The whole difficulty of this change is in the first query, and it is not the
+	// SQL. A drill-down that returns rows adding up to something other than the
+	// figure they were opened from is worse than no drill-down: it makes a correct
+	// report look wrong, or -- the case that matters -- a wrong report look
+	// checked. So there is **one** predicate here and not one per line. `@line`
+	// discriminates inside it, in the same order `report.Compute` places a row, and
+	// the two are kept honest by a test that sums every non-zero cell's drill-down
+	// back to the cell.
+	//
+	// Everything else follows the report's own file: one `source_kind` per read,
+	// `coalesce(base_amount_minor, amount_minor)` so amounts are summed in one
+	// currency, and dates as a closed interval on `booked_on`.
+	// The rows behind one cell, oldest first, from a cursor.
+	//
+	// The line predicate below is `report.Compute`'s switch, written out. Read them
+	// side by side, in this order, because the order is load-bearing: a row of the
+	// other basis never reaches a bucket about classification; an unclassified row
+	// is unclassified whatever its category would have said; a category marked
+	// non-P&L is excluded before anybody asks whether it needs allocating. Change
+	// one and the figure and its drill-down stop agreeing, which is the one failure
+	// this file exists to prevent.
+	//
+	// The classification is a LEFT JOIN and not an inner one, because three of the
+	// four buckets contain rows that have none, and an inner join would return them
+	// as an empty page -- which reads as "these rows went missing" rather than as
+	// "these rows were never answered".
+	LineTransactions(ctx context.Context, arg LineTransactionsParams) ([]LineTransactionsRow, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
 	ListAccountsForEntity(ctx context.Context, entityID pgtype.UUID) ([]Account, error)
 	// Every undismissed pair for this entity, on either side -- what
@@ -383,6 +427,15 @@ type Querier interface {
 	// the undo, which has a decision and needs the rows it touched.
 	LiveClassificationsForCounterparty(ctx context.Context, counterpartyKey string) ([]Classification, error)
 	LiveDecisionForCounterparty(ctx context.Context, arg LiveDecisionForCounterpartyParams) (ReviewDecision, error)
+	// Everything this entity moved before the range, in the base currency.
+	//
+	// Derived, and the response says so. A real opening balance is the one the
+	// statement itself declared, which nothing stores yet -- change 2.3's balance
+	// check is where those arrive. Until then the identity at the foot of the table
+	// holds by construction, and labelling that as derived is the difference
+	// between an informative strip and a check somebody trusts for something it
+	// cannot do.
+	OpeningBalanceBefore(ctx context.Context, arg OpeningBalanceBeforeParams) (int64, error)
 	// The review queue: the read that builds it, and the writes that empty it.
 	//
 	// The queue is not a table. A transaction needing review is one with no live
@@ -414,6 +467,24 @@ type Querier interface {
 	// excludes nothing from a report that does not exist yet; it only detects
 	// and records pairs.
 	PairedTransactionIDsForEntity(ctx context.Context, entityID pgtype.UUID) ([]pgtype.UUID, error)
+	// The strip at the foot of the table: in, out and transfers, of one basis over
+	// one range.
+	//
+	// Money in and money out are reported as positive magnitudes, because that is
+	// how they read on a page, and the store's signs are what separates them here.
+	//
+	// A transfer leg is excluded from both and counted on its own. It is the
+	// organisation moving its own money, and calling it revenue in one account and
+	// an expense in another is how a business appears to trade with itself. The
+	// join to `internal_transfers` carries the dismissal: a pair a person has
+	// dismissed is not a transfer any more, and its legs go back to being ordinary
+	// movement -- which is why the membership row alone is not the test.
+	//
+	// The transfers term is signed as an outflow, so the strip's identity reads the
+	// way DESIGN.md writes it: opening + in - out - transfers = closing. Where both
+	// legs of every pair are inside this entity it comes to zero, and a zero with a
+	// reason beside it is worth more than a blank.
+	ReconciliationForPeriod(ctx context.Context, arg ReconciliationForPeriodParams) (ReconciliationForPeriodRow, error)
 	// Written once (design D4): nothing here reads the current row first to
 	// decide whether to write, because there is no legitimate second write --
 	// overridden_at IS NULL is not checked here because the CHECK constraint

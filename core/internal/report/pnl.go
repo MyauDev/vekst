@@ -235,6 +235,13 @@ type Report struct {
 	Lines   []Line
 	Buckets map[Bucket][]money.Money // indexed by Spec.Periods
 	Totals  map[Bucket]money.Money
+
+	// The strip at the foot of the table: opening, in, out, transfers and
+	// closing, one per period. Filled by the service rather than by Compute --
+	// it is over every row of the period, classified or not, and so is not a
+	// function of the rows a P&L is computed from. Empty when the report was
+	// computed rather than read.
+	Reconciliation []Reconciliation
 }
 
 // Compute turns rows into the report.

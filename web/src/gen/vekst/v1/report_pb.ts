@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file vekst/v1/report.proto.
  */
 export const file_vekst_v1_report: GenFile = /*@__PURE__*/
-  fileDesc("ChV2ZWtzdC92MS9yZXBvcnQucHJvdG8SCHZla3N0LnYxIrcBChdHZXRNYW5hZ2VtZW50UE5MUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEgwKBGZyb20YAyABKAkSCgoCdG8YBCABKAkSMAoLZ3JhbnVsYXJpdHkYBSABKA4yGy52ZWtzdC52MS5SZXBvcnRHcmFudWxhcml0eRIkCgViYXNpcxgGIAEoDjIVLnZla3N0LnYxLlJlcG9ydEJhc2lzImwKDFJlcG9ydEZpZ3VyZRIkCgZhbW91bnQYASABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5Eh8KEnBlcmNlbnRfb2ZfcmV2ZW51ZRgCIAEoAUgAiAEBQhUKE19wZXJjZW50X29mX3JldmVudWUingEKClJlcG9ydExpbmUSDAoEY29kZRgBIAEoCRINCgVsYWJlbBgCIAEoCRIPCgdmb3JtdWxhGAMgASgJEhAKCGNvbXB1dGVkGAQgASgIEikKCWJ5X3BlcmlvZBgFIAMoCzIWLnZla3N0LnYxLlJlcG9ydEZpZ3VyZRIlCgV0b3RhbBgGIAEoCzIWLnZla3N0LnYxLlJlcG9ydEZpZ3VyZSKKAQoQUmVwb3J0QnVja2V0TGluZRIoCgRraW5kGAEgASgOMhoudmVrc3QudjEuUmVwb3J0QnVja2V0S2luZBInCglieV9wZXJpb2QYAiADKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EiMKBXRvdGFsGAMgASgLMhQudmVrc3QudHlwZS52MS5Nb25leSJWCg5SZXBvcnRWZXJzaW9ucxIQCgh0YXhvbm9teRgBIAMoCRIPCgdydWxlc2V0GAIgAygJEg4KBmVuZ2luZRgDIAMoCRIRCglub3JtYWxpemUYBCADKAkisgIKGEdldE1hbmFnZW1lbnRQTkxSZXNwb25zZRIkCgViYXNpcxgBIAEoDjIVLnZla3N0LnYxLlJlcG9ydEJhc2lzEjAKC2dyYW51bGFyaXR5GAIgASgOMhsudmVrc3QudjEuUmVwb3J0R3JhbnVsYXJpdHkSDAoEZnJvbRgDIAEoCRIKCgJ0bxgEIAEoCRIVCg1iYXNlX2N1cnJlbmN5GAUgASgJEg8KB3BlcmlvZHMYBiADKAkSIwoFbGluZXMYByADKAsyFC52ZWtzdC52MS5SZXBvcnRMaW5lEisKB2J1Y2tldHMYCCADKAsyGi52ZWtzdC52MS5SZXBvcnRCdWNrZXRMaW5lEioKCHZlcnNpb25zGAkgASgLMhgudmVrc3QudjEuUmVwb3J0VmVyc2lvbnMqWwoLUmVwb3J0QmFzaXMSHAoYUkVQT1JUX0JBU0lTX1VOU1BFQ0lGSUVEEAASFwoTUkVQT1JUX0JBU0lTX0xFREdFUhABEhUKEVJFUE9SVF9CQVNJU19CQU5LEAIqkgEKEVJlcG9ydEdyYW51bGFyaXR5EiIKHlJFUE9SVF9HUkFOVUxBUklUWV9VTlNQRUNJRklFRBAAEhwKGFJFUE9SVF9HUkFOVUxBUklUWV9NT05USBABEh4KGlJFUE9SVF9HUkFOVUxBUklUWV9RVUFSVEVSEAISGwoXUkVQT1JUX0dSQU5VTEFSSVRZX1lFQVIQAyrDAQoQUmVwb3J0QnVja2V0S2luZBIiCh5SRVBPUlRfQlVDS0VUX0tJTkRfVU5TUEVDSUZJRUQQABIjCh9SRVBPUlRfQlVDS0VUX0tJTkRfVU5DTEFTU0lGSUVEEAESHgoaUkVQT1JUX0JVQ0tFVF9LSU5EX05PTl9QTkwQAhIiCh5SRVBPUlRfQlVDS0VUX0tJTkRfVU5BTExPQ0FURUQQAxIiCh5SRVBPUlRfQlVDS0VUX0tJTkRfT1RIRVJfQkFTSVMQBDJqCg1SZXBvcnRTZXJ2aWNlElkKEEdldE1hbmFnZW1lbnRQTkwSIS52ZWtzdC52MS5HZXRNYW5hZ2VtZW50UE5MUmVxdWVzdBoiLnZla3N0LnYxLkdldE1hbmFnZW1lbnRQTkxSZXNwb25zZUIzWjFnaXRodWIuY29tL015YXVEZXYvdmVrc3QvY29yZS9nZW4vdmVrc3QvdjE7dmVrdHYxYgZwcm90bzM", [file_vekst_type_v1_money]);
+  fileDesc("ChV2ZWtzdC92MS9yZXBvcnQucHJvdG8SCHZla3N0LnYxIrcBChdHZXRNYW5hZ2VtZW50UE5MUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEgwKBGZyb20YAyABKAkSCgoCdG8YBCABKAkSMAoLZ3JhbnVsYXJpdHkYBSABKA4yGy52ZWtzdC52MS5SZXBvcnRHcmFudWxhcml0eRIkCgViYXNpcxgGIAEoDjIVLnZla3N0LnYxLlJlcG9ydEJhc2lzImwKDFJlcG9ydEZpZ3VyZRIkCgZhbW91bnQYASABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5Eh8KEnBlcmNlbnRfb2ZfcmV2ZW51ZRgCIAEoAUgAiAEBQhUKE19wZXJjZW50X29mX3JldmVudWUingEKClJlcG9ydExpbmUSDAoEY29kZRgBIAEoCRINCgVsYWJlbBgCIAEoCRIPCgdmb3JtdWxhGAMgASgJEhAKCGNvbXB1dGVkGAQgASgIEikKCWJ5X3BlcmlvZBgFIAMoCzIWLnZla3N0LnYxLlJlcG9ydEZpZ3VyZRIlCgV0b3RhbBgGIAEoCzIWLnZla3N0LnYxLlJlcG9ydEZpZ3VyZSKKAQoQUmVwb3J0QnVja2V0TGluZRIoCgRraW5kGAEgASgOMhoudmVrc3QudjEuUmVwb3J0QnVja2V0S2luZBInCglieV9wZXJpb2QYAiADKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EiMKBXRvdGFsGAMgASgLMhQudmVrc3QudHlwZS52MS5Nb25leSJWCg5SZXBvcnRWZXJzaW9ucxIQCgh0YXhvbm9teRgBIAMoCRIPCgdydWxlc2V0GAIgAygJEg4KBmVuZ2luZRgDIAMoCRIRCglub3JtYWxpemUYBCADKAki6AIKGEdldE1hbmFnZW1lbnRQTkxSZXNwb25zZRIkCgViYXNpcxgBIAEoDjIVLnZla3N0LnYxLlJlcG9ydEJhc2lzEjAKC2dyYW51bGFyaXR5GAIgASgOMhsudmVrc3QudjEuUmVwb3J0R3JhbnVsYXJpdHkSDAoEZnJvbRgDIAEoCRIKCgJ0bxgEIAEoCRIVCg1iYXNlX2N1cnJlbmN5GAUgASgJEg8KB3BlcmlvZHMYBiADKAkSIwoFbGluZXMYByADKAsyFC52ZWtzdC52MS5SZXBvcnRMaW5lEisKB2J1Y2tldHMYCCADKAsyGi52ZWtzdC52MS5SZXBvcnRCdWNrZXRMaW5lEioKCHZlcnNpb25zGAkgASgLMhgudmVrc3QudjEuUmVwb3J0VmVyc2lvbnMSNAoOcmVjb25jaWxpYXRpb24YCiADKAsyHC52ZWtzdC52MS5SZWNvbmNpbGlhdGlvbkxpbmUi+AEKG0xpc3RMaW5lVHJhbnNhY3Rpb25zUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEiQKBWJhc2lzGAMgASgOMhUudmVrc3QudjEuUmVwb3J0QmFzaXMSMAoLZ3JhbnVsYXJpdHkYBCABKA4yGy52ZWtzdC52MS5SZXBvcnRHcmFudWxhcml0eRIMCgRmcm9tGAUgASgJEgoKAnRvGAYgASgJEg4KBnBlcmlvZBgHIAEoCRIMCgRsaW5lGAggASgJEg4KBmN1cnNvchgJIAEoCRINCgVsaW1pdBgKIAEoBSK9AwoQRHJpbGxUcmFuc2FjdGlvbhIKCgJpZBgBIAEoCRIRCglib29rZWRfb24YAiABKAkSEAoIYmF0Y2hfaWQYAyABKAkSDwoHbGluZV9ubxgEIAEoBRISCgpwb3N0aW5nX25vGAUgASgFEhQKDGRvY3VtZW50X3JlZhgGIAEoCRIkCgZhbW91bnQYByABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EikKC2Jhc2VfYW1vdW50GAggASgLMhQudmVrc3QudHlwZS52MS5Nb25leRIYChBjb3VudGVycGFydHlfcmF3GAkgASgJEhMKC2Rlc2NyaXB0aW9uGAogASgJEhYKDnJlZ3VsYXRlZF9jb2RlGAsgASgJEhMKC3NvdXJjZV9raW5kGAwgASgJEhUKDWNhdGVnb3J5X2NvZGUYDSABKAkSFQoNY2F0ZWdvcnlfbmFtZRgOIAEoCRIUCgxlbmdpbmVfbGF5ZXIYDyABKAkSEAoIZXZpZGVuY2UYECABKAkSFwoKY29uZmlkZW5jZRgRIAEoAUgAiAEBEhIKCmRlY2lkZWRfYnkYEiABKAlCDQoLX2NvbmZpZGVuY2UiQAoNUmVwb3J0T3BlcmFuZBIMCgRjb2RlGAEgASgJEg0KBWxhYmVsGAIgASgJEhIKCnN1YnRyYWN0ZWQYAyABKAgi8gEKHExpc3RMaW5lVHJhbnNhY3Rpb25zUmVzcG9uc2USKAoEa2luZBgBIAEoDjIaLnZla3N0LnYxLlJlcG9ydEFuc3dlcktpbmQSMAoMdHJhbnNhY3Rpb25zGAIgAygLMhoudmVrc3QudjEuRHJpbGxUcmFuc2FjdGlvbhIpCghvcGVyYW5kcxgDIAMoCzIXLnZla3N0LnYxLlJlcG9ydE9wZXJhbmQSEQoJcm93X2NvdW50GAQgASgFEiMKBXRvdGFsGAUgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRITCgtuZXh0X2N1cnNvchgGIAEoCSKfAgoSUmVjb25jaWxpYXRpb25MaW5lEg4KBnBlcmlvZBgBIAEoCRIlCgdvcGVuaW5nGAIgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRIgCgJpbhgDIAEoCzIULnZla3N0LnR5cGUudjEuTW9uZXkSIQoDb3V0GAQgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRInCgl0cmFuc2ZlcnMYBSABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EhoKEnRyYW5zZmVyX3Jvd19jb3VudBgGIAEoBRIlCgdjbG9zaW5nGAcgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRIQCghiYWxhbmNlcxgIIAEoCBIPCgdkZXJpdmVkGAkgASgIKlsKC1JlcG9ydEJhc2lzEhwKGFJFUE9SVF9CQVNJU19VTlNQRUNJRklFRBAAEhcKE1JFUE9SVF9CQVNJU19MRURHRVIQARIVChFSRVBPUlRfQkFTSVNfQkFOSxACKpIBChFSZXBvcnRHcmFudWxhcml0eRIiCh5SRVBPUlRfR1JBTlVMQVJJVFlfVU5TUEVDSUZJRUQQABIcChhSRVBPUlRfR1JBTlVMQVJJVFlfTU9OVEgQARIeChpSRVBPUlRfR1JBTlVMQVJJVFlfUVVBUlRFUhACEhsKF1JFUE9SVF9HUkFOVUxBUklUWV9ZRUFSEAMqwwEKEFJlcG9ydEJ1Y2tldEtpbmQSIgoeUkVQT1JUX0JVQ0tFVF9LSU5EX1VOU1BFQ0lGSUVEEAASIwofUkVQT1JUX0JVQ0tFVF9LSU5EX1VOQ0xBU1NJRklFRBABEh4KGlJFUE9SVF9CVUNLRVRfS0lORF9OT05fUE5MEAISIgoeUkVQT1JUX0JVQ0tFVF9LSU5EX1VOQUxMT0NBVEVEEAMSIgoeUkVQT1JUX0JVQ0tFVF9LSU5EX09USEVSX0JBU0lTEAQqfAoQUmVwb3J0QW5zd2VyS2luZBIiCh5SRVBPUlRfQU5TV0VSX0tJTkRfVU5TUEVDSUZJRUQQABIjCh9SRVBPUlRfQU5TV0VSX0tJTkRfVFJBTlNBQ1RJT05TEAESHwobUkVQT1JUX0FOU1dFUl9LSU5EX09QRVJBTkRTEAIy0QEKDVJlcG9ydFNlcnZpY2USWQoQR2V0TWFuYWdlbWVudFBOTBIhLnZla3N0LnYxLkdldE1hbmFnZW1lbnRQTkxSZXF1ZXN0GiIudmVrc3QudjEuR2V0TWFuYWdlbWVudFBOTFJlc3BvbnNlEmUKFExpc3RMaW5lVHJhbnNhY3Rpb25zEiUudmVrc3QudjEuTGlzdExpbmVUcmFuc2FjdGlvbnNSZXF1ZXN0GiYudmVrc3QudjEuTGlzdExpbmVUcmFuc2FjdGlvbnNSZXNwb25zZUIzWjFnaXRodWIuY29tL015YXVEZXYvdmVrc3QvY29yZS9nZW4vdmVrc3QvdjE7dmVrdHYxYgZwcm90bzM", [file_vekst_type_v1_money]);
 
 /**
  * @generated from message vekst.v1.GetManagementPNLRequest
@@ -181,7 +181,7 @@ export const ReportBucketLineSchema: GenMessage<ReportBucketLine> = /*@__PURE__*
 /**
  * The versions the summed classifications were made under, read from those rows
  * and never from the server's own configuration.
- *
+ * 
  * Those strings are what make a March report reproduce in June, and an
  * accountant will ask. Repeated rather than singular because a report summing
  * rows classified under two engine versions was produced under two engine
@@ -290,6 +290,13 @@ export type GetManagementPNLResponse = Message<"vekst.v1.GetManagementPNLRespons
    * @generated from field: vekst.v1.ReportVersions versions = 9;
    */
   versions?: ReportVersions;
+
+  /**
+   * One per entry in `periods`, in that order.
+   *
+   * @generated from field: repeated vekst.v1.ReconciliationLine reconciliation = 10;
+   */
+  reconciliation: ReconciliationLine[];
 };
 
 /**
@@ -300,8 +307,390 @@ export const GetManagementPNLResponseSchema: GenMessage<GetManagementPNLResponse
   messageDesc(file_vekst_v1_report, 5);
 
 /**
- * Which half of the business a report is computed from.
+ * @generated from message vekst.v1.ListLineTransactionsRequest
+ */
+export type ListLineTransactionsRequest = Message<"vekst.v1.ListLineTransactionsRequest"> & {
+  /**
+   * @generated from field: string organization_id = 1;
+   */
+  organizationId: string;
+
+  /**
+   * @generated from field: string entity_id = 2;
+   */
+  entityId: string;
+
+  /**
+   * The same four fields the report was produced from. They have to match, or
+   * the rows returned are not the rows the figure was summed from -- which is
+   * the one failure this endpoint exists to make impossible.
+   *
+   * @generated from field: vekst.v1.ReportBasis basis = 3;
+   */
+  basis: ReportBasis;
+
+  /**
+   * @generated from field: vekst.v1.ReportGranularity granularity = 4;
+   */
+  granularity: ReportGranularity;
+
+  /**
+   * @generated from field: string from = 5;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 6;
+   */
+  to: string;
+
+  /**
+   * One of the labels in the report's `periods`.
+   *
+   * @generated from field: string period = 7;
+   */
+  period: string;
+
+  /**
+   * A line's code ('01', '91') or a bucket's name ('unclassified',
+   * 'non_pnl', 'unallocated', 'other_basis'). The two vocabularies are closed
+   * and disjoint, so no prefix is needed to tell them apart.
+   *
+   * @generated from field: string line = 8;
+   */
+  line: string;
+
+  /**
+   * From a previous response's next_cursor. Empty is the first page.
+   *
+   * @generated from field: string cursor = 9;
+   */
+  cursor: string;
+
+  /**
+   * @generated from field: int32 limit = 10;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message vekst.v1.ListLineTransactionsRequest.
+ * Use `create(ListLineTransactionsRequestSchema)` to create a new message.
+ */
+export const ListLineTransactionsRequestSchema: GenMessage<ListLineTransactionsRequest> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_report, 6);
+
+/**
+ * One transaction behind a figure.
  *
+ * @generated from message vekst.v1.DrillTransaction
+ */
+export type DrillTransaction = Message<"vekst.v1.DrillTransaction"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string booked_on = 2;
+   */
+  bookedOn: string;
+
+  /**
+   * Where it came from. The batch says which file and the line says where in
+   * it, and the pair is the row's provenance -- either alone is half an answer.
+   * A customer checking a figure has that file open, and a drill-down that
+   * cannot point at the line is asking them to match on amount and date and
+   * hope.
+   *
+   * @generated from field: string batch_id = 3;
+   */
+  batchId: string;
+
+  /**
+   * @generated from field: int32 line_no = 4;
+   */
+  lineNo: number;
+
+  /**
+   * The grain: 0 with no document_ref for a bank payment, 1..n for the
+   * postings of one ledger document.
+   *
+   * @generated from field: int32 posting_no = 5;
+   */
+  postingNo: number;
+
+  /**
+   * @generated from field: string document_ref = 6;
+   */
+  documentRef: string;
+
+  /**
+   * What the source said, and the conversion into the organisation's base
+   * currency. base_amount is absent when the row needed no conversion: "no
+   * conversion happened" is a different claim from "converted at a rate of
+   * one".
+   *
+   * @generated from field: vekst.type.v1.Money amount = 7;
+   */
+  amount?: Money;
+
+  /**
+   * @generated from field: vekst.type.v1.Money base_amount = 8;
+   */
+  baseAmount?: Money;
+
+  /**
+   * @generated from field: string counterparty_raw = 9;
+   */
+  counterpartyRaw: string;
+
+  /**
+   * @generated from field: string description = 10;
+   */
+  description: string;
+
+  /**
+   * КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+   *
+   * @generated from field: string regulated_code = 11;
+   */
+  regulatedCode: string;
+
+  /**
+   * ledger | bank
+   *
+   * @generated from field: string source_kind = 12;
+   */
+  sourceKind: string;
+
+  /**
+   * The live classification. Empty on a row in one of the exclusion buckets --
+   * which is the fact that put it there, not a missing value.
+   *
+   * @generated from field: string category_code = 13;
+   */
+  categoryCode: string;
+
+  /**
+   * @generated from field: string category_name = 14;
+   */
+  categoryName: string;
+
+  /**
+   * Why this row is on this line. L0 memory, L0.5 a regulated code, L1 a rule,
+   * human a person -- with the evidence beside it. "Because a Belarusian
+   * country rule matched this wording" and "because you told us in March" are
+   * different claims about the same figure, and a reviewer trusts them
+   * differently.
+   * 
+   * matched_rule_priority is deliberately not here. It is an internal ordering
+   * number, it means nothing to a reader, and returning it invites a client to
+   * reason about rule order it has no business knowing.
+   *
+   * @generated from field: string engine_layer = 15;
+   */
+  engineLayer: string;
+
+  /**
+   * @generated from field: string evidence = 16;
+   */
+  evidence: string;
+
+  /**
+   * A probability and not money, which is why a double is right here. Absent on
+   * an unclassified row.
+   *
+   * @generated from field: optional double confidence = 17;
+   */
+  confidence?: number;
+
+  /**
+   * Set exactly when a person decided.
+   *
+   * @generated from field: string decided_by = 18;
+   */
+  decidedBy: string;
+};
+
+/**
+ * Describes the message vekst.v1.DrillTransaction.
+ * Use `create(DrillTransactionSchema)` to create a new message.
+ */
+export const DrillTransactionSchema: GenMessage<DrillTransaction> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_report, 7);
+
+/**
+ * One line a computed line is made of.
+ *
+ * @generated from message vekst.v1.ReportOperand
+ */
+export type ReportOperand = Message<"vekst.v1.ReportOperand"> & {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string label = 2;
+   */
+  label: string;
+
+  /**
+   * Whether the formula takes this operand away. How the line reads on the
+   * page, not how the arithmetic runs: a cost is already negative in the store,
+   * so a "minus" there is an addition here.
+   *
+   * @generated from field: bool subtracted = 3;
+   */
+  subtracted: boolean;
+};
+
+/**
+ * Describes the message vekst.v1.ReportOperand.
+ * Use `create(ReportOperandSchema)` to create a new message.
+ */
+export const ReportOperandSchema: GenMessage<ReportOperand> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_report, 8);
+
+/**
+ * @generated from message vekst.v1.ListLineTransactionsResponse
+ */
+export type ListLineTransactionsResponse = Message<"vekst.v1.ListLineTransactionsResponse"> & {
+  /**
+   * @generated from field: vekst.v1.ReportAnswerKind kind = 1;
+   */
+  kind: ReportAnswerKind;
+
+  /**
+   * Set when kind is TRANSACTIONS.
+   *
+   * @generated from field: repeated vekst.v1.DrillTransaction transactions = 2;
+   */
+  transactions: DrillTransaction[];
+
+  /**
+   * Set when kind is OPERANDS, each openable in turn.
+   *
+   * @generated from field: repeated vekst.v1.ReportOperand operands = 3;
+   */
+  operands: ReportOperand[];
+
+  /**
+   * The whole cell, not this page. A reader has to know whether what they are
+   * looking at is the answer or the start of it -- and this total is what the
+   * figure on the report should equal.
+   *
+   * @generated from field: int32 row_count = 4;
+   */
+  rowCount: number;
+
+  /**
+   * @generated from field: vekst.type.v1.Money total = 5;
+   */
+  total?: Money;
+
+  /**
+   * Empty when the page just returned is the last one.
+   *
+   * @generated from field: string next_cursor = 6;
+   */
+  nextCursor: string;
+};
+
+/**
+ * Describes the message vekst.v1.ListLineTransactionsResponse.
+ * Use `create(ListLineTransactionsResponseSchema)` to create a new message.
+ */
+export const ListLineTransactionsResponseSchema: GenMessage<ListLineTransactionsResponse> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_report, 9);
+
+/**
+ * The strip at the foot of the table, for one period.
+ * 
+ *   opening + in - out - transfers = closing
+ * 
+ * `balances` is that identity, checked rather than asserted: the three
+ * movements come from one aggregation and the two balances from another, so a
+ * row dropped or double-counted by either breaks it. When it does not hold the
+ * report says so rather than printing five numbers that do not add up.
+ *
+ * @generated from message vekst.v1.ReconciliationLine
+ */
+export type ReconciliationLine = Message<"vekst.v1.ReconciliationLine"> & {
+  /**
+   * @generated from field: string period = 1;
+   */
+  period: string;
+
+  /**
+   * @generated from field: vekst.type.v1.Money opening = 2;
+   */
+  opening?: Money;
+
+  /**
+   * Positive magnitudes, because that is how they read on a page. The store's
+   * signs are what separates them.
+   *
+   * @generated from field: vekst.type.v1.Money in = 3;
+   */
+  in?: Money;
+
+  /**
+   * @generated from field: vekst.type.v1.Money out = 4;
+   */
+  out?: Money;
+
+  /**
+   * The organisation moving its own money. Counted apart from in and out,
+   * because calling it revenue in one account and an expense in another is how
+   * a business appears to trade with itself. Both legs of a pair inside one
+   * entity net to zero -- which is why the count is here too: "0 across 4 rows"
+   * and "0 across none" are different facts.
+   *
+   * @generated from field: vekst.type.v1.Money transfers = 5;
+   */
+  transfers?: Money;
+
+  /**
+   * @generated from field: int32 transfer_row_count = 6;
+   */
+  transferRowCount: number;
+
+  /**
+   * @generated from field: vekst.type.v1.Money closing = 7;
+   */
+  closing?: Money;
+
+  /**
+   * @generated from field: bool balances = 8;
+   */
+  balances: boolean;
+
+  /**
+   * True while opening and closing are computed from the rows rather than read
+   * from what the statement itself declared -- which nothing stores yet. The
+   * identity then checks this system against itself and not against the bank,
+   * and a client that renders it as "reconciled with your bank" would be
+   * claiming more than it can.
+   *
+   * @generated from field: bool derived = 9;
+   */
+  derived: boolean;
+};
+
+/**
+ * Describes the message vekst.v1.ReconciliationLine.
+ * Use `create(ReconciliationLineSchema)` to create a new message.
+ */
+export const ReconciliationLineSchema: GenMessage<ReconciliationLine> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_report, 10);
+
+/**
+ * Which half of the business a report is computed from.
+ * 
  * ARCHITECTURE.md 5.1 calls mixing these the single most likely way this
  * product prints a wrong number: an invoice and the payment that settles it are
  * two rows describing one event, and a line summing both counts the money
@@ -428,12 +817,44 @@ export const ReportBucketKindSchema: GenEnum<ReportBucketKind> = /*@__PURE__*/
   enumDesc(file_vekst_v1_report, 2);
 
 /**
+ * What kind of answer a drill-down came back with, so a screen renders a list
+ * of rows or a list of lines without guessing.
+ *
+ * @generated from enum vekst.v1.ReportAnswerKind
+ */
+export enum ReportAnswerKind {
+  /**
+   * @generated from enum value: REPORT_ANSWER_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: REPORT_ANSWER_KIND_TRANSACTIONS = 1;
+   */
+  TRANSACTIONS = 1,
+
+  /**
+   * What a computed line gives back. GM has no transactions of its own: it is
+   * NET SALES minus CS, and both of those have transactions.
+   *
+   * @generated from enum value: REPORT_ANSWER_KIND_OPERANDS = 2;
+   */
+  OPERANDS = 2,
+}
+
+/**
+ * Describes the enum vekst.v1.ReportAnswerKind.
+ */
+export const ReportAnswerKindSchema: GenEnum<ReportAnswerKind> = /*@__PURE__*/
+  enumDesc(file_vekst_v1_report, 3);
+
+/**
  * ReportService produces the management P&L: the table a business owner reads
  * in the first minute of a month. Sections, the five computed lines, one column
  * per period, and an honest account of everything the report could not include.
- *
+ * 
  * Browser-facing, so Connect rather than the native gRPC the classifier uses.
- *
+ * 
  * Any member may read a report, a viewer included -- reading the numbers is the
  * whole reason the role exists. The handler resolves the organisation through
  * the one sanctioned door, which proves membership in the same step.
@@ -448,6 +869,22 @@ export const ReportService: GenService<{
     methodKind: "unary";
     input: typeof GetManagementPNLRequestSchema;
     output: typeof GetManagementPNLResponseSchema;
+  },
+  /**
+   * Open one figure.
+   * 
+   * A cell is addressed by the four things that computed it -- entity, basis,
+   * period and line -- and by nothing else. The alternative is an opaque handle
+   * returned with each figure and passed back, which is state the server has to
+   * keep or sign, and a report whose drill-down needs server state is no longer
+   * reproducible from its own inputs.
+   *
+   * @generated from rpc vekst.v1.ReportService.ListLineTransactions
+   */
+  listLineTransactions: {
+    methodKind: "unary";
+    input: typeof ListLineTransactionsRequestSchema;
+    output: typeof ListLineTransactionsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_vekst_v1_report, 0);

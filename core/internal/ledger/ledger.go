@@ -59,6 +59,18 @@ type Transaction struct {
 	// The import that produced this row.
 	BatchID uuid.UUID
 
+	// The 1-based line of the *original file* this row came from -- not the
+	// index of a parsed row, which is a different number the moment a file has
+	// a preamble or a blank line (ARCHITECTURE.md 4a.1 keys the validation
+	// error report the same way, and `ingest` has a test pinning the
+	// distinction).
+	//
+	// BatchID and LineNo together are the row's provenance and either alone is
+	// half an answer: a batch says which file, a line says where in it. A
+	// customer checking a figure opens their own file, and a drill-down that
+	// cannot point at the line asks them to match on amount and date and hope.
+	LineNo int32
+
 	// ledger | bank. Denormalised from the batch on purpose (design D1);
 	// migration 007's own trigger holds this equal to the batch's.
 	SourceKind string

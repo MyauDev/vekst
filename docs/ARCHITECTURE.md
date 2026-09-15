@@ -477,7 +477,8 @@ import_validations(id, org_id, batch_id, outcome,                    -- valid|wa
                error_count, warning_count, balance_check_passed,
                report_jsonb, overridden_by, override_reason, at)
 
-transactions(org_id, id, entity_id, account_id, batch_id, source_kind,
+transactions(org_id, id, entity_id, account_id, batch_id, line_no,   -- provenance
+             source_kind,
              document_ref, posting_no,                               -- the grain, see 5.0
              booked_on, value_on, direction,
              amount_minor, currency, fx_rate, fx_rate_on,
@@ -561,6 +562,26 @@ counterparty covers. `review_decisions_one_live_idx` keeps exactly one live
 decision per counterparty per key version, which is also the lock two people
 working the queue at once serialise on; the loser is told it lost rather than
 handed an internal error.
+
+`transactions.line_no` arrives in migration `00015` (change `add-report-drilldown`)
+rather than in 007, and the pair `(batch_id, line_no)` is a row's provenance: a
+batch says which file, a line says where in it, and either alone is half an
+answer. It is the 1-based line of the **original** file and not the index of a
+parsed row -- a distinction every real bank export makes, because every one of
+them has a preamble -- which is the same number §4a.1 keys the validation error
+report to. The value always existed as `ingest.Row.LineNo`; it was dropped at
+one boundary, the transaction insert, and nothing noticed because nothing
+downstream asked for it until a customer wanted to check a figure against their
+own file.
+
+It is `NOT NULL` with no backfill, and that is the decision worth recording. No
+join recovers the number for a row written before 015: a transaction carries no
+pointer to its `raw_rows` line, deduplication means not every line became a
+transaction, and one line can become several postings. The alternatives were a
+sentinel or a guess, and both put a number in a column a customer reads as the
+line in their file. So the migration refuses rather than invents, and
+`ledger.Insert` refuses a row with no line number by name before the CHECK sees
+it.
 
 - **`org_id` leads the primary key** on `entities` and `accounts`. Referential
   integrity checks — unique and primary key constraints as much as foreign keys

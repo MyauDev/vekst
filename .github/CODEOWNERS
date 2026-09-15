@@ -124,3 +124,14 @@
 # prints a wrong number. A test over the file enforces it -- read that test
 # before adding a query here.
 /core/internal/db/query/report.sql          @MyauDev/admin
+
+# The drill-down (change 4.2). 015 adds one column to a merged migration's
+# table -- NOT NULL with no backfill, because nothing can supply the line a row
+# written before it came from, and a sentinel in that column is a number a
+# customer reads as a line in their own file. drilldown.sql holds ONE line
+# predicate rather than one per bucket, in the order core/internal/report places
+# a row: a figure whose drill-down does not add up to it is what this change
+# exists to make impossible, and two independently written WHERE clauses are how
+# it happens.
+/core/migrations/00015_transaction_line_no.sql   @MyauDev/admin
+/core/internal/db/query/drilldown.sql            @MyauDev/admin

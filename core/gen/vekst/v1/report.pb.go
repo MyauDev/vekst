@@ -203,6 +203,59 @@ func (ReportBucketKind) EnumDescriptor() ([]byte, []int) {
 	return file_vekst_v1_report_proto_rawDescGZIP(), []int{2}
 }
 
+// What kind of answer a drill-down came back with, so a screen renders a list
+// of rows or a list of lines without guessing.
+type ReportAnswerKind int32
+
+const (
+	ReportAnswerKind_REPORT_ANSWER_KIND_UNSPECIFIED  ReportAnswerKind = 0
+	ReportAnswerKind_REPORT_ANSWER_KIND_TRANSACTIONS ReportAnswerKind = 1
+	// What a computed line gives back. GM has no transactions of its own: it is
+	// NET SALES minus CS, and both of those have transactions.
+	ReportAnswerKind_REPORT_ANSWER_KIND_OPERANDS ReportAnswerKind = 2
+)
+
+// Enum value maps for ReportAnswerKind.
+var (
+	ReportAnswerKind_name = map[int32]string{
+		0: "REPORT_ANSWER_KIND_UNSPECIFIED",
+		1: "REPORT_ANSWER_KIND_TRANSACTIONS",
+		2: "REPORT_ANSWER_KIND_OPERANDS",
+	}
+	ReportAnswerKind_value = map[string]int32{
+		"REPORT_ANSWER_KIND_UNSPECIFIED":  0,
+		"REPORT_ANSWER_KIND_TRANSACTIONS": 1,
+		"REPORT_ANSWER_KIND_OPERANDS":     2,
+	}
+)
+
+func (x ReportAnswerKind) Enum() *ReportAnswerKind {
+	p := new(ReportAnswerKind)
+	*p = x
+	return p
+}
+
+func (x ReportAnswerKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ReportAnswerKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_vekst_v1_report_proto_enumTypes[3].Descriptor()
+}
+
+func (ReportAnswerKind) Type() protoreflect.EnumType {
+	return &file_vekst_v1_report_proto_enumTypes[3]
+}
+
+func (x ReportAnswerKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ReportAnswerKind.Descriptor instead.
+func (ReportAnswerKind) EnumDescriptor() ([]byte, []int) {
+	return file_vekst_v1_report_proto_rawDescGZIP(), []int{3}
+}
+
 type GetManagementPNLRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	OrganizationId string                 `protobuf:"bytes,1,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
@@ -605,10 +658,12 @@ type GetManagementPNLResponse struct {
 	// head to see where a third came from.
 	Lines []*ReportLine `protobuf:"bytes,7,rep,name=lines,proto3" json:"lines,omitempty"`
 	// What the table could not include, and what makes it honest.
-	Buckets       []*ReportBucketLine `protobuf:"bytes,8,rep,name=buckets,proto3" json:"buckets,omitempty"`
-	Versions      *ReportVersions     `protobuf:"bytes,9,opt,name=versions,proto3" json:"versions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Buckets  []*ReportBucketLine `protobuf:"bytes,8,rep,name=buckets,proto3" json:"buckets,omitempty"`
+	Versions *ReportVersions     `protobuf:"bytes,9,opt,name=versions,proto3" json:"versions,omitempty"`
+	// One per entry in `periods`, in that order.
+	Reconciliation []*ReconciliationLine `protobuf:"bytes,10,rep,name=reconciliation,proto3" json:"reconciliation,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetManagementPNLResponse) Reset() {
@@ -704,6 +759,628 @@ func (x *GetManagementPNLResponse) GetVersions() *ReportVersions {
 	return nil
 }
 
+func (x *GetManagementPNLResponse) GetReconciliation() []*ReconciliationLine {
+	if x != nil {
+		return x.Reconciliation
+	}
+	return nil
+}
+
+type ListLineTransactionsRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	OrganizationId string                 `protobuf:"bytes,1,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	EntityId       string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	// The same four fields the report was produced from. They have to match, or
+	// the rows returned are not the rows the figure was summed from -- which is
+	// the one failure this endpoint exists to make impossible.
+	Basis       ReportBasis       `protobuf:"varint,3,opt,name=basis,proto3,enum=vekst.v1.ReportBasis" json:"basis,omitempty"`
+	Granularity ReportGranularity `protobuf:"varint,4,opt,name=granularity,proto3,enum=vekst.v1.ReportGranularity" json:"granularity,omitempty"`
+	From        string            `protobuf:"bytes,5,opt,name=from,proto3" json:"from,omitempty"`
+	To          string            `protobuf:"bytes,6,opt,name=to,proto3" json:"to,omitempty"`
+	// One of the labels in the report's `periods`.
+	Period string `protobuf:"bytes,7,opt,name=period,proto3" json:"period,omitempty"`
+	// A line's code ('01', '91') or a bucket's name ('unclassified',
+	// 'non_pnl', 'unallocated', 'other_basis'). The two vocabularies are closed
+	// and disjoint, so no prefix is needed to tell them apart.
+	Line string `protobuf:"bytes,8,opt,name=line,proto3" json:"line,omitempty"`
+	// From a previous response's next_cursor. Empty is the first page.
+	Cursor        string `protobuf:"bytes,9,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	Limit         int32  `protobuf:"varint,10,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLineTransactionsRequest) Reset() {
+	*x = ListLineTransactionsRequest{}
+	mi := &file_vekst_v1_report_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLineTransactionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLineTransactionsRequest) ProtoMessage() {}
+
+func (x *ListLineTransactionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_report_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLineTransactionsRequest.ProtoReflect.Descriptor instead.
+func (*ListLineTransactionsRequest) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_report_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListLineTransactionsRequest) GetOrganizationId() string {
+	if x != nil {
+		return x.OrganizationId
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetBasis() ReportBasis {
+	if x != nil {
+		return x.Basis
+	}
+	return ReportBasis_REPORT_BASIS_UNSPECIFIED
+}
+
+func (x *ListLineTransactionsRequest) GetGranularity() ReportGranularity {
+	if x != nil {
+		return x.Granularity
+	}
+	return ReportGranularity_REPORT_GRANULARITY_UNSPECIFIED
+}
+
+func (x *ListLineTransactionsRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetLine() string {
+	if x != nil {
+		return x.Line
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
+func (x *ListLineTransactionsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// One transaction behind a figure.
+type DrillTransaction struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// YYYY-MM-DD.
+	BookedOn string `protobuf:"bytes,2,opt,name=booked_on,json=bookedOn,proto3" json:"booked_on,omitempty"`
+	// Where it came from. The batch says which file and the line says where in
+	// it, and the pair is the row's provenance -- either alone is half an answer.
+	// A customer checking a figure has that file open, and a drill-down that
+	// cannot point at the line is asking them to match on amount and date and
+	// hope.
+	BatchId string `protobuf:"bytes,3,opt,name=batch_id,json=batchId,proto3" json:"batch_id,omitempty"`
+	LineNo  int32  `protobuf:"varint,4,opt,name=line_no,json=lineNo,proto3" json:"line_no,omitempty"`
+	// The grain: 0 with no document_ref for a bank payment, 1..n for the
+	// postings of one ledger document.
+	PostingNo   int32  `protobuf:"varint,5,opt,name=posting_no,json=postingNo,proto3" json:"posting_no,omitempty"`
+	DocumentRef string `protobuf:"bytes,6,opt,name=document_ref,json=documentRef,proto3" json:"document_ref,omitempty"`
+	// What the source said, and the conversion into the organisation's base
+	// currency. base_amount is absent when the row needed no conversion: "no
+	// conversion happened" is a different claim from "converted at a rate of
+	// one".
+	Amount          *v1.Money `protobuf:"bytes,7,opt,name=amount,proto3" json:"amount,omitempty"`
+	BaseAmount      *v1.Money `protobuf:"bytes,8,opt,name=base_amount,json=baseAmount,proto3" json:"base_amount,omitempty"`
+	CounterpartyRaw string    `protobuf:"bytes,9,opt,name=counterparty_raw,json=counterpartyRaw,proto3" json:"counterparty_raw,omitempty"`
+	Description     string    `protobuf:"bytes,10,opt,name=description,proto3" json:"description,omitempty"`
+	// КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+	RegulatedCode string `protobuf:"bytes,11,opt,name=regulated_code,json=regulatedCode,proto3" json:"regulated_code,omitempty"`
+	// ledger | bank
+	SourceKind string `protobuf:"bytes,12,opt,name=source_kind,json=sourceKind,proto3" json:"source_kind,omitempty"`
+	// The live classification. Empty on a row in one of the exclusion buckets --
+	// which is the fact that put it there, not a missing value.
+	CategoryCode string `protobuf:"bytes,13,opt,name=category_code,json=categoryCode,proto3" json:"category_code,omitempty"`
+	CategoryName string `protobuf:"bytes,14,opt,name=category_name,json=categoryName,proto3" json:"category_name,omitempty"`
+	// Why this row is on this line. L0 memory, L0.5 a regulated code, L1 a rule,
+	// human a person -- with the evidence beside it. "Because a Belarusian
+	// country rule matched this wording" and "because you told us in March" are
+	// different claims about the same figure, and a reviewer trusts them
+	// differently.
+	//
+	// matched_rule_priority is deliberately not here. It is an internal ordering
+	// number, it means nothing to a reader, and returning it invites a client to
+	// reason about rule order it has no business knowing.
+	EngineLayer string `protobuf:"bytes,15,opt,name=engine_layer,json=engineLayer,proto3" json:"engine_layer,omitempty"`
+	Evidence    string `protobuf:"bytes,16,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	// A probability and not money, which is why a double is right here. Absent on
+	// an unclassified row.
+	Confidence *float64 `protobuf:"fixed64,17,opt,name=confidence,proto3,oneof" json:"confidence,omitempty"`
+	// Set exactly when a person decided.
+	DecidedBy     string `protobuf:"bytes,18,opt,name=decided_by,json=decidedBy,proto3" json:"decided_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DrillTransaction) Reset() {
+	*x = DrillTransaction{}
+	mi := &file_vekst_v1_report_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DrillTransaction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DrillTransaction) ProtoMessage() {}
+
+func (x *DrillTransaction) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_report_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DrillTransaction.ProtoReflect.Descriptor instead.
+func (*DrillTransaction) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_report_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DrillTransaction) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetBookedOn() string {
+	if x != nil {
+		return x.BookedOn
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetBatchId() string {
+	if x != nil {
+		return x.BatchId
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetLineNo() int32 {
+	if x != nil {
+		return x.LineNo
+	}
+	return 0
+}
+
+func (x *DrillTransaction) GetPostingNo() int32 {
+	if x != nil {
+		return x.PostingNo
+	}
+	return 0
+}
+
+func (x *DrillTransaction) GetDocumentRef() string {
+	if x != nil {
+		return x.DocumentRef
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetAmount() *v1.Money {
+	if x != nil {
+		return x.Amount
+	}
+	return nil
+}
+
+func (x *DrillTransaction) GetBaseAmount() *v1.Money {
+	if x != nil {
+		return x.BaseAmount
+	}
+	return nil
+}
+
+func (x *DrillTransaction) GetCounterpartyRaw() string {
+	if x != nil {
+		return x.CounterpartyRaw
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetRegulatedCode() string {
+	if x != nil {
+		return x.RegulatedCode
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetSourceKind() string {
+	if x != nil {
+		return x.SourceKind
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetCategoryCode() string {
+	if x != nil {
+		return x.CategoryCode
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetCategoryName() string {
+	if x != nil {
+		return x.CategoryName
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetEngineLayer() string {
+	if x != nil {
+		return x.EngineLayer
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *DrillTransaction) GetConfidence() float64 {
+	if x != nil && x.Confidence != nil {
+		return *x.Confidence
+	}
+	return 0
+}
+
+func (x *DrillTransaction) GetDecidedBy() string {
+	if x != nil {
+		return x.DecidedBy
+	}
+	return ""
+}
+
+// One line a computed line is made of.
+type ReportOperand struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Code  string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Label string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// Whether the formula takes this operand away. How the line reads on the
+	// page, not how the arithmetic runs: a cost is already negative in the store,
+	// so a "minus" there is an addition here.
+	Subtracted    bool `protobuf:"varint,3,opt,name=subtracted,proto3" json:"subtracted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReportOperand) Reset() {
+	*x = ReportOperand{}
+	mi := &file_vekst_v1_report_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportOperand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportOperand) ProtoMessage() {}
+
+func (x *ReportOperand) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_report_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportOperand.ProtoReflect.Descriptor instead.
+func (*ReportOperand) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_report_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReportOperand) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *ReportOperand) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *ReportOperand) GetSubtracted() bool {
+	if x != nil {
+		return x.Subtracted
+	}
+	return false
+}
+
+type ListLineTransactionsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  ReportAnswerKind       `protobuf:"varint,1,opt,name=kind,proto3,enum=vekst.v1.ReportAnswerKind" json:"kind,omitempty"`
+	// Set when kind is TRANSACTIONS.
+	Transactions []*DrillTransaction `protobuf:"bytes,2,rep,name=transactions,proto3" json:"transactions,omitempty"`
+	// Set when kind is OPERANDS, each openable in turn.
+	Operands []*ReportOperand `protobuf:"bytes,3,rep,name=operands,proto3" json:"operands,omitempty"`
+	// The whole cell, not this page. A reader has to know whether what they are
+	// looking at is the answer or the start of it -- and this total is what the
+	// figure on the report should equal.
+	RowCount int32     `protobuf:"varint,4,opt,name=row_count,json=rowCount,proto3" json:"row_count,omitempty"`
+	Total    *v1.Money `protobuf:"bytes,5,opt,name=total,proto3" json:"total,omitempty"`
+	// Empty when the page just returned is the last one.
+	NextCursor    string `protobuf:"bytes,6,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLineTransactionsResponse) Reset() {
+	*x = ListLineTransactionsResponse{}
+	mi := &file_vekst_v1_report_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLineTransactionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLineTransactionsResponse) ProtoMessage() {}
+
+func (x *ListLineTransactionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_report_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLineTransactionsResponse.ProtoReflect.Descriptor instead.
+func (*ListLineTransactionsResponse) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_report_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListLineTransactionsResponse) GetKind() ReportAnswerKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ReportAnswerKind_REPORT_ANSWER_KIND_UNSPECIFIED
+}
+
+func (x *ListLineTransactionsResponse) GetTransactions() []*DrillTransaction {
+	if x != nil {
+		return x.Transactions
+	}
+	return nil
+}
+
+func (x *ListLineTransactionsResponse) GetOperands() []*ReportOperand {
+	if x != nil {
+		return x.Operands
+	}
+	return nil
+}
+
+func (x *ListLineTransactionsResponse) GetRowCount() int32 {
+	if x != nil {
+		return x.RowCount
+	}
+	return 0
+}
+
+func (x *ListLineTransactionsResponse) GetTotal() *v1.Money {
+	if x != nil {
+		return x.Total
+	}
+	return nil
+}
+
+func (x *ListLineTransactionsResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
+// The strip at the foot of the table, for one period.
+//
+//   opening + in - out - transfers = closing
+//
+// `balances` is that identity, checked rather than asserted: the three
+// movements come from one aggregation and the two balances from another, so a
+// row dropped or double-counted by either breaks it. When it does not hold the
+// report says so rather than printing five numbers that do not add up.
+type ReconciliationLine struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Period  string                 `protobuf:"bytes,1,opt,name=period,proto3" json:"period,omitempty"`
+	Opening *v1.Money              `protobuf:"bytes,2,opt,name=opening,proto3" json:"opening,omitempty"`
+	// Positive magnitudes, because that is how they read on a page. The store's
+	// signs are what separates them.
+	In  *v1.Money `protobuf:"bytes,3,opt,name=in,proto3" json:"in,omitempty"`
+	Out *v1.Money `protobuf:"bytes,4,opt,name=out,proto3" json:"out,omitempty"`
+	// The organisation moving its own money. Counted apart from in and out,
+	// because calling it revenue in one account and an expense in another is how
+	// a business appears to trade with itself. Both legs of a pair inside one
+	// entity net to zero -- which is why the count is here too: "0 across 4 rows"
+	// and "0 across none" are different facts.
+	Transfers        *v1.Money `protobuf:"bytes,5,opt,name=transfers,proto3" json:"transfers,omitempty"`
+	TransferRowCount int32     `protobuf:"varint,6,opt,name=transfer_row_count,json=transferRowCount,proto3" json:"transfer_row_count,omitempty"`
+	Closing          *v1.Money `protobuf:"bytes,7,opt,name=closing,proto3" json:"closing,omitempty"`
+	Balances         bool      `protobuf:"varint,8,opt,name=balances,proto3" json:"balances,omitempty"`
+	// True while opening and closing are computed from the rows rather than read
+	// from what the statement itself declared -- which nothing stores yet. The
+	// identity then checks this system against itself and not against the bank,
+	// and a client that renders it as "reconciled with your bank" would be
+	// claiming more than it can.
+	Derived       bool `protobuf:"varint,9,opt,name=derived,proto3" json:"derived,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReconciliationLine) Reset() {
+	*x = ReconciliationLine{}
+	mi := &file_vekst_v1_report_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReconciliationLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReconciliationLine) ProtoMessage() {}
+
+func (x *ReconciliationLine) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_report_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReconciliationLine.ProtoReflect.Descriptor instead.
+func (*ReconciliationLine) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_report_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ReconciliationLine) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *ReconciliationLine) GetOpening() *v1.Money {
+	if x != nil {
+		return x.Opening
+	}
+	return nil
+}
+
+func (x *ReconciliationLine) GetIn() *v1.Money {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+func (x *ReconciliationLine) GetOut() *v1.Money {
+	if x != nil {
+		return x.Out
+	}
+	return nil
+}
+
+func (x *ReconciliationLine) GetTransfers() *v1.Money {
+	if x != nil {
+		return x.Transfers
+	}
+	return nil
+}
+
+func (x *ReconciliationLine) GetTransferRowCount() int32 {
+	if x != nil {
+		return x.TransferRowCount
+	}
+	return 0
+}
+
+func (x *ReconciliationLine) GetClosing() *v1.Money {
+	if x != nil {
+		return x.Closing
+	}
+	return nil
+}
+
+func (x *ReconciliationLine) GetBalances() bool {
+	if x != nil {
+		return x.Balances
+	}
+	return false
+}
+
+func (x *ReconciliationLine) GetDerived() bool {
+	if x != nil {
+		return x.Derived
+	}
+	return false
+}
+
 var File_vekst_v1_report_proto protoreflect.FileDescriptor
 
 const file_vekst_v1_report_proto_rawDesc = "" +
@@ -736,7 +1413,7 @@ const file_vekst_v1_report_proto_rawDesc = "" +
 	"\btaxonomy\x18\x01 \x03(\tR\btaxonomy\x12\x18\n" +
 	"\aruleset\x18\x02 \x03(\tR\aruleset\x12\x16\n" +
 	"\x06engine\x18\x03 \x03(\tR\x06engine\x12\x1c\n" +
-	"\tnormalize\x18\x04 \x03(\tR\tnormalize\"\x81\x03\n" +
+	"\tnormalize\x18\x04 \x03(\tR\tnormalize\"\xc7\x03\n" +
 	"\x18GetManagementPNLResponse\x12+\n" +
 	"\x05basis\x18\x01 \x01(\x0e2\x15.vekst.v1.ReportBasisR\x05basis\x12=\n" +
 	"\vgranularity\x18\x02 \x01(\x0e2\x1b.vekst.v1.ReportGranularityR\vgranularity\x12\x12\n" +
@@ -746,7 +1423,72 @@ const file_vekst_v1_report_proto_rawDesc = "" +
 	"\aperiods\x18\x06 \x03(\tR\aperiods\x12*\n" +
 	"\x05lines\x18\a \x03(\v2\x14.vekst.v1.ReportLineR\x05lines\x124\n" +
 	"\abuckets\x18\b \x03(\v2\x1a.vekst.v1.ReportBucketLineR\abuckets\x124\n" +
-	"\bversions\x18\t \x01(\v2\x18.vekst.v1.ReportVersionsR\bversions*[\n" +
+	"\bversions\x18\t \x01(\v2\x18.vekst.v1.ReportVersionsR\bversions\x12D\n" +
+	"\x0ereconciliation\x18\n" +
+	" \x03(\v2\x1c.vekst.v1.ReconciliationLineR\x0ereconciliation\"\xcd\x02\n" +
+	"\x1bListLineTransactionsRequest\x12'\n" +
+	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12+\n" +
+	"\x05basis\x18\x03 \x01(\x0e2\x15.vekst.v1.ReportBasisR\x05basis\x12=\n" +
+	"\vgranularity\x18\x04 \x01(\x0e2\x1b.vekst.v1.ReportGranularityR\vgranularity\x12\x12\n" +
+	"\x04from\x18\x05 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x06 \x01(\tR\x02to\x12\x16\n" +
+	"\x06period\x18\a \x01(\tR\x06period\x12\x12\n" +
+	"\x04line\x18\b \x01(\tR\x04line\x12\x16\n" +
+	"\x06cursor\x18\t \x01(\tR\x06cursor\x12\x14\n" +
+	"\x05limit\x18\n" +
+	" \x01(\x05R\x05limit\"\x8b\x05\n" +
+	"\x10DrillTransaction\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tbooked_on\x18\x02 \x01(\tR\bbookedOn\x12\x19\n" +
+	"\bbatch_id\x18\x03 \x01(\tR\abatchId\x12\x17\n" +
+	"\aline_no\x18\x04 \x01(\x05R\x06lineNo\x12\x1d\n" +
+	"\n" +
+	"posting_no\x18\x05 \x01(\x05R\tpostingNo\x12!\n" +
+	"\fdocument_ref\x18\x06 \x01(\tR\vdocumentRef\x12,\n" +
+	"\x06amount\x18\a \x01(\v2\x14.vekst.type.v1.MoneyR\x06amount\x125\n" +
+	"\vbase_amount\x18\b \x01(\v2\x14.vekst.type.v1.MoneyR\n" +
+	"baseAmount\x12)\n" +
+	"\x10counterparty_raw\x18\t \x01(\tR\x0fcounterpartyRaw\x12 \n" +
+	"\vdescription\x18\n" +
+	" \x01(\tR\vdescription\x12%\n" +
+	"\x0eregulated_code\x18\v \x01(\tR\rregulatedCode\x12\x1f\n" +
+	"\vsource_kind\x18\f \x01(\tR\n" +
+	"sourceKind\x12#\n" +
+	"\rcategory_code\x18\r \x01(\tR\fcategoryCode\x12#\n" +
+	"\rcategory_name\x18\x0e \x01(\tR\fcategoryName\x12!\n" +
+	"\fengine_layer\x18\x0f \x01(\tR\vengineLayer\x12\x1a\n" +
+	"\bevidence\x18\x10 \x01(\tR\bevidence\x12#\n" +
+	"\n" +
+	"confidence\x18\x11 \x01(\x01H\x00R\n" +
+	"confidence\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"decided_by\x18\x12 \x01(\tR\tdecidedByB\r\n" +
+	"\v_confidence\"Y\n" +
+	"\rReportOperand\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x1e\n" +
+	"\n" +
+	"subtracted\x18\x03 \x01(\bR\n" +
+	"subtracted\"\xad\x02\n" +
+	"\x1cListLineTransactionsResponse\x12.\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x1a.vekst.v1.ReportAnswerKindR\x04kind\x12>\n" +
+	"\ftransactions\x18\x02 \x03(\v2\x1a.vekst.v1.DrillTransactionR\ftransactions\x123\n" +
+	"\boperands\x18\x03 \x03(\v2\x17.vekst.v1.ReportOperandR\boperands\x12\x1b\n" +
+	"\trow_count\x18\x04 \x01(\x05R\browCount\x12*\n" +
+	"\x05total\x18\x05 \x01(\v2\x14.vekst.type.v1.MoneyR\x05total\x12\x1f\n" +
+	"\vnext_cursor\x18\x06 \x01(\tR\n" +
+	"nextCursor\"\xf2\x02\n" +
+	"\x12ReconciliationLine\x12\x16\n" +
+	"\x06period\x18\x01 \x01(\tR\x06period\x12.\n" +
+	"\aopening\x18\x02 \x01(\v2\x14.vekst.type.v1.MoneyR\aopening\x12$\n" +
+	"\x02in\x18\x03 \x01(\v2\x14.vekst.type.v1.MoneyR\x02in\x12&\n" +
+	"\x03out\x18\x04 \x01(\v2\x14.vekst.type.v1.MoneyR\x03out\x122\n" +
+	"\ttransfers\x18\x05 \x01(\v2\x14.vekst.type.v1.MoneyR\ttransfers\x12,\n" +
+	"\x12transfer_row_count\x18\x06 \x01(\x05R\x10transferRowCount\x12.\n" +
+	"\aclosing\x18\a \x01(\v2\x14.vekst.type.v1.MoneyR\aclosing\x12\x1a\n" +
+	"\bbalances\x18\b \x01(\bR\bbalances\x12\x18\n" +
+	"\aderived\x18\t \x01(\bR\aderived*[\n" +
 	"\vReportBasis\x12\x1c\n" +
 	"\x18REPORT_BASIS_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13REPORT_BASIS_LEDGER\x10\x01\x12\x15\n" +
@@ -761,9 +1503,14 @@ const file_vekst_v1_report_proto_rawDesc = "" +
 	"\x1fREPORT_BUCKET_KIND_UNCLASSIFIED\x10\x01\x12\x1e\n" +
 	"\x1aREPORT_BUCKET_KIND_NON_PNL\x10\x02\x12\"\n" +
 	"\x1eREPORT_BUCKET_KIND_UNALLOCATED\x10\x03\x12\"\n" +
-	"\x1eREPORT_BUCKET_KIND_OTHER_BASIS\x10\x042j\n" +
+	"\x1eREPORT_BUCKET_KIND_OTHER_BASIS\x10\x04*|\n" +
+	"\x10ReportAnswerKind\x12\"\n" +
+	"\x1eREPORT_ANSWER_KIND_UNSPECIFIED\x10\x00\x12#\n" +
+	"\x1fREPORT_ANSWER_KIND_TRANSACTIONS\x10\x01\x12\x1f\n" +
+	"\x1bREPORT_ANSWER_KIND_OPERANDS\x10\x022\xd1\x01\n" +
 	"\rReportService\x12Y\n" +
-	"\x10GetManagementPNL\x12!.vekst.v1.GetManagementPNLRequest\x1a\".vekst.v1.GetManagementPNLResponseB3Z1github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1b\x06proto3"
+	"\x10GetManagementPNL\x12!.vekst.v1.GetManagementPNLRequest\x1a\".vekst.v1.GetManagementPNLResponse\x12e\n" +
+	"\x14ListLineTransactions\x12%.vekst.v1.ListLineTransactionsRequest\x1a&.vekst.v1.ListLineTransactionsResponseB3Z1github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1b\x06proto3"
 
 var (
 	file_vekst_v1_report_proto_rawDescOnce sync.Once
@@ -777,41 +1524,63 @@ func file_vekst_v1_report_proto_rawDescGZIP() []byte {
 	return file_vekst_v1_report_proto_rawDescData
 }
 
-var file_vekst_v1_report_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_vekst_v1_report_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_vekst_v1_report_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_vekst_v1_report_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_vekst_v1_report_proto_goTypes = []any{
-	(ReportBasis)(0),                 // 0: vekst.v1.ReportBasis
-	(ReportGranularity)(0),           // 1: vekst.v1.ReportGranularity
-	(ReportBucketKind)(0),            // 2: vekst.v1.ReportBucketKind
-	(*GetManagementPNLRequest)(nil),  // 3: vekst.v1.GetManagementPNLRequest
-	(*ReportFigure)(nil),             // 4: vekst.v1.ReportFigure
-	(*ReportLine)(nil),               // 5: vekst.v1.ReportLine
-	(*ReportBucketLine)(nil),         // 6: vekst.v1.ReportBucketLine
-	(*ReportVersions)(nil),           // 7: vekst.v1.ReportVersions
-	(*GetManagementPNLResponse)(nil), // 8: vekst.v1.GetManagementPNLResponse
-	(*v1.Money)(nil),                 // 9: vekst.type.v1.Money
+	(ReportBasis)(0),                     // 0: vekst.v1.ReportBasis
+	(ReportGranularity)(0),               // 1: vekst.v1.ReportGranularity
+	(ReportBucketKind)(0),                // 2: vekst.v1.ReportBucketKind
+	(ReportAnswerKind)(0),                // 3: vekst.v1.ReportAnswerKind
+	(*GetManagementPNLRequest)(nil),      // 4: vekst.v1.GetManagementPNLRequest
+	(*ReportFigure)(nil),                 // 5: vekst.v1.ReportFigure
+	(*ReportLine)(nil),                   // 6: vekst.v1.ReportLine
+	(*ReportBucketLine)(nil),             // 7: vekst.v1.ReportBucketLine
+	(*ReportVersions)(nil),               // 8: vekst.v1.ReportVersions
+	(*GetManagementPNLResponse)(nil),     // 9: vekst.v1.GetManagementPNLResponse
+	(*ListLineTransactionsRequest)(nil),  // 10: vekst.v1.ListLineTransactionsRequest
+	(*DrillTransaction)(nil),             // 11: vekst.v1.DrillTransaction
+	(*ReportOperand)(nil),                // 12: vekst.v1.ReportOperand
+	(*ListLineTransactionsResponse)(nil), // 13: vekst.v1.ListLineTransactionsResponse
+	(*ReconciliationLine)(nil),           // 14: vekst.v1.ReconciliationLine
+	(*v1.Money)(nil),                     // 15: vekst.type.v1.Money
 }
 var file_vekst_v1_report_proto_depIdxs = []int32{
 	1,  // 0: vekst.v1.GetManagementPNLRequest.granularity:type_name -> vekst.v1.ReportGranularity
 	0,  // 1: vekst.v1.GetManagementPNLRequest.basis:type_name -> vekst.v1.ReportBasis
-	9,  // 2: vekst.v1.ReportFigure.amount:type_name -> vekst.type.v1.Money
-	4,  // 3: vekst.v1.ReportLine.by_period:type_name -> vekst.v1.ReportFigure
-	4,  // 4: vekst.v1.ReportLine.total:type_name -> vekst.v1.ReportFigure
+	15, // 2: vekst.v1.ReportFigure.amount:type_name -> vekst.type.v1.Money
+	5,  // 3: vekst.v1.ReportLine.by_period:type_name -> vekst.v1.ReportFigure
+	5,  // 4: vekst.v1.ReportLine.total:type_name -> vekst.v1.ReportFigure
 	2,  // 5: vekst.v1.ReportBucketLine.kind:type_name -> vekst.v1.ReportBucketKind
-	9,  // 6: vekst.v1.ReportBucketLine.by_period:type_name -> vekst.type.v1.Money
-	9,  // 7: vekst.v1.ReportBucketLine.total:type_name -> vekst.type.v1.Money
+	15, // 6: vekst.v1.ReportBucketLine.by_period:type_name -> vekst.type.v1.Money
+	15, // 7: vekst.v1.ReportBucketLine.total:type_name -> vekst.type.v1.Money
 	0,  // 8: vekst.v1.GetManagementPNLResponse.basis:type_name -> vekst.v1.ReportBasis
 	1,  // 9: vekst.v1.GetManagementPNLResponse.granularity:type_name -> vekst.v1.ReportGranularity
-	5,  // 10: vekst.v1.GetManagementPNLResponse.lines:type_name -> vekst.v1.ReportLine
-	6,  // 11: vekst.v1.GetManagementPNLResponse.buckets:type_name -> vekst.v1.ReportBucketLine
-	7,  // 12: vekst.v1.GetManagementPNLResponse.versions:type_name -> vekst.v1.ReportVersions
-	3,  // 13: vekst.v1.ReportService.GetManagementPNL:input_type -> vekst.v1.GetManagementPNLRequest
-	8,  // 14: vekst.v1.ReportService.GetManagementPNL:output_type -> vekst.v1.GetManagementPNLResponse
-	14, // [14:15] is the sub-list for method output_type
-	13, // [13:14] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	6,  // 10: vekst.v1.GetManagementPNLResponse.lines:type_name -> vekst.v1.ReportLine
+	7,  // 11: vekst.v1.GetManagementPNLResponse.buckets:type_name -> vekst.v1.ReportBucketLine
+	8,  // 12: vekst.v1.GetManagementPNLResponse.versions:type_name -> vekst.v1.ReportVersions
+	14, // 13: vekst.v1.GetManagementPNLResponse.reconciliation:type_name -> vekst.v1.ReconciliationLine
+	0,  // 14: vekst.v1.ListLineTransactionsRequest.basis:type_name -> vekst.v1.ReportBasis
+	1,  // 15: vekst.v1.ListLineTransactionsRequest.granularity:type_name -> vekst.v1.ReportGranularity
+	15, // 16: vekst.v1.DrillTransaction.amount:type_name -> vekst.type.v1.Money
+	15, // 17: vekst.v1.DrillTransaction.base_amount:type_name -> vekst.type.v1.Money
+	3,  // 18: vekst.v1.ListLineTransactionsResponse.kind:type_name -> vekst.v1.ReportAnswerKind
+	11, // 19: vekst.v1.ListLineTransactionsResponse.transactions:type_name -> vekst.v1.DrillTransaction
+	12, // 20: vekst.v1.ListLineTransactionsResponse.operands:type_name -> vekst.v1.ReportOperand
+	15, // 21: vekst.v1.ListLineTransactionsResponse.total:type_name -> vekst.type.v1.Money
+	15, // 22: vekst.v1.ReconciliationLine.opening:type_name -> vekst.type.v1.Money
+	15, // 23: vekst.v1.ReconciliationLine.in:type_name -> vekst.type.v1.Money
+	15, // 24: vekst.v1.ReconciliationLine.out:type_name -> vekst.type.v1.Money
+	15, // 25: vekst.v1.ReconciliationLine.transfers:type_name -> vekst.type.v1.Money
+	15, // 26: vekst.v1.ReconciliationLine.closing:type_name -> vekst.type.v1.Money
+	4,  // 27: vekst.v1.ReportService.GetManagementPNL:input_type -> vekst.v1.GetManagementPNLRequest
+	10, // 28: vekst.v1.ReportService.ListLineTransactions:input_type -> vekst.v1.ListLineTransactionsRequest
+	9,  // 29: vekst.v1.ReportService.GetManagementPNL:output_type -> vekst.v1.GetManagementPNLResponse
+	13, // 30: vekst.v1.ReportService.ListLineTransactions:output_type -> vekst.v1.ListLineTransactionsResponse
+	29, // [29:31] is the sub-list for method output_type
+	27, // [27:29] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_vekst_v1_report_proto_init() }
@@ -820,13 +1589,14 @@ func file_vekst_v1_report_proto_init() {
 		return
 	}
 	file_vekst_v1_report_proto_msgTypes[1].OneofWrappers = []any{}
+	file_vekst_v1_report_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vekst_v1_report_proto_rawDesc), len(file_vekst_v1_report_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   6,
+			NumEnums:      4,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

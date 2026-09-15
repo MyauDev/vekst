@@ -177,12 +177,12 @@ func (f *fixture) insert(t *testing.T, rows ...txn) {
 			}
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO transactions (
-					org_id, entity_id, account_id, batch_id, source_kind,
+					org_id, entity_id, account_id, batch_id, line_no, source_kind,
 					booked_on, amount_minor, currency,
 					fx_rate, fx_rate_on, base_amount_minor, base_currency,
 					counterparty_raw, counterparty_key, description_raw,
 					description_norm, normalize_version, dedup_hash)
-				SELECT app_current_org(), $1, a.id, $2, 'bank',
+				SELECT app_current_org(), $1, a.id, $2, $15, 'bank',
 				       date '2026-03-01' + $3::int, $4, $5,
 				       $6::numeric, $7::date, $8::bigint, $9,
 				       $10, $11, $12, $12, $13, $14
@@ -192,7 +192,7 @@ func (f *fixture) insert(t *testing.T, rows ...txn) {
 				i, r.amount, currency,
 				fxRate, fxOn, base, baseCcy,
 				r.name, r.key, r.name+" payment", normalize.Version,
-				uuid.NewString(),
+				uuid.NewString(), int32(i+1),
 			); err != nil {
 				return fmt.Errorf("row %d: %w", i, err)
 			}
