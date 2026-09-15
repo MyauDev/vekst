@@ -227,7 +227,7 @@ func connectErr(err error) error {
 		switch coded.Code {
 		case review.CodeForbidden:
 			return connect.NewError(connect.CodePermissionDenied, errors.New(coded.Code))
-		case review.CodeEmptyGroup, review.CodeAlreadyUndone:
+		case review.CodeEmptyGroup, review.CodeAlreadyUndone, review.CodeAlreadyDecided:
 			return connect.NewError(connect.CodeFailedPrecondition, errors.New(coded.Code))
 		default:
 			return connect.NewError(connect.CodeInvalidArgument, errors.New(coded.Code))

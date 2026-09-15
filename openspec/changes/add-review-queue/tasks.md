@@ -12,7 +12,7 @@ demonstrable until that worker exists.
 ## 0. Before anything else
 
 - [x] 0.1 **Settled.** Both `T` and `N` resolve to the seeded leaf `09` OUT OF P&L; `review_decisions.outcome` keeps them apart so 2.6 can upgrade a transfer claim into a confirmed pair. No taxonomy amendment — `categories` is FORCE'd and a shared row cannot be added without a `NO FORCE` window that would desynchronise the generator (design §D2)
-- [ ] 0.2 Decide whether `ARCHITECTURE.md` §5.5's `review_items` sketch is replaced or kept beside `review_decisions` — the design argues replaced, and the doc should say so either way
+- [x] 0.2 **Replaced, and §5.5 now says so.** `review_items` carried a per-transaction `state`, which is a second representation of a fact `classifications` already holds; two representations drift, and this drift is silent in the worst direction — a row marked resolved with no classification is absent from the queue *and* from the report, so nobody is told the money went missing. `review_decisions` stores the thing nothing else records: the human act, one row per counterparty
 
 ## 1. Migration 008 — `review_decisions`
 
@@ -73,12 +73,12 @@ demonstrable until that worker exists.
 - [x] 7.8 **Undo:** classifications superseded, vendor row gone, decision stamped and still present; the group reappears in the queue
 - [x] 7.9 **Undo is not a delete:** the decision row survives and `classifications` still holds both generations
 - [x] 7.10 **Memory works:** after resolving, a new transaction for that counterparty is answered by L0 rather than reaching the queue — the learning loop, end to end
-- [ ] 7.11 **Concurrency:** two resolves of one counterparty, one wins, the other fails cleanly — needs two connections racing inside one test and is the one case the live-row unique index already makes structurally true; left for the PR review to say whether it earns its complexity
+- [x] 7.11 **Concurrency:** two resolves of one counterparty, one wins, the other fails cleanly. **It earned its complexity, and not because of the index.** The index already decided the race; what the test found is that the loser reached the client as an internal error, because a 23505 on `review_decisions_one_live_idx` was wrapped like any other database failure. Two people settling the same vendor within a second is what a shared screen produces on the first day of a month, so it now has a code of its own (`review_already_decided`, `FailedPrecondition`). The test asserts the invariant — exactly one success, one live decision, two live classifications, one vendor row, an empty queue — rather than which coded failure the loser gets, because that depends on whether the winner committed before or after the loser read the group, and pinning it down would be asserting a scheduling detail. Measured over ten runs: seven lose on the index, three on the empty group
 - [x] 7.12 **No-float:** money in the generated review types is never a floating-point field
 
 ## 8. Close
 
 - [x] 8.1 `CODEOWNERS`: `/core/internal/review/` and migration 008
-- [ ] 8.2 `ARCHITECTURE.md` §4.2 — the learning loop now has an implementation to point at; §5.5 — `review_items` becomes `review_decisions` with the reason
-- [ ] 8.3 `docs/IMPLEMENTATION_PLAN.md` §3 with the actual cost, and D-9 if anything about shared memory changed
-- [ ] 8.4 Update the capability spec and run the full suite
+- [x] 8.2 `ARCHITECTURE.md` §4.2 — the learning loop now points at `core/internal/review`, and records the two decisions inside it that are not mechanics: only a categorisation is remembered, and memory is deleted on an undo while classifications are retracted; §5.5 — `review_items` becomes `review_decisions`, with the reason
+- [x] 8.3 `docs/IMPLEMENTATION_PLAN.md` §3: 3 planned, ~3.5 actual, with the two things the tests found rather than inspection. D-9 is unchanged and now says so explicitly — every vendor row carries the deciding organisation's `org_id` and the key's `key_version`, so a later yes has both the tenant boundary and the key provenance it would need
+- [x] 8.4 Update the capability spec and run the full suite. Two requirements added from what the implementation settled: the concurrent resolve, and that the queue's own state is not stored

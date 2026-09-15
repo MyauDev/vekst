@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -786,5 +787,118 @@ func assertDecisionUndone(t *testing.T, f *fixture, id uuid.UUID) {
 	}
 	if !undoneBy.Valid {
 		t.Error("the decision was not stamped as undone; an undo records who, not just that")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Task 7.11 -- two people working the queue at once
+// ---------------------------------------------------------------------------
+
+// Two resolves of one counterparty, racing: one wins, the other fails with a
+// code, and the database holds one live decision either way.
+//
+// This is the normal case and not an exotic one. The queue is worked by
+// keyboard and quickly, and an accountant and an owner settling the same
+// vendor within the same second is what a shared screen produces on the first
+// day of a month. The schema already decides the race --
+// review_decisions_one_live_idx is what "what did we decide about this vendor"
+// having one answer means -- so what this test is really about is the loser:
+// it must be told it lost, not handed an internal error.
+//
+// Which coded failure it gets depends on where the two transactions happen to
+// interleave, and the test does not pin that down, because pinning it down
+// would be asserting a scheduling detail rather than the property. If the
+// winner commits before the loser reads the group, the loser sees an empty
+// group; if it commits after, the loser blocks on the unique index and loses
+// there. Both are the same fact told two ways, and the invariant -- exactly
+// one success, exactly one live decision, and no uncoded error -- is the same
+// in both.
+func TestTwoResolvesOfOneCounterpartyLeaveOneDecision(t *testing.T) {
+	f := newFixture(t)
+	f.insert(t,
+		txn{key: "tax:contested", name: "Contested", amount: -120_00},
+		txn{key: "tax:contested", name: "Contested", amount: -80_00},
+	)
+
+	type result struct {
+		decision review.Decision
+		err      error
+	}
+	results := make([]result, 2)
+
+	// Started together rather than in sequence: a test that resolves twice in
+	// a row proves the index rejects a second decision, which is task 7.2's
+	// property, not this one's.
+	var start, done sync.WaitGroup
+	start.Add(1)
+	done.Add(2)
+	for i := range results {
+		go func() {
+			defer done.Done()
+			start.Wait()
+			d, err := f.svc.Resolve(context.Background(), f.owner, f.orgID, f.entity,
+				"tax:contested", review.OutcomeCategorised, otherCode)
+			results[i] = result{d, err}
+		}()
+	}
+	start.Done()
+	done.Wait()
+
+	var won int
+	for _, r := range results {
+		if r.err == nil {
+			won++
+			continue
+		}
+		if codeOf(r.err) == "" {
+			t.Errorf("the losing resolve failed without a code: %v.\n"+
+				"A race the schema deliberately loses has to reach the client as something "+
+				"it can say out loud; an internal error on a concurrent double submit is how "+
+				"somebody stops trusting the screen.", r.err)
+			continue
+		}
+		if got := codeOf(r.err); got != review.CodeAlreadyDecided && got != review.CodeEmptyGroup {
+			t.Errorf("the losing resolve failed with %q; want %q or %q",
+				got, review.CodeAlreadyDecided, review.CodeEmptyGroup)
+		}
+	}
+	if won != 1 {
+		t.Fatalf("%d of 2 resolves succeeded, want exactly 1", won)
+	}
+
+	// And the state the winner left is the state one resolve leaves: one live
+	// decision, two classifications, one vendor row.
+	var decisions, classifications, vendors int
+	err := f.db.InTx(context.Background(), f.org, func(ctx context.Context, tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx,
+			`SELECT count(*) FROM review_decisions WHERE undone_at IS NULL`).Scan(&decisions); err != nil {
+			return err
+		}
+		if err := tx.QueryRow(ctx, `
+			SELECT count(*) FROM classifications
+			 WHERE superseded_by IS NULL AND retracted_at IS NULL`).Scan(&classifications); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `SELECT count(*) FROM vendors`).Scan(&vendors)
+	})
+	if err != nil {
+		t.Fatalf("counting: %v", err)
+	}
+	if decisions != 1 {
+		t.Errorf("live decisions = %d, want 1", decisions)
+	}
+	if classifications != 2 {
+		t.Errorf("live classifications = %d, want 2 -- the losing transaction left rows behind",
+			classifications)
+	}
+	if vendors != 1 {
+		t.Errorf("vendor rows = %d, want 1", vendors)
+	}
+
+	// The queue is empty: whichever transaction won, the rows are settled.
+	groups, totals := f.queue(t)
+	if len(groups) != 0 || totals.RowCount != 0 {
+		t.Errorf("the queue still holds %d groups over %d rows after the race",
+			len(groups), totals.RowCount)
 	}
 }

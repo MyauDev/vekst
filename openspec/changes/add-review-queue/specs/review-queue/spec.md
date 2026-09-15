@@ -187,3 +187,31 @@ first.
 
 - **WHEN** a decision is undone and the counterparty is resolved differently
 - **THEN** the new decision is accepted
+
+#### Scenario: Two people settling one counterparty at once
+
+- **WHEN** two resolves of the same counterparty run concurrently
+- **THEN** exactly one of them succeeds
+- **AND** the other fails with an error code rather than an internal error
+- **AND** one live decision exists afterwards
+
+### Requirement: The queue's own state is not stored
+
+The system SHALL derive both the queue and its totals from the absence of a live
+classification, and SHALL NOT keep a per-transaction review state alongside them.
+
+A second representation of "needs review" drifts from the first, and the drift is silent in
+the worst direction: a transaction marked resolved with no classification is absent from the
+queue and from the report at once, so nobody is told the money went missing.
+
+#### Scenario: Settling a counterparty empties it from the queue
+
+- **WHEN** a counterparty is resolved
+- **THEN** its transactions no longer appear in the queue
+- **AND** no row records that they were reviewed other than the decision itself
+
+#### Scenario: Undoing a decision returns its rows to the queue
+
+- **WHEN** a decision is undone
+- **THEN** its transactions appear in the queue again
+- **AND** the decision row survives, stamped

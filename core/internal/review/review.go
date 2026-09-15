@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	gendb "github.com/MyauDev/vekst/core/gen/db"
@@ -69,6 +70,15 @@ const (
 	CodeUnknownCategory  = "review_unknown_category"
 	CodeEmptyGroup       = "review_group_is_empty"
 	CodeAlreadyUndone    = "review_decision_already_undone"
+
+	// CodeAlreadyDecided is two people working the queue at once, which is
+	// the normal case rather than an exotic one: the counterparty was settled
+	// between this caller reading the group and writing the decision. The
+	// loser of the race has to be told that, not handed an internal error --
+	// the queue is worked by keyboard and quickly, and "something went wrong"
+	// on a race the schema deliberately loses is how somebody stops trusting
+	// the screen.
+	CodeAlreadyDecided = "review_already_decided"
 )
 
 // Err is a failure with a code a client can translate.
@@ -452,6 +462,16 @@ func writeDecision(
 		CoveredCurrency: baseCcy,
 	})
 	if err != nil {
+		// review_decisions_one_live_idx: exactly one live decision per
+		// counterparty per key version. It is what makes "what did we decide
+		// about this vendor" have one answer rather than a list to interpret,
+		// and it is also the lock two concurrent resolves serialise on -- the
+		// second waits for the first to commit and then loses, here.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "review_decisions_one_live_idx" {
+			return Decision{}, codeErr(CodeAlreadyDecided, err)
+		}
 		return Decision{}, fmt.Errorf("review: recording the decision: %w", err)
 	}
 	return Decision{

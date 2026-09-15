@@ -234,6 +234,24 @@ An approval in the review queue or in the chat writes a vendor-memory row for th
 `counterparty_key`. Next month the same vendor is caught by L0 at zero cost. This is what
 makes month 2 take three minutes instead of fifteen.
 
+Implemented by change `add-review-queue` in `core/internal/review`, and two details of it
+are decisions rather than mechanics.
+
+**Only a categorisation is remembered.** The queue's other outcomes — an internal transfer,
+a non-P&L marking, a skip — are facts about the *movement*, not about the counterparty. A
+vendor row saying "internal transfer" would make L0 answer next month with something that
+is not a category, which is worse than not answering, so `Resolve` writes memory on
+`categorised` alone.
+
+**Memory is current state; classifications are history.** An undo therefore *deletes* the
+vendor row and *retracts* the classifications, and the asymmetry is deliberate: a superseded
+vendor row would keep answering L0 with a category the user has just taken back, while a
+deleted classification would erase what the report was computed from. `vendors` has no
+supersession model because it is a lookup and does not want one.
+
+The loop closes in one test rather than in this paragraph: resolve a counterparty, insert a
+new transaction for it, and it is answered by L0 instead of reaching the queue.
+
 ### 4.3 Escalation (from Palm)
 
 Adopted as specified: count the clarifying questions asked in the chat and the fill rate
@@ -479,7 +497,10 @@ classifications(org_id, id, transaction_id, category_id,
              engine_layer, confidence, evidence,
              taxonomy_version, ruleset_version, engine_version, normalize_version,
              decided_by, decided_at, superseded_by)                  -- APPEND ONLY, see 6
-review_items(id, org_id, transaction_id, state, resolved_by, resolved_at)
+review_decisions(org_id, id, counterparty_key, key_version, outcome,      -- replaces review_items
+             category_id, decided_by, decided_at,
+             covered_count, covered_minor, covered_currency,
+             undone_at, undone_by)                                 -- stamped, never deleted
 report_runs(id, org_id, entity_id, kind, params_jsonb, taxonomy_version,
              ruleset_version, engine_version, status, result_key, created_at)
 audit_events(id, org_id, actor_id, action, target, payload_jsonb, at)  -- APPEND ONLY
@@ -521,6 +542,25 @@ where the caller stated a different one. The code and not the name for the same
 reason the report's arithmetic is a table over codes: a name is unique by
 nothing and stable by nothing, and renaming NET SALES would otherwise move
 every row out of the section it is in, silently.
+
+`review_items` is **replaced** by `review_decisions`, not kept beside it (change
+`add-review-queue`). The sketch above had one row per transaction carrying a
+`state`, and that is a second representation of a fact `classifications` already
+holds: a transaction needing review is one with no live classification. Two
+representations drift, and the drift is silent in the worst direction — a row
+marked resolved with no classification is absent from the queue *and* from the
+report, so nobody is told the money went missing.
+
+What `review_decisions` stores instead is the thing nothing else records: the
+human act. One row per *counterparty*, not per transaction, because settling a
+counterparty in one keystroke is the whole reason twelve months of first-time
+data takes fifteen minutes rather than five hundred keystrokes — and the row
+carries `covered_count` and `covered_minor` so the decision stays explicable in
+the terms it was taken in, even after a later import changes what that
+counterparty covers. `review_decisions_one_live_idx` keeps exactly one live
+decision per counterparty per key version, which is also the lock two people
+working the queue at once serialise on; the loser is told it lost rather than
+handed an internal error.
 
 - **`org_id` leads the primary key** on `entities` and `accounts`. Referential
   integrity checks — unique and primary key constraints as much as foreign keys
