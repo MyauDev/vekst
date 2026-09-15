@@ -234,6 +234,24 @@ An approval in the review queue or in the chat writes a vendor-memory row for th
 `counterparty_key`. Next month the same vendor is caught by L0 at zero cost. This is what
 makes month 2 take three minutes instead of fifteen.
 
+Implemented by change `add-review-queue` in `core/internal/review`, and two details of it
+are decisions rather than mechanics.
+
+**Only a categorisation is remembered.** The queue's other outcomes — an internal transfer,
+a non-P&L marking, a skip — are facts about the *movement*, not about the counterparty. A
+vendor row saying "internal transfer" would make L0 answer next month with something that
+is not a category, which is worse than not answering, so `Resolve` writes memory on
+`categorised` alone.
+
+**Memory is current state; classifications are history.** An undo therefore *deletes* the
+vendor row and *retracts* the classifications, and the asymmetry is deliberate: a superseded
+vendor row would keep answering L0 with a category the user has just taken back, while a
+deleted classification would erase what the report was computed from. `vendors` has no
+supersession model because it is a lookup and does not want one.
+
+The loop closes in one test rather than in this paragraph: resolve a counterparty, insert a
+new transaction for it, and it is answered by L0 instead of reaching the queue.
+
 ### 4.3 Escalation (from Palm)
 
 Adopted as specified: count the clarifying questions asked in the chat and the fill rate
@@ -379,6 +397,21 @@ makes D4 possible: a bank payment can link to the postings of the invoice it set
 Rejected alternative: one row per *document*, with line items in JSONB. It reads well and
 it makes every report query a JSONB unnest. Do not.
 
+**Amounts are signed: money in is positive, money out is negative.** Added 2026-09-13 by
+change 4.1, which could not be written without it — a section total is either a plain sum or
+a `CASE`, and which one depends on this. Two other changes already assumed it: `add-dedup`
+pairs internal transfers on "opposite signs", and the review queue orders counterparties by
+the absolute value of a signed sum.
+
+`direction` is therefore **derived** from the amount and not stored beside it, as a generated
+column producing `income` or `expense` — the vocabulary the 71 seeded rules already match
+against. Two unconstrained copies of one fact can disagree with no error, which is the same
+reasoning that keeps the reporting currency on `organizations` alone.
+
+A cost section consequently sums to a negative number. Reports print costs as positive, with
+the sign carried by the line's role rather than by the figure; that inversion lives in one
+tested place in `core/internal/report` and nowhere else.
+
 `normalize()` lowercases, collapses whitespace, strips punctuation, and strips the
 bank's own reference noise. Its exact behaviour is versioned, because changing it changes
 what counts as a duplicate.
@@ -444,7 +477,8 @@ import_validations(id, org_id, batch_id, outcome,                    -- valid|wa
                error_count, warning_count, balance_check_passed,
                report_jsonb, overridden_by, override_reason, at)
 
-transactions(org_id, id, entity_id, account_id, batch_id, source_kind,
+transactions(org_id, id, entity_id, account_id, batch_id, line_no,   -- provenance
+             source_kind,
              document_ref, posting_no,                               -- the grain, see 5.0
              booked_on, value_on, direction,
              amount_minor, currency, fx_rate, fx_rate_on,
@@ -456,14 +490,18 @@ transaction_links(id, org_id, ledger_txn_id, bank_txn_id,            -- D4
              confidence, confirmed_by, confirmed_at)
 
 vendors(id, org_id, key, display_name, default_category_id)          -- L0 memory
-categories(id, taxonomy_version, code, parent_id, name_i18n, pnl_section, is_pnl)
+categories(id, taxonomy_version, code, parent_id, name_i18n, pnl_section,
+             is_pnl, is_leaf, is_computed, formula, requires_allocation)
 account_code_maps(id, taxonomy_version, chart, account_code, category_id)  -- L0.5
 classification_rules(id, org_id, priority, matcher_jsonb, category_id, active)
 classifications(org_id, id, transaction_id, category_id,
              engine_layer, confidence, evidence,
              taxonomy_version, ruleset_version, engine_version, normalize_version,
              decided_by, decided_at, superseded_by)                  -- APPEND ONLY, see 6
-review_items(id, org_id, transaction_id, state, resolved_by, resolved_at)
+review_decisions(org_id, id, counterparty_key, key_version, outcome,      -- replaces review_items
+             category_id, decided_by, decided_at,
+             covered_count, covered_minor, covered_currency,
+             undone_at, undone_by)                                 -- stamped, never deleted
 report_runs(id, org_id, entity_id, kind, params_jsonb, taxonomy_version,
              ruleset_version, engine_version, status, result_key, created_at)
 audit_events(id, org_id, actor_id, action, target, payload_jsonb, at)  -- APPEND ONLY
@@ -491,6 +529,59 @@ then point the old one at it" impossible without a race; this was found by
 writing the test for it, not by inspection, and no combination of statement
 ordering rescues a plain index here. See §6 and migration `00007`'s own
 comment on `classifications_one_live_per_transaction`.
+
+`categories.pnl_section` is populated, as of migration `00014`
+(`add-management-pnl`), and it holds the **code** of the level-1 ancestor --
+`'04'`, not `'OPEX'`. 005 created the column and left it NULL on all 46 seeded
+rows; a column read by nothing and populated nowhere is not a decision somebody
+made, it is one nobody finished. The section of a category is derivable from
+the code prefix, and that derivation is true of the seeded tree rather than
+guaranteed of an organisation's own leaf hanging under a shared parent -- so the
+report reads a stored column and a `BEFORE` trigger keeps a new row's section
+equal to its parent's, filling it where the caller omitted it and refusing it
+where the caller stated a different one. The code and not the name for the same
+reason the report's arithmetic is a table over codes: a name is unique by
+nothing and stable by nothing, and renaming NET SALES would otherwise move
+every row out of the section it is in, silently.
+
+`review_items` is **replaced** by `review_decisions`, not kept beside it (change
+`add-review-queue`). The sketch above had one row per transaction carrying a
+`state`, and that is a second representation of a fact `classifications` already
+holds: a transaction needing review is one with no live classification. Two
+representations drift, and the drift is silent in the worst direction — a row
+marked resolved with no classification is absent from the queue *and* from the
+report, so nobody is told the money went missing.
+
+What `review_decisions` stores instead is the thing nothing else records: the
+human act. One row per *counterparty*, not per transaction, because settling a
+counterparty in one keystroke is the whole reason twelve months of first-time
+data takes fifteen minutes rather than five hundred keystrokes — and the row
+carries `covered_count` and `covered_minor` so the decision stays explicable in
+the terms it was taken in, even after a later import changes what that
+counterparty covers. `review_decisions_one_live_idx` keeps exactly one live
+decision per counterparty per key version, which is also the lock two people
+working the queue at once serialise on; the loser is told it lost rather than
+handed an internal error.
+
+`transactions.line_no` arrives in migration `00015` (change `add-report-drilldown`)
+rather than in 007, and the pair `(batch_id, line_no)` is a row's provenance: a
+batch says which file, a line says where in it, and either alone is half an
+answer. It is the 1-based line of the **original** file and not the index of a
+parsed row -- a distinction every real bank export makes, because every one of
+them has a preamble -- which is the same number §4a.1 keys the validation error
+report to. The value always existed as `ingest.Row.LineNo`; it was dropped at
+one boundary, the transaction insert, and nothing noticed because nothing
+downstream asked for it until a customer wanted to check a figure against their
+own file.
+
+It is `NOT NULL` with no backfill, and that is the decision worth recording. No
+join recovers the number for a row written before 015: a transaction carries no
+pointer to its `raw_rows` line, deduplication means not every line became a
+transaction, and one line can become several postings. The alternatives were a
+sentinel or a guess, and both put a number in a column a customer reads as the
+line in their file. So the migration refuses rather than invents, and
+`ledger.Insert` refuses a row with no line number by name before the CHECK sees
+it.
 
 - **`org_id` leads the primary key** on `entities` and `accounts`. Referential
   integrity checks — unique and primary key constraints as much as foreign keys

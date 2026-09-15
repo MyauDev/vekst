@@ -25,7 +25,7 @@ func (q *Queries) CountTransactionsForBatch(ctx context.Context, batchID pgtype.
 }
 
 const currentClassification = `-- name: CurrentClassification :one
-SELECT org_id, id, transaction_id, category_id, engine_layer, confidence, evidence, taxonomy_version, ruleset_version, engine_version, normalize_version, decided_by, decided_at, superseded_by FROM classifications
+SELECT org_id, id, transaction_id, category_id, engine_layer, confidence, evidence, taxonomy_version, ruleset_version, engine_version, normalize_version, decided_by, decided_at, superseded_by, retracted_at, retracted_by FROM classifications
 WHERE transaction_id = $1 AND superseded_by IS NULL
 `
 
@@ -47,6 +47,8 @@ func (q *Queries) CurrentClassification(ctx context.Context, transactionID pgtyp
 		&i.DecidedBy,
 		&i.DecidedAt,
 		&i.SupersededBy,
+		&i.RetractedAt,
+		&i.RetractedBy,
 	)
 	return i, err
 }
@@ -58,7 +60,7 @@ INSERT INTO classifications (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
-RETURNING org_id, id, transaction_id, category_id, engine_layer, confidence, evidence, taxonomy_version, ruleset_version, engine_version, normalize_version, decided_by, decided_at, superseded_by
+RETURNING org_id, id, transaction_id, category_id, engine_layer, confidence, evidence, taxonomy_version, ruleset_version, engine_version, normalize_version, decided_by, decided_at, superseded_by, retracted_at, retracted_by
 `
 
 type InsertClassificationParams struct {
@@ -107,6 +109,8 @@ func (q *Queries) InsertClassification(ctx context.Context, arg InsertClassifica
 		&i.DecidedBy,
 		&i.DecidedAt,
 		&i.SupersededBy,
+		&i.RetractedAt,
+		&i.RetractedBy,
 	)
 	return i, err
 }
@@ -114,19 +118,19 @@ func (q *Queries) InsertClassification(ctx context.Context, arg InsertClassifica
 const insertTransaction = `-- name: InsertTransaction :one
 
 INSERT INTO transactions (
-    org_id, entity_id, account_id, batch_id, source_kind,
-    document_ref, posting_no, booked_on, value_on, direction,
+    org_id, entity_id, account_id, batch_id, line_no, source_kind,
+    document_ref, posting_no, booked_on, value_on,
     amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor, base_currency,
     counterparty_raw, counterparty_key, description_raw, description_norm,
     normalize_version, regulated_code, bank_ref, dedup_hash
 ) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8, $9, $10,
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20,
     $21, $22, $23, $24
 )
-RETURNING org_id, id, entity_id, account_id, batch_id, source_kind, document_ref, posting_no, booked_on, value_on, direction, amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor, base_currency, counterparty_raw, counterparty_key, description_raw, description_norm, normalize_version, regulated_code, bank_ref, dedup_hash, created_at
+RETURNING org_id, id, entity_id, account_id, batch_id, source_kind, document_ref, posting_no, booked_on, value_on, direction, amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor, base_currency, counterparty_raw, counterparty_key, description_raw, description_norm, normalize_version, regulated_code, bank_ref, dedup_hash, created_at, line_no
 `
 
 type InsertTransactionParams struct {
@@ -134,12 +138,12 @@ type InsertTransactionParams struct {
 	EntityID         pgtype.UUID
 	AccountID        pgtype.UUID
 	BatchID          pgtype.UUID
+	LineNo           int32
 	SourceKind       string
 	DocumentRef      pgtype.Text
 	PostingNo        int32
 	BookedOn         pgtype.Date
 	ValueOn          pgtype.Date
-	Direction        string
 	AmountMinor      int64
 	Currency         string
 	FxRate           pgtype.Numeric
@@ -174,18 +178,23 @@ type InsertTransactionParams struct {
 // an ordinary update is correct here: the deferred constraint trigger is
 // what makes the momentary two-live-rows state between them safe, not a
 // single combined statement.
+// direction is not among the columns: migration 007 generates it from the sign
+// of amount_minor, and Postgres refuses an insert that names a generated
+// column at all. That is the point of generating it -- the amount and its
+// direction cannot be written into disagreement -- and it is why Transaction's
+// own Direction field is read-only.
 func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionParams) (Transaction, error) {
 	row := q.db.QueryRow(ctx, insertTransaction,
 		arg.OrgID,
 		arg.EntityID,
 		arg.AccountID,
 		arg.BatchID,
+		arg.LineNo,
 		arg.SourceKind,
 		arg.DocumentRef,
 		arg.PostingNo,
 		arg.BookedOn,
 		arg.ValueOn,
-		arg.Direction,
 		arg.AmountMinor,
 		arg.Currency,
 		arg.FxRate,
@@ -229,6 +238,7 @@ func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionPa
 		&i.BankRef,
 		&i.DedupHash,
 		&i.CreatedAt,
+		&i.LineNo,
 	)
 	return i, err
 }
@@ -263,7 +273,7 @@ func (q *Queries) SupersedeClassification(ctx context.Context, arg SupersedeClas
 }
 
 const transactionsForReport = `-- name: TransactionsForReport :many
-SELECT org_id, id, entity_id, account_id, batch_id, source_kind, document_ref, posting_no, booked_on, value_on, direction, amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor, base_currency, counterparty_raw, counterparty_key, description_raw, description_norm, normalize_version, regulated_code, bank_ref, dedup_hash, created_at FROM transactions
+SELECT org_id, id, entity_id, account_id, batch_id, source_kind, document_ref, posting_no, booked_on, value_on, direction, amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor, base_currency, counterparty_raw, counterparty_key, description_raw, description_norm, normalize_version, regulated_code, bank_ref, dedup_hash, created_at, line_no FROM transactions
 WHERE entity_id = $1 AND source_kind = $2 AND booked_on >= $3 AND booked_on <= $4
 ORDER BY booked_on, id
 `
@@ -318,6 +328,7 @@ func (q *Queries) TransactionsForReport(ctx context.Context, arg TransactionsFor
 			&i.BankRef,
 			&i.DedupHash,
 			&i.CreatedAt,
+			&i.LineNo,
 		); err != nil {
 			return nil, err
 		}
@@ -330,7 +341,7 @@ func (q *Queries) TransactionsForReport(ctx context.Context, arg TransactionsFor
 }
 
 const unclassifiedTransactions = `-- name: UnclassifiedTransactions :many
-SELECT t.org_id, t.id, t.entity_id, t.account_id, t.batch_id, t.source_kind, t.document_ref, t.posting_no, t.booked_on, t.value_on, t.direction, t.amount_minor, t.currency, t.fx_rate, t.fx_rate_on, t.base_amount_minor, t.base_currency, t.counterparty_raw, t.counterparty_key, t.description_raw, t.description_norm, t.normalize_version, t.regulated_code, t.bank_ref, t.dedup_hash, t.created_at
+SELECT t.org_id, t.id, t.entity_id, t.account_id, t.batch_id, t.source_kind, t.document_ref, t.posting_no, t.booked_on, t.value_on, t.direction, t.amount_minor, t.currency, t.fx_rate, t.fx_rate_on, t.base_amount_minor, t.base_currency, t.counterparty_raw, t.counterparty_key, t.description_raw, t.description_norm, t.normalize_version, t.regulated_code, t.bank_ref, t.dedup_hash, t.created_at, t.line_no
 FROM transactions t
 LEFT JOIN classifications c
     ON c.transaction_id = t.id AND c.superseded_by IS NULL
@@ -380,6 +391,7 @@ func (q *Queries) UnclassifiedTransactions(ctx context.Context, limit int32) ([]
 			&i.BankRef,
 			&i.DedupHash,
 			&i.CreatedAt,
+			&i.LineNo,
 		); err != nil {
 			return nil, err
 		}

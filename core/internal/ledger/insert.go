@@ -49,17 +49,27 @@ func toInsertParams(org db.OrgID, t Transaction) (gendb.InsertTransactionParams,
 		return gendb.InsertTransactionParams{}, err
 	}
 
+	// A row with no line number is a row whose provenance was dropped between
+	// the parser and here, which is exactly what happened before migration 015
+	// and exactly what nothing noticed. The database's CHECK catches it too;
+	// this catches it by name, at the boundary that lost it.
+	if t.LineNo <= 0 {
+		return gendb.InsertTransactionParams{}, fmt.Errorf(
+			"ledger: line_no is %d: a transaction carries the 1-based line of the file it came from, "+
+				"and a batch without one is half a provenance", t.LineNo)
+	}
+
 	params := gendb.InsertTransactionParams{
 		OrgID:            pgtype.UUID{Bytes: org.UUID(), Valid: true},
 		EntityID:         pgtype.UUID{Bytes: t.EntityID, Valid: true},
 		AccountID:        pgtype.UUID{Bytes: t.AccountID, Valid: true},
 		BatchID:          pgtype.UUID{Bytes: t.BatchID, Valid: true},
+		LineNo:           t.LineNo,
 		SourceKind:       t.SourceKind,
 		DocumentRef:      pgtype.Text{String: t.DocumentRef, Valid: t.DocumentRef != ""},
 		PostingNo:        t.PostingNo,
 		BookedOn:         pgtype.Date{Time: t.BookedOn, Valid: true},
 		ValueOn:          pgtype.Date{Time: t.ValueOn, Valid: !t.ValueOn.IsZero()},
-		Direction:        t.Direction,
 		AmountMinor:      t.Amount.MinorUnits,
 		Currency:         amountCurrency,
 		CounterpartyRaw:  t.CounterpartyRaw,
@@ -96,6 +106,7 @@ func transactionFromRow(row gendb.Transaction) (Transaction, error) {
 		EntityID:         uuid.UUID(row.EntityID.Bytes),
 		AccountID:        uuid.UUID(row.AccountID.Bytes),
 		BatchID:          uuid.UUID(row.BatchID.Bytes),
+		LineNo:           row.LineNo,
 		SourceKind:       row.SourceKind,
 		DocumentRef:      row.DocumentRef.String,
 		PostingNo:        row.PostingNo,

@@ -22,6 +22,8 @@ import (
 	"github.com/MyauDev/vekst/core/internal/ingest"
 	"github.com/MyauDev/vekst/core/internal/jobs"
 	"github.com/MyauDev/vekst/core/internal/migrate"
+	"github.com/MyauDev/vekst/core/internal/report"
+	"github.com/MyauDev/vekst/core/internal/review"
 	"github.com/MyauDev/vekst/core/internal/server"
 )
 
@@ -179,7 +181,9 @@ func run() error {
 	// them and needed nothing from it. See Workers' doc comment.
 	importSvc := ingest.NewService(database, store, jobsClient, ingestCfg)
 
-	return server.New(cfg, log, classifier, database, ident, importSvc).Run(ctx)
+	return server.New(cfg, log, classifier, database, ident, importSvc,
+		review.New(database, review.HumanVersions(taxonomyVersion, rulesetVersion)),
+		report.New(database)).Run(ctx)
 }
 
 func level(s string) slog.Level {
@@ -194,3 +198,12 @@ func level(s string) slog.Level {
 		return slog.LevelInfo
 	}
 }
+
+// The taxonomy and rule set a human decision is recorded against. Constants
+// until a customer can be on a version other than the one this binary seeded
+// -- at which point they come from the organisation's own row, and this is the
+// line that has to change.
+const (
+	taxonomyVersion = "v1"
+	rulesetVersion  = "v1"
+)

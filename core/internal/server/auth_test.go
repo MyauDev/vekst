@@ -24,7 +24,7 @@ import (
 func authTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Addr: "127.0.0.1:0", ShutdownTimeout: time.Second}
-	srv := New(cfg, discard(), classify.Unavailable{}, healthyDB(t), nil, nil)
+	srv := New(cfg, discard(), classify.Unavailable{}, healthyDB(t), nil, nil, nil, nil)
 	ts := httptest.NewServer(srv.http.Handler)
 	t.Cleanup(ts.Close)
 	return ts
