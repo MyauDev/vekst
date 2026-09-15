@@ -36,7 +36,7 @@ type Category struct {
 	ParentID           pgtype.UUID
 	Level              int16
 	Name               string
-	PnlSection         pgtype.Text
+	PnlSection         string
 	IsPnl              bool
 	IsLeaf             bool
 	IsComputed         bool
@@ -77,6 +77,19 @@ type ClassificationRule struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type DedupSkip struct {
+	ID                   pgtype.UUID
+	OrgID                pgtype.UUID
+	BatchID              pgtype.UUID
+	LineNo               int32
+	PostingNo            int16
+	Level                string
+	DedupHash            string
+	MatchedTransactionID pgtype.UUID
+	MatchedBatchID       pgtype.UUID
+	CreatedAt            pgtype.Timestamptz
+}
+
 type Entity struct {
 	ID        pgtype.UUID
 	OrgID     pgtype.UUID
@@ -94,12 +107,73 @@ type GooseDbVersion struct {
 }
 
 type ImportBatch struct {
-	OrgID      pgtype.UUID
+	OrgID              pgtype.UUID
+	ID                 pgtype.UUID
+	EntityID           pgtype.UUID
+	SourceKind         string
+	Status             string
+	CreatedAt          pgtype.Timestamptz
+	UploadedBy         pgtype.UUID
+	FileName           string
+	DeclaredBytes      int64
+	DeclaredType       string
+	FileKey            string
+	FileSha256         []byte
+	ByteLength         pgtype.Int8
+	ContentType        pgtype.Text
+	RowCount           pgtype.Int4
+	FailureCode        pgtype.Text
+	UploadExpiresAt    pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	ImportProfileID    pgtype.UUID
+	ResolvedParameters []byte
+}
+
+type ImportProfile struct {
 	ID         pgtype.UUID
-	EntityID   pgtype.UUID
+	OrgID      pgtype.UUID
+	Name       string
 	SourceKind string
-	Status     string
+	ColumnMap  []byte
+	Charset    pgtype.Text
+	Delimiter  pgtype.Text
+	DecimalSep pgtype.Text
+	DateFmt    pgtype.Text
 	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type ImportValidation struct {
+	ID                 pgtype.UUID
+	OrgID              pgtype.UUID
+	BatchID            pgtype.UUID
+	Outcome            string
+	RowCount           int32
+	ErrorCount         int32
+	WarningCount       int32
+	BalanceCheckPassed pgtype.Bool
+	ReportJsonb        []byte
+	OverriddenBy       pgtype.UUID
+	OverrideReason     pgtype.Text
+	OverriddenAt       pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
+}
+
+type InternalTransfer struct {
+	ID          pgtype.UUID
+	OrgID       pgtype.UUID
+	OutTxnID    pgtype.UUID
+	InTxnID     pgtype.UUID
+	DetectedAt  pgtype.Timestamptz
+	DismissedBy pgtype.UUID
+	DismissedAt pgtype.Timestamptz
+}
+
+type InternalTransferMember struct {
+	OrgID      pgtype.UUID
+	TxnID      pgtype.UUID
+	TransferID pgtype.UUID
+	Side       string
 }
 
 type Membership struct {
@@ -114,6 +188,15 @@ type Organization struct {
 	Name         string
 	Country      string
 	BaseCurrency string
+	CreatedAt    pgtype.Timestamptz
+}
+
+type RawRow struct {
+	OrgID        pgtype.UUID
+	ID           pgtype.UUID
+	BatchID      pgtype.UUID
+	LineNo       int32
+	PayloadJsonb []byte
 	CreatedAt    pgtype.Timestamptz
 }
 

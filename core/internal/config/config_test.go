@@ -164,6 +164,67 @@ func TestLoadRejectsPlaceholderCredentials(t *testing.T) {
 	}
 }
 
+// Absent object-store configuration is a supported state (add-file-upload
+// design D5, D-6 unanswered): core serves, and only CreateImportBatch fails.
+func TestLoadWithoutObjectStore(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load with no object store configured: %v", err)
+	}
+	if c.ObjectStoreConfigured() {
+		t.Error("ObjectStoreConfigured() = true with nothing set")
+	}
+	if c.UploadMaxBytes != 26_214_400 {
+		t.Errorf("UploadMaxBytes = %d, want the 25 MiB default", c.UploadMaxBytes)
+	}
+	if c.UploadURLLifetime != 15*time.Minute {
+		t.Errorf("UploadURLLifetime = %v, want 15m", c.UploadURLLifetime)
+	}
+	if !c.ObjectStorePathStyle {
+		t.Error("ObjectStorePathStyle default should be true, matching the local MinIO overlay")
+	}
+}
+
+func TestLoadReadsObjectStoreEnvironment(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+	t.Setenv("VEKST_OBJECT_STORE_ENDPOINT", "http://minio:9000")
+	t.Setenv("VEKST_OBJECT_STORE_BUCKET", "vekst-test")
+	t.Setenv("VEKST_UPLOAD_MAX_BYTES", "1048576")
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !c.ObjectStoreConfigured() {
+		t.Error("ObjectStoreConfigured() = false with an endpoint set")
+	}
+	if c.ObjectStoreBucket != "vekst-test" {
+		t.Errorf("ObjectStoreBucket = %q", c.ObjectStoreBucket)
+	}
+	if c.UploadMaxBytes != 1048576 {
+		t.Errorf("UploadMaxBytes = %d, want 1048576", c.UploadMaxBytes)
+	}
+}
+
+func TestInvalidUploadMaxBytesIsRejected(t *testing.T) {
+	for name, value := range map[string]string{
+		"not a number": "soon",
+		"zero":         "0",
+		"negative":     "-5",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
+			t.Setenv("VEKST_UPLOAD_MAX_BYTES", value)
+
+			if _, err := Load(); err == nil {
+				t.Errorf("Load() accepted VEKST_UPLOAD_MAX_BYTES=%q", value)
+			}
+		})
+	}
+}
+
 func TestLoadAcceptsRealGoogleCredentials(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://vekst_app@localhost:5432/vekst")
 	t.Setenv("VEKST_GOOGLE_CLIENT_ID", "123.apps.googleusercontent.com")
@@ -181,4 +242,3 @@ func TestLoadAcceptsRealGoogleCredentials(t *testing.T) {
 		t.Errorf("lifetimes must be positive: session=%s flow=%s", c.SessionLifetime, c.AuthFlowLifetime)
 	}
 }
-

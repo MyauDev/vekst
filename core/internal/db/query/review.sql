@@ -127,16 +127,9 @@ SELECT * FROM review_decisions WHERE id = $1;
 -- The writes a decision fans out into.
 -- ---------------------------------------------------------------------------
 
--- name: InsertClassification :one
--- Append-only. A correction inserts a new row and points the old one at it;
--- migration 007 withheld the UPDATE and DELETE grants that would allow
--- anything else.
-INSERT INTO classifications (
-    org_id, transaction_id, category_id, engine_layer, confidence, evidence,
-    taxonomy_version, ruleset_version, engine_version, normalize_version,
-    decided_by)
-VALUES (app_current_org(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING *;
+-- Inserting a classification lives in core/internal/ledger, which change 2.5
+-- gave a typed home and its own tests. A second copy here would be a second
+-- place to get the append-only rule wrong.
 
 -- name: RetractClassificationsOfTransactions :execrows
 -- The undo path. A retraction is not a supersession: supersession names the

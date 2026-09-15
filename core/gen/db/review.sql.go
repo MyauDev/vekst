@@ -31,70 +31,6 @@ func (q *Queries) DeleteVendor(ctx context.Context, arg DeleteVendorParams) (int
 	return result.RowsAffected(), nil
 }
 
-const insertClassification = `-- name: InsertClassification :one
-
-INSERT INTO classifications (
-    org_id, transaction_id, category_id, engine_layer, confidence, evidence,
-    taxonomy_version, ruleset_version, engine_version, normalize_version,
-    decided_by)
-VALUES (app_current_org(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING org_id, id, transaction_id, category_id, engine_layer, confidence, evidence, taxonomy_version, ruleset_version, engine_version, normalize_version, decided_by, decided_at, superseded_by, retracted_at, retracted_by
-`
-
-type InsertClassificationParams struct {
-	TransactionID    pgtype.UUID
-	CategoryID       pgtype.UUID
-	EngineLayer      string
-	Confidence       pgtype.Numeric
-	Evidence         string
-	TaxonomyVersion  string
-	RulesetVersion   string
-	EngineVersion    string
-	NormalizeVersion string
-	DecidedBy        pgtype.UUID
-}
-
-// ---------------------------------------------------------------------------
-// The writes a decision fans out into.
-// ---------------------------------------------------------------------------
-// Append-only. A correction inserts a new row and points the old one at it;
-// migration 007 withheld the UPDATE and DELETE grants that would allow
-// anything else.
-func (q *Queries) InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error) {
-	row := q.db.QueryRow(ctx, insertClassification,
-		arg.TransactionID,
-		arg.CategoryID,
-		arg.EngineLayer,
-		arg.Confidence,
-		arg.Evidence,
-		arg.TaxonomyVersion,
-		arg.RulesetVersion,
-		arg.EngineVersion,
-		arg.NormalizeVersion,
-		arg.DecidedBy,
-	)
-	var i Classification
-	err := row.Scan(
-		&i.OrgID,
-		&i.ID,
-		&i.TransactionID,
-		&i.CategoryID,
-		&i.EngineLayer,
-		&i.Confidence,
-		&i.Evidence,
-		&i.TaxonomyVersion,
-		&i.RulesetVersion,
-		&i.EngineVersion,
-		&i.NormalizeVersion,
-		&i.DecidedBy,
-		&i.DecidedAt,
-		&i.SupersededBy,
-		&i.RetractedAt,
-		&i.RetractedBy,
-	)
-	return i, err
-}
-
 const insertReviewDecision = `-- name: InsertReviewDecision :one
 INSERT INTO review_decisions (
     org_id, counterparty_key, key_version, outcome, category_id, decided_by,
@@ -259,6 +195,8 @@ func (q *Queries) OrganizationBaseCurrency(ctx context.Context) (string, error) 
 }
 
 const retractClassificationsOfTransactions = `-- name: RetractClassificationsOfTransactions :execrows
+
+
 UPDATE classifications
    SET retracted_at = now(), retracted_by = $1
  WHERE transaction_id = ANY($2::uuid[])
@@ -271,6 +209,12 @@ type RetractClassificationsOfTransactionsParams struct {
 	TransactionIds []pgtype.UUID
 }
 
+// ---------------------------------------------------------------------------
+// The writes a decision fans out into.
+// ---------------------------------------------------------------------------
+// Inserting a classification lives in core/internal/ledger, which change 2.5
+// gave a typed home and its own tests. A second copy here would be a second
+// place to get the append-only rule wrong.
 // The undo path. A retraction is not a supersession: supersession names the
 // classification that replaced this one, and an undo has no replacement --
 // the rows go back into the queue with no answer at all. Migration 007 carries

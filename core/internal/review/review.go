@@ -26,6 +26,7 @@ import (
 
 	gendb "github.com/MyauDev/vekst/core/gen/db"
 	"github.com/MyauDev/vekst/core/internal/db"
+	"github.com/MyauDev/vekst/core/internal/ledger"
 	"github.com/MyauDev/vekst/core/internal/money"
 	"github.com/MyauDev/vekst/core/internal/normalize"
 )
@@ -394,17 +395,18 @@ func (s *Service) Resolve(
 		}
 
 		for _, r := range rows {
-			if _, err := q.InsertClassification(ctx, gendb.InsertClassificationParams{
-				TransactionID:    r.ID,
-				CategoryID:       category.ID,
-				EngineLayer:      "human",
-				Confidence:       pgNumericOne(),
+			if _, err := ledger.InsertClassification(ctx, tx, org, ledger.Classification{
+				TransactionID: uuid.UUID(r.ID.Bytes),
+				CategoryID:    uuid.UUID(category.ID.Bytes),
+				EngineLayer:   "human",
+				// A person looked at the rows and said what they were.
+				Confidence:       1,
 				Evidence:         string(outcome),
 				TaxonomyVersion:  s.versions.Taxonomy,
 				RulesetVersion:   s.versions.Ruleset,
 				EngineVersion:    s.versions.Engine,
 				NormalizeVersion: s.versions.Normalize,
-				DecidedBy:        pgUUID(userID),
+				DecidedBy:        userID,
 			}); err != nil {
 				return fmt.Errorf("review: classifying: %w", err)
 			}
@@ -579,12 +581,4 @@ func pgDate(d pgtype.Date) string {
 		return ""
 	}
 	return d.Time.Format("2006-01-02")
-}
-
-// A human decision is certain by construction: a person looked at the rows and
-// said what they were.
-func pgNumericOne() pgtype.Numeric {
-	var n pgtype.Numeric
-	_ = n.Scan("1.000")
-	return n
 }

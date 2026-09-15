@@ -280,7 +280,7 @@ Three outcomes: `valid` · `valid_with_warnings` · `rejected`.
 | Date parses and is plausible | Outside [today − 10 years, today + 1 day] |
 | Amount parses to `int64` minor units | Non-numeric, or the number locale was guessed wrong |
 | Currency is a valid ISO-4217 code | Unknown or empty |
-| Debit and credit are mutually exclusive | Both populated on one row |
+| Debit and credit are mutually exclusive | Both **non-zero** on one row — corrected 2026-09-13 (change 2.2 design D5): both columns are populated on every row of every real Priorbank export, one of them `0,00`, so "both populated" as originally written rejects every row of every file |
 | No U+FFFD replacement characters | Charset detection was wrong — a silent data corruption otherwise |
 | Description present after trimming | Empty |
 | Account identifier resolves | Unknown and not creatable |
@@ -294,6 +294,14 @@ Three outcomes: `valid` · `valid_with_warnings` · `rejected`.
 | The declared statement period is covered continuously | Catches a file that starts mid-period |
 | One currency per account within the file | Catches a mis-mapped currency column |
 | No duplicate bank references inside the file | Catches a double-appended export |
+
+**The opening/movements/closing check is measured in 2.2 and decided in 2.3** (change 2.2
+design D6). `Statement.BalanceCheck()` computes `opening + Σcredits − Σdebits` against the
+declared closing balance, in `int64` minor units with zero tolerance, and returns the
+difference — because it needs the parsed rows and the bank's own declared figures together,
+and only the parser has both. It does not decide `valid` / `valid_with_warnings` /
+`rejected`: that verdict is what a customer is told, and deciding it is stage ②'s job, not
+the parser's. A reader implementing this check again in 2.3 is implementing it twice.
 
 A completeness failure may be overridden by an `approver`, with a written reason, recorded
 and shown on any report computed from that batch. A **correctness** failure may not be
@@ -318,18 +326,44 @@ Its own capability: `dedup-and-matching`. Four levels, each with a different act
 
 | Level | Detects | Key | Action |
 | --- | --- | --- | --- |
-| **D1** | The same file uploaded twice | SHA-256 of the file bytes | Reject the upload, report "already imported" |
-| **D2** | Repeated rows inside one file | `dedup_hash` | Skip, count, show the count |
-| **D3** | Rows already imported from another file | `dedup_hash` lookup across batches | Skip, count, show which batch holds the original |
+| **D1** | The same file uploaded twice | SHA-256 of the file bytes | Fail the batch as `already_imported`, naming the earlier one |
+| **D2** | Nothing, in the current implementation | `dedup_hash` within one persist | None — see the note below: unreachable, not merely rare, once `occurrence` exists |
+| **D3** | Rows already imported from another file | `dedup_hash` lookup across batches | Skip, count, show which batch and transaction holds the original |
 | **D4** | The same economic event in two sources — a ledger invoice and its bank payment | amount + counterparty + date window | **Propose a link. Never delete.** Human confirms |
 
 ```
 dedup_hash = sha256(
-    org_id, entity_id, account_id, booked_on,
-    amount_minor, currency,
-    normalize(description), bank_ref, document_ref, posting_no
+    account_id, booked_on, amount_minor, currency,
+    description_norm, bank_ref, document_ref, posting_no,
+    occurrence
 )
 ```
+
+`dedup_hash` has ordinary false positives, and the occurrence term is what change 2.6
+(`add-dedup`) discovered while implementing D2: two coffees bought on the same day, for the
+same amount, with the same wording and no bank reference, are two real rows, not a
+duplicate of each other. `occurrence` is the Nth time that exact content has been seen so
+far while building one batch — a plain incrementing counter — so the two coffees get
+different hashes and both import.
+
+The consequence for D2 is not that it rarely fires; it is that it **cannot** fire, in the
+current implementation, on any input short of a SHA-256 collision. Occurrence is a
+bijection between (content, its Kth repeat within one persist) and a hash, so two rows in
+one batch can only produce the same hash if the same content repeats at the same position
+twice — which a single pass, counting as it goes, cannot itself produce, however the
+content came to repeat. `core/internal/dedup.Partition` shipped with a second check for
+exactly this case and it was dead code from the day it was written; removed once its own
+test proved so, rather than left in place looking like a safety net (CLAUDE.md: no
+validation for a scenario that cannot happen).
+
+D3 is unaffected: a genuine re-upload reproduces the same occurrences and therefore the
+same hashes, so the cross-batch lookup still finds it. What occurrence does *not* prevent
+is two unrelated real transactions, in two unrelated batches, coincidentally landing on the
+same content and the same occurrence — which is exactly why `transactions_dedup_idx` is an
+ordinary index, not a unique one: a hash match is skipped and recorded, with the line and
+the transaction it matched, never rejected outright. A false positive here would otherwise
+be indistinguishable from a customer permanently losing a real row with no record it ever
+existed.
 
 ### 5.0 The canonical grain
 
@@ -379,9 +413,26 @@ wrong number.
 
 ### 5.2 Internal transfers
 
-Separate from D4 and equally necessary. Find pairs within the same org: opposite signs,
-equal absolute amount, within 3 days, different accounts. Propose them as internal
-transfers. They are excluded from every P&L line.
+Separate from D4 and equally necessary. Find pairs within the same org, the same source
+kind (a ledger row and a bank row are never paired here — that is D4's job) and the same
+base currency: opposite signs, equal absolute amount, within 3 days, different accounts.
+Pairing is deterministic — nearest by date, then lowest id, taken greedily, and
+`internal_transfer_members`'s own primary key is what actually enforces "each side of one
+pair, at most once" independently of the pairing algorithm.
+
+**Excluded from the P&L on detection, not on confirmation** (founder decision, change 2.6,
+2026-09-14). The two readings this section used to support:
+
+- Exclude only once confirmed: a missed pair counts a transfer between the customer's own
+  accounts as revenue — the single most likely way this product prints a wrong number
+  (§5.1).
+- Exclude on detection: a false positive removes a real line from the P&L, visible in the
+  drill-down as excluded.
+
+The founder chose the second. A missed detection is silent; a false exclusion is visible
+and reversible — dismissing a pair returns it to the P&L. D4's own "propose, never delete"
+rule does not transfer here: D4 merges two *records*, which is destructive, while this
+classifies a pair and changes nothing about either row.
 
 ### 5.3 What the user sees
 
@@ -408,12 +459,14 @@ import_validations(id, org_id, batch_id, outcome,                    -- valid|wa
                error_count, warning_count, balance_check_passed,
                report_jsonb, overridden_by, override_reason, at)
 
-transactions(id, org_id, entity_id, account_id, source_kind,
+transactions(org_id, id, entity_id, account_id, batch_id, source_kind,
              document_ref, posting_no,                               -- the grain, see 5.0
              booked_on, value_on, direction,
-             amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor,
-             counterparty_raw, counterparty_key, description_raw,
-             bank_ref, dedup_hash, batch_id)
+             amount_minor, currency, fx_rate, fx_rate_on,
+             base_amount_minor, base_currency,                       -- all-or-nothing, see 6
+             counterparty_raw, counterparty_key,
+             description_raw, description_norm, normalize_version,   -- see 3.2
+             regulated_code, bank_ref, dedup_hash, created_at)
 transaction_links(id, org_id, ledger_txn_id, bank_txn_id,            -- D4
              confidence, confirmed_by, confirmed_at)
 
@@ -421,9 +474,10 @@ vendors(id, org_id, key, display_name, default_category_id)          -- L0 memor
 categories(id, taxonomy_version, code, parent_id, name_i18n, pnl_section, is_pnl)
 account_code_maps(id, taxonomy_version, chart, account_code, category_id)  -- L0.5
 classification_rules(id, org_id, priority, matcher_jsonb, category_id, active)
-classifications(id, org_id, transaction_id, category_id, confidence,
-             engine_layer, ruleset_version, engine_version,
-             decided_by, decided_at, superseded_by)                  -- APPEND ONLY
+classifications(org_id, id, transaction_id, category_id,
+             engine_layer, confidence, evidence,
+             taxonomy_version, ruleset_version, engine_version, normalize_version,
+             decided_by, decided_at, superseded_by)                  -- APPEND ONLY, see 6
 review_items(id, org_id, transaction_id, state, resolved_by, resolved_at)
 report_runs(id, org_id, entity_id, kind, params_jsonb, taxonomy_version,
              ruleset_version, engine_version, status, result_key, created_at)
@@ -438,6 +492,20 @@ tenant key, and its policy names `id` accordingly.
 The first four rows are as migration `00004` actually creates them, and three
 things differ from this sketch's earlier form. Each was decided in change
 `add-tenancy-and-rls`; none is free to drift back.
+
+`transactions` and `classifications` are likewise as migration `00007`
+(`add-transaction-ledger`) actually creates them; `import_batches` above shows
+its fuller, later shape rather than 007's own minimal one, since 007 created
+only what `transactions` needs to point at and change `add-file-upload` owns
+the rest. One decision from `add-transaction-ledger` is worth recording here
+because it is not visible in the column list at all: `classifications`'
+append-only enforcement — at most one live row per transaction — is a
+`DEFERRABLE INITIALLY DEFERRED` constraint trigger, not a plain unique index.
+A plain index is checked immediately, which makes "insert the new live row,
+then point the old one at it" impossible without a race; this was found by
+writing the test for it, not by inspection, and no combination of statement
+ordering rescues a plain index here. See §6 and migration `00007`'s own
+comment on `classifications_one_live_per_transaction`.
 
 - **`org_id` leads the primary key** on `entities` and `accounts`. Referential
   integrity checks — unique and primary key constraints as much as foreign keys

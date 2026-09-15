@@ -80,6 +80,15 @@ SELECT id, org_id, entity_id, name, currency, external_ref, created_at
 FROM accounts
 WHERE id = $1;
 
+-- name: FindAccountByExternalRef :one
+-- add-ingest-validation's "account identifier resolves" check (change 2.3):
+-- the bank's own account identifier (an IBAN, here) matched against what
+-- this entity already has on file. pgx.ErrNoRows means create one, not that
+-- the row is missing some other query would supply.
+SELECT id, org_id, entity_id, name, currency, external_ref, created_at
+FROM accounts
+WHERE entity_id = $1 AND external_ref = $2;
+
 -- name: UpdateAccountName :execrows
 UPDATE accounts SET name = $2 WHERE id = $1;
 

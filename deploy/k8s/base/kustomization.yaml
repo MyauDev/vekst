@@ -9,6 +9,13 @@ kind: Kustomization
 # local overlay only, so no deployment overlay can inherit a database that has
 # no rehearsed backup and restore procedure. Design D1 and D5.
 #
+# There is no object store here either, and for the same reason: MinIO lives
+# in the local overlay only (add-file-upload design D5). It is also, today,
+# the only place this change can run at all -- D-6 names no production host,
+# so core.yaml's object-store environment reads from a Secret no environment
+# but this one defines yet, and CreateImportBatch answers with a
+# configuration error everywhere else until that decision is made.
+#
 # The migration Job IS here, unlike Postgres: every environment migrates its
 # schema, so a Job that lived only in an overlay would force each overlay to
 # reinvent it -- exactly the divergence this base/overlay split forbids

@@ -15,6 +15,26 @@
 /core/internal/ingest/      @MyauDev/admin
 /core/internal/dedup/       @MyauDev/admin
 
+# The object-store boundary (add-file-upload, change 2.1): the one interface
+# core/internal/ingest depends on, and the one file that imports an S3 SDK.
+/core/internal/blob/        @MyauDev/admin
+
+# import_batches's queries. No statement here carries a WHERE org_id
+# predicate -- the table's own policy supplies it -- and RecordUploadMeasurement
+# / SetImportBatchStatus never list source_kind among the columns they set
+# (design D4, migration 008's column grant is what actually enforces it).
+/core/internal/db/query/ingest.sql   @MyauDev/admin
+
+# import_validations's queries (add-ingest-validation, change 2.3).
+# RecordOverride never lists the six outcome columns -- migration 010's
+# column grant is what actually enforces that, the same shape as ingest.sql.
+/core/internal/db/query/validation.sql   @MyauDev/admin
+
+# import_profiles's queries (add-import-profiles, change 2.4).
+# UpdateImportProfile never lists source_kind -- a profile's kind is chosen
+# at creation, the same shape as import_batches' own immutable source_kind.
+/core/internal/db/query/profiles.sql   @MyauDev/admin
+
 # --- Track B: meaning ------------------------------------------------------
 /core/classify/              @MyauDev/admin
 /core/internal/report/       @MyauDev/admin
@@ -72,8 +92,27 @@
 # is the thing to read carefully in a review.
 /core/migrations/00006_classification_rules.sql   @MyauDev/admin
 
-# The ledger and the review queue. 007 is where money, the grain and
-# append-only classifications land; 008 is the human decision that empties the
-# queue and writes the memory L0 reads next month.
+# The canonical ledger migration (change 2.5): import_batches, transactions
+# and classifications. The append-only enforcement on classifications is a
+# deferred constraint trigger, not a plain unique index -- a plain one
+# cannot express "insert the new live row, then point the old one at it"
+# without a race, which was verified directly against this schema before
+# being corrected. Read that trigger's own comment before touching either
+# half of a supersede.
 /core/migrations/00007_transaction_ledger.sql   @MyauDev/admin
-/core/migrations/00008_review_decisions.sql     @MyauDev/admin
+/core/internal/db/query/ledger.sql              @MyauDev/admin
+/core/internal/ledger/                          @MyauDev/admin
+
+# D1-D5 and internal transfers (change 2.6). import_batches_file_once is
+# partial and deliberately not the enforcement for D2/D3 -- dedup_hash can
+# still coincide for two unrelated real transactions, which this schema
+# records as a skip rather than refuses permanently. See
+# core/internal/dedup's own package doc before touching either table.
+/core/migrations/00012_dedup.sql            @MyauDev/admin
+/core/internal/db/query/dedup.sql           @MyauDev/admin
+
+# The review queue and the P&L sections. 013 is the human decision that empties
+# the queue and writes the memory L0 reads next month; 014 finishes a column
+# migration 005 created and left NULL on every row.
+/core/migrations/00013_review_decisions.sql   @MyauDev/admin
+/core/migrations/00014_pnl_sections.sql       @MyauDev/admin

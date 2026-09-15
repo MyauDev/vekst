@@ -74,7 +74,7 @@ func newFixture(t *testing.T) *fixture {
 		orgID: org.UUID(),
 		owner: owner,
 	}
-	f.entity, f.batch = seedEntityAndBatch(t, d, org)
+	f.entity, f.batch = seedEntityAndBatch(t, d, org, owner)
 	f.viewer = seedMember(t, f, "viewer")
 	return f
 }
@@ -115,7 +115,7 @@ func seedUser(t *testing.T, d *db.DB) uuid.UUID {
 
 // seedEntityAndBatch returns the organisation's single entity and an account
 // plus a bank batch to hang transactions off.
-func seedEntityAndBatch(t *testing.T, d *db.DB, org db.OrgID) (entity, batch uuid.UUID) {
+func seedEntityAndBatch(t *testing.T, d *db.DB, org db.OrgID, owner uuid.UUID) (entity, batch uuid.UUID) {
 	t.Helper()
 	var e, b pgtype.UUID
 	err := d.InTx(context.Background(), org, func(ctx context.Context, tx pgx.Tx) error {
@@ -127,9 +127,23 @@ func seedEntityAndBatch(t *testing.T, d *db.DB, org db.OrgID) (entity, batch uui
 			VALUES (app_current_org(), $1, 'Main', 'NOK')`, e); err != nil {
 			return fmt.Errorf("seeding account: %w", err)
 		}
+		// 'imported' is the terminal state of migration 008's state machine:
+		// these rows exist as though a file had been through the whole of
+		// ingest, which is the only state a queued transaction can belong to.
+		// The upload columns are what 008 made mandatory, and a fixture that
+		// skipped them would be asserting against a batch the product cannot
+		// produce.
 		return tx.QueryRow(ctx, `
-			INSERT INTO import_batches (org_id, entity_id, source_kind)
-			VALUES (app_current_org(), $1, 'bank') RETURNING id`, e).Scan(&b)
+			INSERT INTO import_batches (
+				org_id, entity_id, source_kind, status, uploaded_by,
+				file_name, declared_bytes, declared_type, file_key,
+				upload_expires_at,
+				file_sha256, byte_length, content_type)
+			VALUES (app_current_org(), $1, 'bank', 'imported', $2,
+				'march.csv', 1024, 'text/csv', 'uploads/' || gen_random_uuid(),
+				now() + interval '1 hour',
+				sha256('march.csv'), 1024, 'text/csv')
+			RETURNING id`, e, pgtype.UUID{Bytes: owner, Valid: true}).Scan(&b)
 	})
 	if err != nil {
 		t.Fatalf("seeding entity and batch: %v", err)

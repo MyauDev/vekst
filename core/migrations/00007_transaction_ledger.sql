@@ -81,10 +81,10 @@ CREATE TABLE transactions (
     --
     -- Signed: money in is positive, money out is negative. Every sum in the
     -- system is then a plain sum and a section total needs no CASE. Three
-    -- changes depend on it -- 2.6 pairs internal transfers on opposite signs,
-    -- the review queue orders by the absolute value of a signed sum, and the
-    -- P&L sums a section -- so it is stated in ARCHITECTURE.md 5.0 as well as
-    -- enforced by the generated column below.
+    -- changes depend on it -- add-dedup pairs internal transfers on opposite
+    -- signs, the review queue orders by the absolute value of a signed sum,
+    -- and the P&L sums a section -- so it is stated in ARCHITECTURE.md 5.0 as
+    -- well as enforced by the generated column above.
     amount_minor      bigint NOT NULL,
     currency          text   NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
 
@@ -148,10 +148,23 @@ CREATE TABLE transactions (
     CONSTRAINT txn_fx_rate_is_positive CHECK (fx_rate IS NULL OR fx_rate > 0)
 );
 
--- Scoped by org_id, like every uniqueness constraint in this schema: Postgres
--- does not apply row-level security to constraint checks, so an unscoped unique
--- index is a cross-tenant oracle no policy can close.
-CREATE UNIQUE INDEX transactions_dedup_idx ON transactions (org_id, dedup_hash);
+-- Not UNIQUE, corrected during add-dedup's implementation (task 0.4, and the
+-- proposal's own non-goal names this exact fork). dedup_hash includes an
+-- occurrence term precisely so two genuinely distinct rows sharing every
+-- other field -- two coffees, same day, same amount, same wording, no bank
+-- reference -- do not collide (design D5). What a UNIQUE index here would
+-- still refuse is the case that term does not protect against: two
+-- unrelated real transactions, in two unrelated batches, that happen to
+-- land on the same occurrence by coincidence. That is a false positive
+-- add-dedup's own design (D3) chose to record and let a human verify, not
+-- one this schema may reject permanently and unrecoverably at the database
+-- layer -- verified empirically (task 0.4) that this is a real, not
+-- hypothetical, distinction: the four real Priorbank fixtures already
+-- contain content that repeats within one file. Scoped by org_id regardless,
+-- like every index in this schema: Postgres does not apply row-level
+-- security to index scans, so an unscoped one is a cross-tenant oracle no
+-- policy can close.
+CREATE INDEX transactions_dedup_idx ON transactions (org_id, dedup_hash);
 
 -- The report read: one entity, one source kind, a date range.
 CREATE INDEX transactions_report_idx
@@ -276,18 +289,17 @@ CREATE TABLE classifications (
 
     decided_by      uuid        NULL REFERENCES users (id) ON DELETE RESTRICT,
     decided_at      timestamptz NOT NULL DEFAULT now(),
-
     -- Two ways a classification stops being the current answer, and they are
     -- not the same event.
     --
     -- superseded_by names the classification that replaced it: a correction,
     -- where some other answer is now current.
     --
-    -- retracted_at says the answer was withdrawn and none took its place, which
-    -- is what a review decision being undone means. Supersession cannot express
-    -- it -- there is no successor to point at, and pointing at itself is
-    -- refused below -- and a report needs the difference: a corrected row has a
-    -- category, a retracted one is back in the queue.
+    -- retracted_at says the answer was withdrawn and none took its place,
+    -- which is what a review decision being undone means. Supersession cannot
+    -- express it -- there is no successor to point at, and pointing at itself
+    -- is refused below -- and a report needs the difference: a corrected row
+    -- has a category, a retracted one is back in the queue.
     superseded_by   uuid        NULL,
     retracted_at    timestamptz NULL,
     retracted_by    uuid        NULL REFERENCES users (id) ON DELETE RESTRICT,
@@ -308,7 +320,7 @@ CREATE TABLE classifications (
         num_nonnulls(retracted_at, retracted_by) IN (0, 2)),
 
     -- A row is replaced or withdrawn, never both: the two describe different
-    -- fates and a row with both is one no report can classify.
+    -- fates and a row carrying both is one no report can classify.
     CONSTRAINT cls_is_not_both CHECK (
         superseded_by IS NULL OR retracted_at IS NULL)
 );
@@ -316,11 +328,58 @@ CREATE TABLE classifications (
 -- "The current classification" is a single row by construction. Without this
 -- it is a convention every query re-implements, and the first query that gets
 -- it wrong prints a transaction twice.
-CREATE UNIQUE INDEX classifications_one_live_idx
+--
+-- Not a plain UNIQUE INDEX, and this is a correction, not the original
+-- design: a plain (non-deferrable) partial unique index is checked
+-- immediately, which makes design D4's own write pattern -- insert the new,
+-- live row, then point the old one's superseded_by at it -- impossible to
+-- execute without a race. Either ordering fails: insert-then-update finds
+-- both rows live at the moment the new one is written, and update-then-insert
+-- has nowhere real yet for superseded_by to point (its own foreign key is
+-- just as immediate). Combining both writes into one statement does not
+-- rescue this either -- Postgres documents that the relative execution order
+-- of multiple data-modifying CTEs in one statement is unspecified, and it
+-- was verified directly against this schema to actually fail that way, not
+-- merely suspected to. Postgres also does not allow a partial unique index to
+-- become a deferrable constraint (ADD CONSTRAINT ... UNIQUE USING INDEX
+-- requires a non-partial one), so the fix is the same shape this migration
+-- already uses three times over: a deferrable constraint trigger, checked
+-- once at commit -- by which point a correctly-paired insert-then-update has
+-- settled at exactly one live row, regardless of the order or number of
+-- statements it took to get there.
+CREATE INDEX classifications_live_idx
     ON classifications (org_id, transaction_id)
     WHERE superseded_by IS NULL AND retracted_at IS NULL;
 
 CREATE INDEX classifications_txn_idx ON classifications (org_id, transaction_id);
+
+-- +goose StatementBegin
+CREATE FUNCTION classifications_one_live_per_transaction() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $fn$
+DECLARE
+    live_count integer;
+BEGIN
+    SELECT count(*) INTO live_count
+      FROM classifications
+     WHERE org_id = NEW.org_id AND transaction_id = NEW.transaction_id
+       AND superseded_by IS NULL AND retracted_at IS NULL;
+
+    IF live_count > 1 THEN
+        RAISE EXCEPTION
+            'transaction % has % live classifications, want at most one',
+            NEW.transaction_id, live_count
+            USING ERRCODE = '23505';
+    END IF;
+    RETURN NEW;
+END
+$fn$;
+-- +goose StatementEnd
+
+CREATE CONSTRAINT TRIGGER classifications_one_live_per_transaction
+    AFTER INSERT OR UPDATE OF superseded_by, transaction_id, org_id ON classifications
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION classifications_one_live_per_transaction();
 
 CREATE CONSTRAINT TRIGGER classifications_category_is_visible
     AFTER INSERT OR UPDATE OF category_id, org_id ON classifications
@@ -373,6 +432,7 @@ CREATE POLICY classifications_tenant ON classifications FOR ALL
 -- +goose Down
 
 DROP TABLE classifications;
+DROP FUNCTION classifications_one_live_per_transaction();
 DROP TABLE transactions;
 DROP FUNCTION txn_base_currency_is_the_orgs();
 DROP FUNCTION txn_source_kind_matches_batch();
