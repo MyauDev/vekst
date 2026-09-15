@@ -105,17 +105,17 @@ func (h *reportHandler) GetManagementPNL(
 		out.Buckets = append(out.Buckets, bucket)
 	}
 
-	for _, r := range r.Reconciliation {
+	for _, strip := range r.Reconciliation {
 		out.Reconciliation = append(out.Reconciliation, &vektv1.ReconciliationLine{
-			Period:           r.Period,
-			Opening:          toReportMoney(r.Opening),
-			In:               toReportMoney(r.In),
-			Out:              toReportMoney(r.Out),
-			Transfers:        toReportMoney(r.Transfers),
-			TransferRowCount: int32(r.TransferRowCount),
-			Closing:          toReportMoney(r.Closing),
-			Balances:         r.Balances,
-			Derived:          r.Derived,
+			Period:           strip.Period,
+			Opening:          toReportMoney(strip.Opening),
+			In:               toReportMoney(strip.In),
+			Out:              toReportMoney(strip.Out),
+			Transfers:        toReportMoney(strip.Transfers),
+			TransferRowCount: int32(strip.TransferRowCount),
+			Closing:          toReportMoney(strip.Closing),
+			Balances:         strip.Balances,
+			Derived:          strip.Derived,
 		})
 	}
 

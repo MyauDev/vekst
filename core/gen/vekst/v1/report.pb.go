@@ -1255,7 +1255,7 @@ func (x *ListLineTransactionsResponse) GetNextCursor() string {
 
 // The strip at the foot of the table, for one period.
 //
-//   opening + in - out - transfers = closing
+//	opening + in - out - transfers = closing
 //
 // `balances` is that identity, checked rather than asserted: the three
 // movements come from one aggregation and the two balances from another, so a

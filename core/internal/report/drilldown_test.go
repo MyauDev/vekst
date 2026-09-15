@@ -3,6 +3,7 @@ package report_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 
@@ -320,7 +321,7 @@ func TestEveryRowSaysWhyItIsOnThatLine(t *testing.T) {
 	if rule.Evidence != "rule:by-priorbank-commission" {
 		t.Errorf("evidence = %q, want the rule's own scope", rule.Evidence)
 	}
-	if !rule.HasConfidence || rule.Confidence != 0.95 {
+	if !rule.HasConfidence || !closeTo(rule.Confidence, 0.95) {
 		t.Errorf("confidence = %v (present %v), want 0.95", rule.Confidence, rule.HasConfidence)
 	}
 	if rule.DecidedBy != uuid.Nil {
@@ -341,7 +342,7 @@ func TestEveryRowSaysWhyItIsOnThatLine(t *testing.T) {
 		t.Errorf("decided_by = %s, want %s -- a human decision names who made it",
 			person.DecidedBy, decider)
 	}
-	if !person.HasConfidence || person.Confidence != 1 {
+	if !person.HasConfidence || !closeTo(person.Confidence, 1) {
 		t.Errorf("a person's confidence = %v, want 1", person.Confidence)
 	}
 
@@ -349,7 +350,7 @@ func TestEveryRowSaysWhyItIsOnThatLine(t *testing.T) {
 	if !ok {
 		t.Fatalf("no L0.5 row among %v", byLayer)
 	}
-	if code.Confidence != 0.99 {
+	if !closeTo(code.Confidence, 0.99) {
 		t.Errorf("a regulated code's confidence = %v, want 0.99", code.Confidence)
 	}
 
@@ -806,6 +807,14 @@ func TestOpeningSomethingThatIsNotACellIsRefused(t *testing.T) {
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+// Confidence is the one float in this package, and it makes the round trip
+// through numeric(4,3) and back. Comparing two floats for exact equality is a
+// bug even when it happens to pass: the column keeps three decimal places, the
+// conversion is decimal-to-binary, and 0.95 is not representable in either
+// direction. A tolerance far tighter than the column's own precision asserts
+// the same thing without asserting the representation.
+func closeTo(got, want float64) bool { return math.Abs(got-want) < 1e-9 }
 
 func sumRows(rows []report.DrillRow) int64 {
 	var total int64

@@ -236,3 +236,67 @@ func TestSourceKindCannotDriftFromItsBatch(t *testing.T) {
 		t.Errorf("a bank row on a ledger batch: SQLSTATE = %q (%v), want 23514", code, err)
 	}
 }
+
+// Provenance is complete or the row is not written.
+//
+// `line_no` is the line of the original file, and a transaction that carries
+// none cannot be traced back to the row a customer is looking at in their own
+// spreadsheet. Migration 015 refuses it with a CHECK; this refuses it here,
+// with a sentence, at the boundary that dropped it -- the persist path copied
+// every other field of a parsed row across and not this one, and nothing
+// noticed for two changes.
+func TestATransactionWithNoLineNumberIsRefused(t *testing.T) {
+	d := testDB(t)
+	ctx := context.Background()
+	owner := testUser(t, d)
+	org, entityID := testOrgAndEntity(t, d, owner)
+	account := testAccount(t, d, org, entityID, "NOK")
+	batch := testBatch(t, d, org, entityID, SourceKindBank)
+
+	for name, lineNo := range map[string]int32{
+		"unset":    0,
+		"negative": -1,
+	} {
+		t.Run(name, func(t *testing.T) {
+			txn := baseTransaction(entityID, account, batch, SourceKindBank)
+			txn.LineNo = lineNo
+
+			err := d.InTx(ctx, org, func(ctx context.Context, tx pgx.Tx) error {
+				_, err := Insert(ctx, tx, org, []Transaction{txn})
+				return err
+			})
+			if err == nil {
+				t.Fatal("a transaction with no line number was stored; a sentinel in that " +
+					"column is a number a customer reads as a line in their own file")
+			}
+		})
+	}
+
+	// And the line number survives the round trip, because refusing a bad one
+	// is worth nothing if a good one is dropped.
+	t.Run("a line number round-trips", func(t *testing.T) {
+		txn := baseTransaction(entityID, account, batch, SourceKindBank)
+		txn.LineNo = 4212
+		txn.DedupHash = uuid.NewString()
+
+		var stored Transaction
+		err := d.InTx(ctx, org, func(ctx context.Context, tx pgx.Tx) error {
+			out, err := Insert(ctx, tx, org, []Transaction{txn})
+			if err != nil {
+				return err
+			}
+			stored = out[0]
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("Insert: %v", err)
+		}
+		if stored.LineNo != 4212 {
+			t.Errorf("line_no came back as %d, want 4212", stored.LineNo)
+		}
+		if stored.BatchID != batch {
+			t.Errorf("batch came back as %s, want %s -- the pair is the provenance and "+
+				"either alone is half an answer", stored.BatchID, batch)
+		}
+	})
+}

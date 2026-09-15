@@ -181,7 +181,7 @@ export const ReportBucketLineSchema: GenMessage<ReportBucketLine> = /*@__PURE__*
 /**
  * The versions the summed classifications were made under, read from those rows
  * and never from the server's own configuration.
- * 
+ *
  * Those strings are what make a March report reproduce in June, and an
  * accountant will ask. Repeated rather than singular because a report summing
  * rows classified under two engine versions was produced under two engine
@@ -485,7 +485,7 @@ export type DrillTransaction = Message<"vekst.v1.DrillTransaction"> & {
    * country rule matched this wording" and "because you told us in March" are
    * different claims about the same figure, and a reviewer trusts them
    * differently.
-   * 
+   *
    * matched_rule_priority is deliberately not here. It is an internal ordering
    * number, it means nothing to a reader, and returning it invites a client to
    * reason about rule order it has no business knowing.
@@ -609,9 +609,9 @@ export const ListLineTransactionsResponseSchema: GenMessage<ListLineTransactions
 
 /**
  * The strip at the foot of the table, for one period.
- * 
+ *
  *   opening + in - out - transfers = closing
- * 
+ *
  * `balances` is that identity, checked rather than asserted: the three
  * movements come from one aggregation and the two balances from another, so a
  * row dropped or double-counted by either breaks it. When it does not hold the
@@ -690,7 +690,7 @@ export const ReconciliationLineSchema: GenMessage<ReconciliationLine> = /*@__PUR
 
 /**
  * Which half of the business a report is computed from.
- * 
+ *
  * ARCHITECTURE.md 5.1 calls mixing these the single most likely way this
  * product prints a wrong number: an invoice and the payment that settles it are
  * two rows describing one event, and a line summing both counts the money
@@ -852,9 +852,9 @@ export const ReportAnswerKindSchema: GenEnum<ReportAnswerKind> = /*@__PURE__*/
  * ReportService produces the management P&L: the table a business owner reads
  * in the first minute of a month. Sections, the five computed lines, one column
  * per period, and an honest account of everything the report could not include.
- * 
+ *
  * Browser-facing, so Connect rather than the native gRPC the classifier uses.
- * 
+ *
  * Any member may read a report, a viewer included -- reading the numbers is the
  * whole reason the role exists. The handler resolves the organisation through
  * the one sanctioned door, which proves membership in the same step.
@@ -872,7 +872,7 @@ export const ReportService: GenService<{
   },
   /**
    * Open one figure.
-   * 
+   *
    * A cell is addressed by the four things that computed it -- entity, basis,
    * period and line -- and by nothing else. The alternative is an opaque handle
    * returned with each figure and passed back, which is state the server has to
