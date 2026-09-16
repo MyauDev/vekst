@@ -38,9 +38,11 @@
 # --- Track B: meaning ------------------------------------------------------
 /core/classify/              @MyauDev/admin
 /core/internal/report/       @MyauDev/admin
+/core/internal/classifyrun/  @MyauDev/admin
 /core/internal/normalize/    @MyauDev/admin
 /core/internal/review/       @MyauDev/admin
 /core/internal/report/       @MyauDev/admin
+/core/internal/classifyrun/  @MyauDev/admin
 /classifier/                 @MyauDev/admin
 
 # --- Both reviewers required (branch protection enforces the count) -------
@@ -135,3 +137,15 @@
 # it happens.
 /core/migrations/00015_transaction_line_no.sql   @MyauDev/admin
 /core/internal/db/query/drilldown.sql            @MyauDev/admin
+
+# The classification run (change 3.4). 016 is the record of what the engine
+# made of a batch -- a separate table and deliberately not one more state on
+# import_batches, so Track A's own machine stays Track A's. 017 finishes a
+# column change 3.1 asked for and migration 004 shipped without.
+#
+# classify_run.sql's guard against a batch being classified twice is the unique
+# constraint and not a check-then-insert: a check has a window between its two
+# halves, and that window is where a duplicate enqueue lands.
+/core/migrations/00016_classification_runs.sql   @MyauDev/admin
+/core/migrations/00017_membership_entity.sql     @MyauDev/admin
+/core/internal/db/query/classify_run.sql         @MyauDev/admin

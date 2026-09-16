@@ -1,0 +1,13 @@
+# Generators read these files byte for byte, and two of them put what they read
+# into what they write: protoc-gen-es turns a comment line ending in CR into a
+# JSDoc line with a trailing space, protoc-gen-go turns an indented one into
+# spaces where an LF source gives a tab, and sqlc embeds each query's text in
+# the Go it emits. On Windows, git's own autocrlf hands a developer CRLF copies
+# of files it stores as LF -- so the stubs they commit are generated from a file
+# CI never sees, and `make gen && git diff --exit-code` fails on whitespace
+# nobody typed.
+#
+# Pinning the inputs is the whole fix: these are machine-read, never edited in a
+# tool that needs CRLF, and one of them has already cost a red build.
+*.proto text eol=lf
+*.sql   text eol=lf

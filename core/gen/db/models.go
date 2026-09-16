@@ -77,6 +77,19 @@ type ClassificationRule struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type ClassificationRun struct {
+	OrgID           pgtype.UUID
+	ID              pgtype.UUID
+	BatchID         pgtype.UUID
+	Status          string
+	FailureCode     pgtype.Text
+	ChunkCount      int32
+	ClassifiedCount int32
+	ReviewCount     int32
+	StartedAt       pgtype.Timestamptz
+	FinishedAt      pgtype.Timestamptz
+}
+
 type DedupSkip struct {
 	ID                   pgtype.UUID
 	OrgID                pgtype.UUID
@@ -181,6 +194,7 @@ type Membership struct {
 	UserID    pgtype.UUID
 	Role      string
 	CreatedAt pgtype.Timestamptz
+	EntityID  pgtype.UUID
 }
 
 type Organization struct {

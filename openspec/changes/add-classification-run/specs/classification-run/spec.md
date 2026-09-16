@@ -108,3 +108,67 @@ set.
 - **WHEN** a classification-run query runs outside a tenant transaction
 - **THEN** the database raises `42704`
 - **AND** it does not return zero rows
+
+### Requirement: A batch's rows are paged by a cursor, scoped to that batch
+
+The system SHALL page a batch's unclassified transactions by a stable key over that batch
+only, and SHALL offer every one of them exactly once.
+
+A read that relies on rows leaving the result as they are classified terminates only if
+every row gets classified, and the whole purpose of a confidence threshold is that some do
+not. Reading across the organisation rather than the batch would make two concurrent
+imports classify each other's rows and each count them as its own.
+
+#### Scenario: A batch no proposal answers still terminates
+
+- **WHEN** a batch is classified and the engine answers for none of its transactions
+- **THEN** every transaction is offered exactly once
+- **AND** the run reaches `classified`
+
+#### Scenario: One batch's run does not reach another batch's rows
+
+- **WHEN** two batches of one organisation both hold unclassified transactions
+- **THEN** a run for one of them offers only that batch's rows
+
+### Requirement: A row whose only classification was retracted is unclassified again
+
+The system SHALL treat a transaction whose live classification was retracted as having
+none, wherever "unclassified" is computed.
+
+A retraction and a supersession are different events -- a correction names the
+classification that replaced it, an undone review decision has no successor to point at --
+and a definition of "unclassified" that knows only about the second leaves a retracted row
+invisible to the classifier while every report counts it as unanswered.
+
+#### Scenario: A retracted row is offered to the classifier again
+
+- **WHEN** a transaction's only live classification is retracted
+- **THEN** it appears among that batch's unclassified transactions
+
+### Requirement: A refusal and an outage are told apart by the engine's own answer
+
+The system SHALL retry when the classifier is unreachable and SHALL fail the run when the
+classifier refuses the request, distinguishing the two by the status the engine returned
+rather than by inspecting its message.
+
+Retrying sends the identical request -- which is what makes a retry safe when the engine
+merely did not answer, and what makes one pointless when it answered by refusing.
+
+#### Scenario: A refused request is recorded, not retried
+
+- **WHEN** the classifier refuses the request itself
+- **THEN** the run is marked `failed` with a failure code
+- **AND** the job does not return an error for River to retry
+
+### Requirement: A run's classifications record the engine that produced them
+
+The system SHALL record on every classification the engine and ruleset versions the
+response reported, and the taxonomy and normalisation versions the request carried.
+
+A constant compiled into core says what this build would classify with today, which is the
+same string only until the next deploy. What answered is the engine's fact to state.
+
+#### Scenario: The engine's own version reaches the row
+
+- **WHEN** a chunk's proposals are stored
+- **THEN** each classification carries the engine version from that response

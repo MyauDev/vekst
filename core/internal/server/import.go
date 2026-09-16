@@ -621,6 +621,46 @@ func batchToProto(b ingest.Batch) *vektv1.ImportBatch {
 		ByteLength:  b.ByteLength,
 		FailureCode: b.FailureCode,
 		CreatedAt:   timestamppb.New(b.CreatedAt),
+
+		// Absent until something has classified this batch. A zero-valued
+		// struct here would say "a run that did nothing", which is what a
+		// failed run also looks like from a distance.
+		ClassificationRun: classificationRunToProto(b),
+	}
+}
+
+func classificationRunToProto(b ingest.Batch) *vektv1.ClassificationRun {
+	if !b.HasClassificationRun {
+		return nil
+	}
+	out := &vektv1.ClassificationRun{
+		Status:          classificationRunStatusToProto(b.Classification.Status),
+		FailureCode:     b.Classification.FailureCode,
+		ChunkCount:      b.Classification.ChunkCount,
+		ClassifiedCount: b.Classification.ClassifiedCount,
+		ReviewCount:     b.Classification.ReviewCount,
+		StartedAt:       timestamppb.New(b.Classification.StartedAt),
+	}
+	if !b.Classification.FinishedAt.IsZero() {
+		out.FinishedAt = timestamppb.New(b.Classification.FinishedAt)
+	}
+	return out
+}
+
+func classificationRunStatusToProto(s string) vektv1.ClassificationRunStatus {
+	switch s {
+	case "running":
+		return vektv1.ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_RUNNING
+	case "classified":
+		return vektv1.ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_CLASSIFIED
+	case "failed":
+		return vektv1.ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_FAILED
+	default:
+		// The column's CHECK admits three values, so this is unreachable
+		// unless the schema and this switch have drifted -- and an unspecified
+		// status a client cannot render says so, where guessing "running"
+		// would show a finished import as still working forever.
+		return vektv1.ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_UNSPECIFIED
 	}
 }
 

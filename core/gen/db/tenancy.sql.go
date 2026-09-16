@@ -196,12 +196,19 @@ type InsertMembershipParams struct {
 	Role   string
 }
 
+type InsertMembershipRow struct {
+	OrgID     pgtype.UUID
+	UserID    pgtype.UUID
+	Role      string
+	CreatedAt pgtype.Timestamptz
+}
+
 // The creator's own membership, written in the same transaction that creates
 // the organisation (design D4). role is stored and nothing checks it yet --
 // enforcement is Product's, per the proposal's non-goals.
-func (q *Queries) InsertMembership(ctx context.Context, arg InsertMembershipParams) (Membership, error) {
+func (q *Queries) InsertMembership(ctx context.Context, arg InsertMembershipParams) (InsertMembershipRow, error) {
 	row := q.db.QueryRow(ctx, insertMembership, arg.OrgID, arg.UserID, arg.Role)
-	var i Membership
+	var i InsertMembershipRow
 	err := row.Scan(
 		&i.OrgID,
 		&i.UserID,
@@ -376,20 +383,27 @@ FROM memberships
 ORDER BY created_at
 `
 
+type ListMembershipsRow struct {
+	OrgID     pgtype.UUID
+	UserID    pgtype.UUID
+	Role      string
+	CreatedAt pgtype.Timestamptz
+}
+
 // The current organisation's members. This deliberately does not join users:
 // users is global and outside row-level security, and
 // scripts/check-identity-queries.sh keeps the four identity tables reachable
 // from one query file only. A member list showing names and addresses is a
 // browser-facing read, which arrives with 2.1 and brings that decision with it.
-func (q *Queries) ListMemberships(ctx context.Context) ([]Membership, error) {
+func (q *Queries) ListMemberships(ctx context.Context) ([]ListMembershipsRow, error) {
 	rows, err := q.db.Query(ctx, listMemberships)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Membership
+	var items []ListMembershipsRow
 	for rows.Next() {
-		var i Membership
+		var i ListMembershipsRow
 		if err := rows.Scan(
 			&i.OrgID,
 			&i.UserID,

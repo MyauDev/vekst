@@ -148,6 +148,61 @@ func (ImportStatus) EnumDescriptor() ([]byte, []int) {
 	return file_vekst_v1_import_proto_rawDescGZIP(), []int{1}
 }
 
+type ClassificationRunStatus int32
+
+const (
+	ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_UNSPECIFIED ClassificationRunStatus = 0
+	// The job is working through the batch's chunks, or waiting to retry a
+	// classifier that is not answering. Either way the user sees "still working":
+	// an engine outage is a retryable condition, not a failed import.
+	ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_RUNNING    ClassificationRunStatus = 1
+	ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_CLASSIFIED ClassificationRunStatus = 2
+	ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_FAILED     ClassificationRunStatus = 3
+)
+
+// Enum value maps for ClassificationRunStatus.
+var (
+	ClassificationRunStatus_name = map[int32]string{
+		0: "CLASSIFICATION_RUN_STATUS_UNSPECIFIED",
+		1: "CLASSIFICATION_RUN_STATUS_RUNNING",
+		2: "CLASSIFICATION_RUN_STATUS_CLASSIFIED",
+		3: "CLASSIFICATION_RUN_STATUS_FAILED",
+	}
+	ClassificationRunStatus_value = map[string]int32{
+		"CLASSIFICATION_RUN_STATUS_UNSPECIFIED": 0,
+		"CLASSIFICATION_RUN_STATUS_RUNNING":     1,
+		"CLASSIFICATION_RUN_STATUS_CLASSIFIED":  2,
+		"CLASSIFICATION_RUN_STATUS_FAILED":      3,
+	}
+)
+
+func (x ClassificationRunStatus) Enum() *ClassificationRunStatus {
+	p := new(ClassificationRunStatus)
+	*p = x
+	return p
+}
+
+func (x ClassificationRunStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ClassificationRunStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_vekst_v1_import_proto_enumTypes[2].Descriptor()
+}
+
+func (ClassificationRunStatus) Type() protoreflect.EnumType {
+	return &file_vekst_v1_import_proto_enumTypes[2]
+}
+
+func (x ClassificationRunStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ClassificationRunStatus.Descriptor instead.
+func (ClassificationRunStatus) EnumDescriptor() ([]byte, []int) {
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{2}
+}
+
 type ValidationOutcome int32
 
 const (
@@ -184,11 +239,11 @@ func (x ValidationOutcome) String() string {
 }
 
 func (ValidationOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_vekst_v1_import_proto_enumTypes[2].Descriptor()
+	return file_vekst_v1_import_proto_enumTypes[3].Descriptor()
 }
 
 func (ValidationOutcome) Type() protoreflect.EnumType {
-	return &file_vekst_v1_import_proto_enumTypes[2]
+	return &file_vekst_v1_import_proto_enumTypes[3]
 }
 
 func (x ValidationOutcome) Number() protoreflect.EnumNumber {
@@ -197,7 +252,7 @@ func (x ValidationOutcome) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ValidationOutcome.Descriptor instead.
 func (ValidationOutcome) EnumDescriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{2}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{3}
 }
 
 type CreateImportBatchRequest struct {
@@ -665,10 +720,19 @@ type ImportBatch struct {
 	// this file carries money, and none may be added without the Money message.
 	ByteLength int64 `protobuf:"varint,6,opt,name=byte_length,json=byteLength,proto3" json:"byte_length,omitempty"`
 	// A code, never a sentence. The client owns the words.
-	FailureCode   string                 `protobuf:"bytes,7,opt,name=failure_code,json=failureCode,proto3" json:"failure_code,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	FailureCode string                 `protobuf:"bytes,7,opt,name=failure_code,json=failureCode,proto3" json:"failure_code,omitempty"`
+	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// What happened when this batch was classified, absent until the job that
+	// does it has opened a run.
+	//
+	// Absent is a real answer and not a missing one: a batch that has just
+	// reached `imported` has not been classified yet, and that is different from
+	// a run that failed. The Imports screen renders the two differently -- "still
+	// working" against "something is wrong" -- and collapsing them into an empty
+	// struct would make the first look like the second.
+	ClassificationRun *ClassificationRun `protobuf:"bytes,9,opt,name=classification_run,json=classificationRun,proto3" json:"classification_run,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ImportBatch) Reset() {
@@ -757,6 +821,112 @@ func (x *ImportBatch) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ImportBatch) GetClassificationRun() *ClassificationRun {
+	if x != nil {
+		return x.ClassificationRun
+	}
+	return nil
+}
+
+type ClassificationRun struct {
+	state  protoimpl.MessageState  `protogen:"open.v1"`
+	Status ClassificationRunStatus `protobuf:"varint,1,opt,name=status,proto3,enum=vekst.v1.ClassificationRunStatus" json:"status,omitempty"`
+	// A code, never a sentence. The client owns the words.
+	FailureCode string `protobuf:"bytes,2,opt,name=failure_code,json=failureCode,proto3" json:"failure_code,omitempty"`
+	// How many requests the batch took. Not progress -- a run says running or it
+	// does not -- but the number that explains a long one.
+	ChunkCount int32 `protobuf:"varint,3,opt,name=chunk_count,json=chunkCount,proto3" json:"chunk_count,omitempty"`
+	// Answered confidently enough to write down, and answered but not
+	// confidently enough. The second is not a failure: it is the review queue's
+	// ordinary input, and a screen saying "820 of 1,294 classified, 474 to
+	// review" is describing normal work rather than a problem.
+	ClassifiedCount int32                  `protobuf:"varint,4,opt,name=classified_count,json=classifiedCount,proto3" json:"classified_count,omitempty"`
+	ReviewCount     int32                  `protobuf:"varint,5,opt,name=review_count,json=reviewCount,proto3" json:"review_count,omitempty"`
+	StartedAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ClassificationRun) Reset() {
+	*x = ClassificationRun{}
+	mi := &file_vekst_v1_import_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClassificationRun) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClassificationRun) ProtoMessage() {}
+
+func (x *ClassificationRun) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_import_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClassificationRun.ProtoReflect.Descriptor instead.
+func (*ClassificationRun) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ClassificationRun) GetStatus() ClassificationRunStatus {
+	if x != nil {
+		return x.Status
+	}
+	return ClassificationRunStatus_CLASSIFICATION_RUN_STATUS_UNSPECIFIED
+}
+
+func (x *ClassificationRun) GetFailureCode() string {
+	if x != nil {
+		return x.FailureCode
+	}
+	return ""
+}
+
+func (x *ClassificationRun) GetChunkCount() int32 {
+	if x != nil {
+		return x.ChunkCount
+	}
+	return 0
+}
+
+func (x *ClassificationRun) GetClassifiedCount() int32 {
+	if x != nil {
+		return x.ClassifiedCount
+	}
+	return 0
+}
+
+func (x *ClassificationRun) GetReviewCount() int32 {
+	if x != nil {
+		return x.ReviewCount
+	}
+	return 0
+}
+
+func (x *ClassificationRun) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *ClassificationRun) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
 // One entry per correctness error, keyed to the line in the original file
 // (CLAUDE.md: never by parsed row index).
 type ValidationError struct {
@@ -774,7 +944,7 @@ type ValidationError struct {
 
 func (x *ValidationError) Reset() {
 	*x = ValidationError{}
-	mi := &file_vekst_v1_import_proto_msgTypes[9]
+	mi := &file_vekst_v1_import_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +956,7 @@ func (x *ValidationError) String() string {
 func (*ValidationError) ProtoMessage() {}
 
 func (x *ValidationError) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[9]
+	mi := &file_vekst_v1_import_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +969,7 @@ func (x *ValidationError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationError.ProtoReflect.Descriptor instead.
 func (*ValidationError) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{9}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ValidationError) GetLine() int32 {
@@ -848,7 +1018,7 @@ type BalanceMismatchDetail struct {
 
 func (x *BalanceMismatchDetail) Reset() {
 	*x = BalanceMismatchDetail{}
-	mi := &file_vekst_v1_import_proto_msgTypes[10]
+	mi := &file_vekst_v1_import_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -860,7 +1030,7 @@ func (x *BalanceMismatchDetail) String() string {
 func (*BalanceMismatchDetail) ProtoMessage() {}
 
 func (x *BalanceMismatchDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[10]
+	mi := &file_vekst_v1_import_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -873,7 +1043,7 @@ func (x *BalanceMismatchDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BalanceMismatchDetail.ProtoReflect.Descriptor instead.
 func (*BalanceMismatchDetail) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{10}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *BalanceMismatchDetail) GetOpening() int64 {
@@ -921,7 +1091,7 @@ type ValidationWarning struct {
 
 func (x *ValidationWarning) Reset() {
 	*x = ValidationWarning{}
-	mi := &file_vekst_v1_import_proto_msgTypes[11]
+	mi := &file_vekst_v1_import_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +1103,7 @@ func (x *ValidationWarning) String() string {
 func (*ValidationWarning) ProtoMessage() {}
 
 func (x *ValidationWarning) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[11]
+	mi := &file_vekst_v1_import_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +1116,7 @@ func (x *ValidationWarning) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationWarning.ProtoReflect.Descriptor instead.
 func (*ValidationWarning) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{11}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ValidationWarning) GetCode() string {
@@ -987,7 +1157,7 @@ type ValidationReport struct {
 
 func (x *ValidationReport) Reset() {
 	*x = ValidationReport{}
-	mi := &file_vekst_v1_import_proto_msgTypes[12]
+	mi := &file_vekst_v1_import_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -999,7 +1169,7 @@ func (x *ValidationReport) String() string {
 func (*ValidationReport) ProtoMessage() {}
 
 func (x *ValidationReport) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[12]
+	mi := &file_vekst_v1_import_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1012,7 +1182,7 @@ func (x *ValidationReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationReport.ProtoReflect.Descriptor instead.
 func (*ValidationReport) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{12}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ValidationReport) GetBatchId() string {
@@ -1102,7 +1272,7 @@ type GetValidationReportRequest struct {
 
 func (x *GetValidationReportRequest) Reset() {
 	*x = GetValidationReportRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[13]
+	mi := &file_vekst_v1_import_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1114,7 +1284,7 @@ func (x *GetValidationReportRequest) String() string {
 func (*GetValidationReportRequest) ProtoMessage() {}
 
 func (x *GetValidationReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[13]
+	mi := &file_vekst_v1_import_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1127,7 +1297,7 @@ func (x *GetValidationReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetValidationReportRequest.ProtoReflect.Descriptor instead.
 func (*GetValidationReportRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{13}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetValidationReportRequest) GetOrgId() string {
@@ -1153,7 +1323,7 @@ type GetValidationReportResponse struct {
 
 func (x *GetValidationReportResponse) Reset() {
 	*x = GetValidationReportResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[14]
+	mi := &file_vekst_v1_import_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1165,7 +1335,7 @@ func (x *GetValidationReportResponse) String() string {
 func (*GetValidationReportResponse) ProtoMessage() {}
 
 func (x *GetValidationReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[14]
+	mi := &file_vekst_v1_import_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1178,7 +1348,7 @@ func (x *GetValidationReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetValidationReportResponse.ProtoReflect.Descriptor instead.
 func (*GetValidationReportResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{14}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetValidationReportResponse) GetReport() *ValidationReport {
@@ -1200,7 +1370,7 @@ type OverrideValidationRequest struct {
 
 func (x *OverrideValidationRequest) Reset() {
 	*x = OverrideValidationRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[15]
+	mi := &file_vekst_v1_import_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1212,7 +1382,7 @@ func (x *OverrideValidationRequest) String() string {
 func (*OverrideValidationRequest) ProtoMessage() {}
 
 func (x *OverrideValidationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[15]
+	mi := &file_vekst_v1_import_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1225,7 +1395,7 @@ func (x *OverrideValidationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OverrideValidationRequest.ProtoReflect.Descriptor instead.
 func (*OverrideValidationRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{15}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *OverrideValidationRequest) GetOrgId() string {
@@ -1258,7 +1428,7 @@ type OverrideValidationResponse struct {
 
 func (x *OverrideValidationResponse) Reset() {
 	*x = OverrideValidationResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[16]
+	mi := &file_vekst_v1_import_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1270,7 +1440,7 @@ func (x *OverrideValidationResponse) String() string {
 func (*OverrideValidationResponse) ProtoMessage() {}
 
 func (x *OverrideValidationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[16]
+	mi := &file_vekst_v1_import_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1283,7 +1453,7 @@ func (x *OverrideValidationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OverrideValidationResponse.ProtoReflect.Descriptor instead.
 func (*OverrideValidationResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{16}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *OverrideValidationResponse) GetReport() *ValidationReport {
@@ -1317,7 +1487,7 @@ type ImportProfile struct {
 
 func (x *ImportProfile) Reset() {
 	*x = ImportProfile{}
-	mi := &file_vekst_v1_import_proto_msgTypes[17]
+	mi := &file_vekst_v1_import_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1329,7 +1499,7 @@ func (x *ImportProfile) String() string {
 func (*ImportProfile) ProtoMessage() {}
 
 func (x *ImportProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[17]
+	mi := &file_vekst_v1_import_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1342,7 +1512,7 @@ func (x *ImportProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportProfile.ProtoReflect.Descriptor instead.
 func (*ImportProfile) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{17}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ImportProfile) GetId() string {
@@ -1431,7 +1601,7 @@ type CreateImportProfileRequest struct {
 
 func (x *CreateImportProfileRequest) Reset() {
 	*x = CreateImportProfileRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[18]
+	mi := &file_vekst_v1_import_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1443,7 +1613,7 @@ func (x *CreateImportProfileRequest) String() string {
 func (*CreateImportProfileRequest) ProtoMessage() {}
 
 func (x *CreateImportProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[18]
+	mi := &file_vekst_v1_import_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1456,7 +1626,7 @@ func (x *CreateImportProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateImportProfileRequest.ProtoReflect.Descriptor instead.
 func (*CreateImportProfileRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{18}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateImportProfileRequest) GetOrgId() string {
@@ -1524,7 +1694,7 @@ type CreateImportProfileResponse struct {
 
 func (x *CreateImportProfileResponse) Reset() {
 	*x = CreateImportProfileResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[19]
+	mi := &file_vekst_v1_import_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1536,7 +1706,7 @@ func (x *CreateImportProfileResponse) String() string {
 func (*CreateImportProfileResponse) ProtoMessage() {}
 
 func (x *CreateImportProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[19]
+	mi := &file_vekst_v1_import_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1549,7 +1719,7 @@ func (x *CreateImportProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateImportProfileResponse.ProtoReflect.Descriptor instead.
 func (*CreateImportProfileResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{19}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateImportProfileResponse) GetProfile() *ImportProfile {
@@ -1569,7 +1739,7 @@ type GetImportProfileRequest struct {
 
 func (x *GetImportProfileRequest) Reset() {
 	*x = GetImportProfileRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[20]
+	mi := &file_vekst_v1_import_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1581,7 +1751,7 @@ func (x *GetImportProfileRequest) String() string {
 func (*GetImportProfileRequest) ProtoMessage() {}
 
 func (x *GetImportProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[20]
+	mi := &file_vekst_v1_import_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1594,7 +1764,7 @@ func (x *GetImportProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImportProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetImportProfileRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{20}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetImportProfileRequest) GetOrgId() string {
@@ -1620,7 +1790,7 @@ type GetImportProfileResponse struct {
 
 func (x *GetImportProfileResponse) Reset() {
 	*x = GetImportProfileResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[21]
+	mi := &file_vekst_v1_import_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1632,7 +1802,7 @@ func (x *GetImportProfileResponse) String() string {
 func (*GetImportProfileResponse) ProtoMessage() {}
 
 func (x *GetImportProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[21]
+	mi := &file_vekst_v1_import_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1645,7 +1815,7 @@ func (x *GetImportProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImportProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetImportProfileResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{21}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetImportProfileResponse) GetProfile() *ImportProfile {
@@ -1664,7 +1834,7 @@ type ListImportProfilesRequest struct {
 
 func (x *ListImportProfilesRequest) Reset() {
 	*x = ListImportProfilesRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[22]
+	mi := &file_vekst_v1_import_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1676,7 +1846,7 @@ func (x *ListImportProfilesRequest) String() string {
 func (*ListImportProfilesRequest) ProtoMessage() {}
 
 func (x *ListImportProfilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[22]
+	mi := &file_vekst_v1_import_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1689,7 +1859,7 @@ func (x *ListImportProfilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImportProfilesRequest.ProtoReflect.Descriptor instead.
 func (*ListImportProfilesRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{22}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListImportProfilesRequest) GetOrgId() string {
@@ -1708,7 +1878,7 @@ type ListImportProfilesResponse struct {
 
 func (x *ListImportProfilesResponse) Reset() {
 	*x = ListImportProfilesResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[23]
+	mi := &file_vekst_v1_import_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1720,7 +1890,7 @@ func (x *ListImportProfilesResponse) String() string {
 func (*ListImportProfilesResponse) ProtoMessage() {}
 
 func (x *ListImportProfilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[23]
+	mi := &file_vekst_v1_import_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1733,7 +1903,7 @@ func (x *ListImportProfilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImportProfilesResponse.ProtoReflect.Descriptor instead.
 func (*ListImportProfilesResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{23}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListImportProfilesResponse) GetProfiles() []*ImportProfile {
@@ -1762,7 +1932,7 @@ type UpdateImportProfileRequest struct {
 
 func (x *UpdateImportProfileRequest) Reset() {
 	*x = UpdateImportProfileRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[24]
+	mi := &file_vekst_v1_import_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1774,7 +1944,7 @@ func (x *UpdateImportProfileRequest) String() string {
 func (*UpdateImportProfileRequest) ProtoMessage() {}
 
 func (x *UpdateImportProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[24]
+	mi := &file_vekst_v1_import_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1787,7 +1957,7 @@ func (x *UpdateImportProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateImportProfileRequest.ProtoReflect.Descriptor instead.
 func (*UpdateImportProfileRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{24}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UpdateImportProfileRequest) GetOrgId() string {
@@ -1855,7 +2025,7 @@ type UpdateImportProfileResponse struct {
 
 func (x *UpdateImportProfileResponse) Reset() {
 	*x = UpdateImportProfileResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[25]
+	mi := &file_vekst_v1_import_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1867,7 +2037,7 @@ func (x *UpdateImportProfileResponse) String() string {
 func (*UpdateImportProfileResponse) ProtoMessage() {}
 
 func (x *UpdateImportProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[25]
+	mi := &file_vekst_v1_import_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1880,7 +2050,7 @@ func (x *UpdateImportProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateImportProfileResponse.ProtoReflect.Descriptor instead.
 func (*UpdateImportProfileResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{25}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *UpdateImportProfileResponse) GetProfile() *ImportProfile {
@@ -1900,7 +2070,7 @@ type DeleteImportProfileRequest struct {
 
 func (x *DeleteImportProfileRequest) Reset() {
 	*x = DeleteImportProfileRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[26]
+	mi := &file_vekst_v1_import_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1912,7 +2082,7 @@ func (x *DeleteImportProfileRequest) String() string {
 func (*DeleteImportProfileRequest) ProtoMessage() {}
 
 func (x *DeleteImportProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[26]
+	mi := &file_vekst_v1_import_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1925,7 +2095,7 @@ func (x *DeleteImportProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteImportProfileRequest.ProtoReflect.Descriptor instead.
 func (*DeleteImportProfileRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{26}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DeleteImportProfileRequest) GetOrgId() string {
@@ -1950,7 +2120,7 @@ type DeleteImportProfileResponse struct {
 
 func (x *DeleteImportProfileResponse) Reset() {
 	*x = DeleteImportProfileResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[27]
+	mi := &file_vekst_v1_import_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1962,7 +2132,7 @@ func (x *DeleteImportProfileResponse) String() string {
 func (*DeleteImportProfileResponse) ProtoMessage() {}
 
 func (x *DeleteImportProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[27]
+	mi := &file_vekst_v1_import_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1975,7 +2145,7 @@ func (x *DeleteImportProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteImportProfileResponse.ProtoReflect.Descriptor instead.
 func (*DeleteImportProfileResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{27}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{28}
 }
 
 // DedupSummary is the one number an import screen shows -- "412 rows
@@ -1997,7 +2167,7 @@ type DedupSummary struct {
 
 func (x *DedupSummary) Reset() {
 	*x = DedupSummary{}
-	mi := &file_vekst_v1_import_proto_msgTypes[28]
+	mi := &file_vekst_v1_import_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2009,7 +2179,7 @@ func (x *DedupSummary) String() string {
 func (*DedupSummary) ProtoMessage() {}
 
 func (x *DedupSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[28]
+	mi := &file_vekst_v1_import_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2022,7 +2192,7 @@ func (x *DedupSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DedupSummary.ProtoReflect.Descriptor instead.
 func (*DedupSummary) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{28}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DedupSummary) GetImportedRows() int32 {
@@ -2063,7 +2233,7 @@ type GetDedupSummaryRequest struct {
 
 func (x *GetDedupSummaryRequest) Reset() {
 	*x = GetDedupSummaryRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[29]
+	mi := &file_vekst_v1_import_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2075,7 +2245,7 @@ func (x *GetDedupSummaryRequest) String() string {
 func (*GetDedupSummaryRequest) ProtoMessage() {}
 
 func (x *GetDedupSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[29]
+	mi := &file_vekst_v1_import_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2088,7 +2258,7 @@ func (x *GetDedupSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDedupSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetDedupSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{29}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetDedupSummaryRequest) GetOrgId() string {
@@ -2114,7 +2284,7 @@ type GetDedupSummaryResponse struct {
 
 func (x *GetDedupSummaryResponse) Reset() {
 	*x = GetDedupSummaryResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[30]
+	mi := &file_vekst_v1_import_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2126,7 +2296,7 @@ func (x *GetDedupSummaryResponse) String() string {
 func (*GetDedupSummaryResponse) ProtoMessage() {}
 
 func (x *GetDedupSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[30]
+	mi := &file_vekst_v1_import_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2139,7 +2309,7 @@ func (x *GetDedupSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDedupSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetDedupSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{30}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetDedupSummaryResponse) GetSummary() *DedupSummary {
@@ -2168,7 +2338,7 @@ type SkippedRow struct {
 
 func (x *SkippedRow) Reset() {
 	*x = SkippedRow{}
-	mi := &file_vekst_v1_import_proto_msgTypes[31]
+	mi := &file_vekst_v1_import_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2180,7 +2350,7 @@ func (x *SkippedRow) String() string {
 func (*SkippedRow) ProtoMessage() {}
 
 func (x *SkippedRow) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[31]
+	mi := &file_vekst_v1_import_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2193,7 +2363,7 @@ func (x *SkippedRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkippedRow.ProtoReflect.Descriptor instead.
 func (*SkippedRow) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{31}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SkippedRow) GetLineNo() int32 {
@@ -2255,7 +2425,7 @@ type ListSkippedRowsRequest struct {
 
 func (x *ListSkippedRowsRequest) Reset() {
 	*x = ListSkippedRowsRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[32]
+	mi := &file_vekst_v1_import_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2267,7 +2437,7 @@ func (x *ListSkippedRowsRequest) String() string {
 func (*ListSkippedRowsRequest) ProtoMessage() {}
 
 func (x *ListSkippedRowsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[32]
+	mi := &file_vekst_v1_import_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2280,7 +2450,7 @@ func (x *ListSkippedRowsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkippedRowsRequest.ProtoReflect.Descriptor instead.
 func (*ListSkippedRowsRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{32}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListSkippedRowsRequest) GetOrgId() string {
@@ -2306,7 +2476,7 @@ type ListSkippedRowsResponse struct {
 
 func (x *ListSkippedRowsResponse) Reset() {
 	*x = ListSkippedRowsResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[33]
+	mi := &file_vekst_v1_import_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2318,7 +2488,7 @@ func (x *ListSkippedRowsResponse) String() string {
 func (*ListSkippedRowsResponse) ProtoMessage() {}
 
 func (x *ListSkippedRowsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[33]
+	mi := &file_vekst_v1_import_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2331,7 +2501,7 @@ func (x *ListSkippedRowsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSkippedRowsResponse.ProtoReflect.Descriptor instead.
 func (*ListSkippedRowsResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{33}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListSkippedRowsResponse) GetRows() []*SkippedRow {
@@ -2356,7 +2526,7 @@ type InternalTransfer struct {
 
 func (x *InternalTransfer) Reset() {
 	*x = InternalTransfer{}
-	mi := &file_vekst_v1_import_proto_msgTypes[34]
+	mi := &file_vekst_v1_import_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2368,7 +2538,7 @@ func (x *InternalTransfer) String() string {
 func (*InternalTransfer) ProtoMessage() {}
 
 func (x *InternalTransfer) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[34]
+	mi := &file_vekst_v1_import_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2381,7 +2551,7 @@ func (x *InternalTransfer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InternalTransfer.ProtoReflect.Descriptor instead.
 func (*InternalTransfer) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{34}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *InternalTransfer) GetId() string {
@@ -2436,7 +2606,7 @@ type ListInternalTransfersRequest struct {
 
 func (x *ListInternalTransfersRequest) Reset() {
 	*x = ListInternalTransfersRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[35]
+	mi := &file_vekst_v1_import_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2448,7 +2618,7 @@ func (x *ListInternalTransfersRequest) String() string {
 func (*ListInternalTransfersRequest) ProtoMessage() {}
 
 func (x *ListInternalTransfersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[35]
+	mi := &file_vekst_v1_import_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2461,7 +2631,7 @@ func (x *ListInternalTransfersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInternalTransfersRequest.ProtoReflect.Descriptor instead.
 func (*ListInternalTransfersRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{35}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListInternalTransfersRequest) GetOrgId() string {
@@ -2487,7 +2657,7 @@ type ListInternalTransfersResponse struct {
 
 func (x *ListInternalTransfersResponse) Reset() {
 	*x = ListInternalTransfersResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[36]
+	mi := &file_vekst_v1_import_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2499,7 +2669,7 @@ func (x *ListInternalTransfersResponse) String() string {
 func (*ListInternalTransfersResponse) ProtoMessage() {}
 
 func (x *ListInternalTransfersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[36]
+	mi := &file_vekst_v1_import_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2512,7 +2682,7 @@ func (x *ListInternalTransfersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInternalTransfersResponse.ProtoReflect.Descriptor instead.
 func (*ListInternalTransfersResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{36}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListInternalTransfersResponse) GetTransfers() []*InternalTransfer {
@@ -2532,7 +2702,7 @@ type DismissInternalTransferRequest struct {
 
 func (x *DismissInternalTransferRequest) Reset() {
 	*x = DismissInternalTransferRequest{}
-	mi := &file_vekst_v1_import_proto_msgTypes[37]
+	mi := &file_vekst_v1_import_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2544,7 +2714,7 @@ func (x *DismissInternalTransferRequest) String() string {
 func (*DismissInternalTransferRequest) ProtoMessage() {}
 
 func (x *DismissInternalTransferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[37]
+	mi := &file_vekst_v1_import_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2557,7 +2727,7 @@ func (x *DismissInternalTransferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DismissInternalTransferRequest.ProtoReflect.Descriptor instead.
 func (*DismissInternalTransferRequest) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{37}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *DismissInternalTransferRequest) GetOrgId() string {
@@ -2583,7 +2753,7 @@ type DismissInternalTransferResponse struct {
 
 func (x *DismissInternalTransferResponse) Reset() {
 	*x = DismissInternalTransferResponse{}
-	mi := &file_vekst_v1_import_proto_msgTypes[38]
+	mi := &file_vekst_v1_import_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2595,7 +2765,7 @@ func (x *DismissInternalTransferResponse) String() string {
 func (*DismissInternalTransferResponse) ProtoMessage() {}
 
 func (x *DismissInternalTransferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_import_proto_msgTypes[38]
+	mi := &file_vekst_v1_import_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2608,7 +2778,7 @@ func (x *DismissInternalTransferResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DismissInternalTransferResponse.ProtoReflect.Descriptor instead.
 func (*DismissInternalTransferResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_import_proto_rawDescGZIP(), []int{38}
+	return file_vekst_v1_import_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *DismissInternalTransferResponse) GetTransfer() *InternalTransfer {
@@ -2657,7 +2827,7 @@ const file_vekst_v1_import_proto_rawDesc = "" +
 	"\x06org_id\x18\x01 \x01(\tR\x05orgId\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\"L\n" +
 	"\x19ListImportBatchesResponse\x12/\n" +
-	"\abatches\x18\x01 \x03(\v2\x15.vekst.v1.ImportBatchR\abatches\"\xbd\x02\n" +
+	"\abatches\x18\x01 \x03(\v2\x15.vekst.v1.ImportBatchR\abatches\"\x89\x03\n" +
 	"\vImportBatch\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\x125\n" +
@@ -2669,7 +2839,19 @@ const file_vekst_v1_import_proto_rawDesc = "" +
 	"byteLength\x12!\n" +
 	"\ffailure_code\x18\a \x01(\tR\vfailureCode\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"a\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12J\n" +
+	"\x12classification_run\x18\t \x01(\v2\x1b.vekst.v1.ClassificationRunR\x11classificationRun\"\xd8\x02\n" +
+	"\x11ClassificationRun\x129\n" +
+	"\x06status\x18\x01 \x01(\x0e2!.vekst.v1.ClassificationRunStatusR\x06status\x12!\n" +
+	"\ffailure_code\x18\x02 \x01(\tR\vfailureCode\x12\x1f\n" +
+	"\vchunk_count\x18\x03 \x01(\x05R\n" +
+	"chunkCount\x12)\n" +
+	"\x10classified_count\x18\x04 \x01(\x05R\x0fclassifiedCount\x12!\n" +
+	"\freview_count\x18\x05 \x01(\x05R\vreviewCount\x129\n" +
+	"\n" +
+	"started_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12;\n" +
+	"\vfinished_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt\"a\n" +
 	"\x0fValidationError\x12\x12\n" +
 	"\x04line\x18\x01 \x01(\x05R\x04line\x12\x14\n" +
 	"\x05field\x18\x02 \x01(\tR\x05field\x12\x12\n" +
@@ -2844,7 +3026,12 @@ const file_vekst_v1_import_proto_rawDesc = "" +
 	"\x18IMPORT_STATUS_PERSISTING\x10\t\x12\x1a\n" +
 	"\x16IMPORT_STATUS_IMPORTED\x10\n" +
 	"\x12\x18\n" +
-	"\x14IMPORT_STATUS_FAILED\x10\v*\xa2\x01\n" +
+	"\x14IMPORT_STATUS_FAILED\x10\v*\xbb\x01\n" +
+	"\x17ClassificationRunStatus\x12)\n" +
+	"%CLASSIFICATION_RUN_STATUS_UNSPECIFIED\x10\x00\x12%\n" +
+	"!CLASSIFICATION_RUN_STATUS_RUNNING\x10\x01\x12(\n" +
+	"$CLASSIFICATION_RUN_STATUS_CLASSIFIED\x10\x02\x12$\n" +
+	" CLASSIFICATION_RUN_STATUS_FAILED\x10\x03*\xa2\x01\n" +
 	"\x11ValidationOutcome\x12\"\n" +
 	"\x1eVALIDATION_OUTCOME_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18VALIDATION_OUTCOME_VALID\x10\x01\x12*\n" +
@@ -2879,130 +3066,136 @@ func file_vekst_v1_import_proto_rawDescGZIP() []byte {
 	return file_vekst_v1_import_proto_rawDescData
 }
 
-var file_vekst_v1_import_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_vekst_v1_import_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_vekst_v1_import_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_vekst_v1_import_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_vekst_v1_import_proto_goTypes = []any{
 	(SourceKind)(0),                         // 0: vekst.v1.SourceKind
 	(ImportStatus)(0),                       // 1: vekst.v1.ImportStatus
-	(ValidationOutcome)(0),                  // 2: vekst.v1.ValidationOutcome
-	(*CreateImportBatchRequest)(nil),        // 3: vekst.v1.CreateImportBatchRequest
-	(*CreateImportBatchResponse)(nil),       // 4: vekst.v1.CreateImportBatchResponse
-	(*ConfirmImportUploadRequest)(nil),      // 5: vekst.v1.ConfirmImportUploadRequest
-	(*ConfirmImportUploadResponse)(nil),     // 6: vekst.v1.ConfirmImportUploadResponse
-	(*GetImportBatchRequest)(nil),           // 7: vekst.v1.GetImportBatchRequest
-	(*GetImportBatchResponse)(nil),          // 8: vekst.v1.GetImportBatchResponse
-	(*ListImportBatchesRequest)(nil),        // 9: vekst.v1.ListImportBatchesRequest
-	(*ListImportBatchesResponse)(nil),       // 10: vekst.v1.ListImportBatchesResponse
-	(*ImportBatch)(nil),                     // 11: vekst.v1.ImportBatch
-	(*ValidationError)(nil),                 // 12: vekst.v1.ValidationError
-	(*BalanceMismatchDetail)(nil),           // 13: vekst.v1.BalanceMismatchDetail
-	(*ValidationWarning)(nil),               // 14: vekst.v1.ValidationWarning
-	(*ValidationReport)(nil),                // 15: vekst.v1.ValidationReport
-	(*GetValidationReportRequest)(nil),      // 16: vekst.v1.GetValidationReportRequest
-	(*GetValidationReportResponse)(nil),     // 17: vekst.v1.GetValidationReportResponse
-	(*OverrideValidationRequest)(nil),       // 18: vekst.v1.OverrideValidationRequest
-	(*OverrideValidationResponse)(nil),      // 19: vekst.v1.OverrideValidationResponse
-	(*ImportProfile)(nil),                   // 20: vekst.v1.ImportProfile
-	(*CreateImportProfileRequest)(nil),      // 21: vekst.v1.CreateImportProfileRequest
-	(*CreateImportProfileResponse)(nil),     // 22: vekst.v1.CreateImportProfileResponse
-	(*GetImportProfileRequest)(nil),         // 23: vekst.v1.GetImportProfileRequest
-	(*GetImportProfileResponse)(nil),        // 24: vekst.v1.GetImportProfileResponse
-	(*ListImportProfilesRequest)(nil),       // 25: vekst.v1.ListImportProfilesRequest
-	(*ListImportProfilesResponse)(nil),      // 26: vekst.v1.ListImportProfilesResponse
-	(*UpdateImportProfileRequest)(nil),      // 27: vekst.v1.UpdateImportProfileRequest
-	(*UpdateImportProfileResponse)(nil),     // 28: vekst.v1.UpdateImportProfileResponse
-	(*DeleteImportProfileRequest)(nil),      // 29: vekst.v1.DeleteImportProfileRequest
-	(*DeleteImportProfileResponse)(nil),     // 30: vekst.v1.DeleteImportProfileResponse
-	(*DedupSummary)(nil),                    // 31: vekst.v1.DedupSummary
-	(*GetDedupSummaryRequest)(nil),          // 32: vekst.v1.GetDedupSummaryRequest
-	(*GetDedupSummaryResponse)(nil),         // 33: vekst.v1.GetDedupSummaryResponse
-	(*SkippedRow)(nil),                      // 34: vekst.v1.SkippedRow
-	(*ListSkippedRowsRequest)(nil),          // 35: vekst.v1.ListSkippedRowsRequest
-	(*ListSkippedRowsResponse)(nil),         // 36: vekst.v1.ListSkippedRowsResponse
-	(*InternalTransfer)(nil),                // 37: vekst.v1.InternalTransfer
-	(*ListInternalTransfersRequest)(nil),    // 38: vekst.v1.ListInternalTransfersRequest
-	(*ListInternalTransfersResponse)(nil),   // 39: vekst.v1.ListInternalTransfersResponse
-	(*DismissInternalTransferRequest)(nil),  // 40: vekst.v1.DismissInternalTransferRequest
-	(*DismissInternalTransferResponse)(nil), // 41: vekst.v1.DismissInternalTransferResponse
-	nil,                                     // 42: vekst.v1.CreateImportBatchResponse.UploadHeadersEntry
-	nil,                                     // 43: vekst.v1.ImportProfile.ColumnMapEntry
-	nil,                                     // 44: vekst.v1.CreateImportProfileRequest.ColumnMapEntry
-	nil,                                     // 45: vekst.v1.UpdateImportProfileRequest.ColumnMapEntry
-	(*timestamppb.Timestamp)(nil),           // 46: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),            // 47: google.protobuf.BoolValue
+	(ClassificationRunStatus)(0),            // 2: vekst.v1.ClassificationRunStatus
+	(ValidationOutcome)(0),                  // 3: vekst.v1.ValidationOutcome
+	(*CreateImportBatchRequest)(nil),        // 4: vekst.v1.CreateImportBatchRequest
+	(*CreateImportBatchResponse)(nil),       // 5: vekst.v1.CreateImportBatchResponse
+	(*ConfirmImportUploadRequest)(nil),      // 6: vekst.v1.ConfirmImportUploadRequest
+	(*ConfirmImportUploadResponse)(nil),     // 7: vekst.v1.ConfirmImportUploadResponse
+	(*GetImportBatchRequest)(nil),           // 8: vekst.v1.GetImportBatchRequest
+	(*GetImportBatchResponse)(nil),          // 9: vekst.v1.GetImportBatchResponse
+	(*ListImportBatchesRequest)(nil),        // 10: vekst.v1.ListImportBatchesRequest
+	(*ListImportBatchesResponse)(nil),       // 11: vekst.v1.ListImportBatchesResponse
+	(*ImportBatch)(nil),                     // 12: vekst.v1.ImportBatch
+	(*ClassificationRun)(nil),               // 13: vekst.v1.ClassificationRun
+	(*ValidationError)(nil),                 // 14: vekst.v1.ValidationError
+	(*BalanceMismatchDetail)(nil),           // 15: vekst.v1.BalanceMismatchDetail
+	(*ValidationWarning)(nil),               // 16: vekst.v1.ValidationWarning
+	(*ValidationReport)(nil),                // 17: vekst.v1.ValidationReport
+	(*GetValidationReportRequest)(nil),      // 18: vekst.v1.GetValidationReportRequest
+	(*GetValidationReportResponse)(nil),     // 19: vekst.v1.GetValidationReportResponse
+	(*OverrideValidationRequest)(nil),       // 20: vekst.v1.OverrideValidationRequest
+	(*OverrideValidationResponse)(nil),      // 21: vekst.v1.OverrideValidationResponse
+	(*ImportProfile)(nil),                   // 22: vekst.v1.ImportProfile
+	(*CreateImportProfileRequest)(nil),      // 23: vekst.v1.CreateImportProfileRequest
+	(*CreateImportProfileResponse)(nil),     // 24: vekst.v1.CreateImportProfileResponse
+	(*GetImportProfileRequest)(nil),         // 25: vekst.v1.GetImportProfileRequest
+	(*GetImportProfileResponse)(nil),        // 26: vekst.v1.GetImportProfileResponse
+	(*ListImportProfilesRequest)(nil),       // 27: vekst.v1.ListImportProfilesRequest
+	(*ListImportProfilesResponse)(nil),      // 28: vekst.v1.ListImportProfilesResponse
+	(*UpdateImportProfileRequest)(nil),      // 29: vekst.v1.UpdateImportProfileRequest
+	(*UpdateImportProfileResponse)(nil),     // 30: vekst.v1.UpdateImportProfileResponse
+	(*DeleteImportProfileRequest)(nil),      // 31: vekst.v1.DeleteImportProfileRequest
+	(*DeleteImportProfileResponse)(nil),     // 32: vekst.v1.DeleteImportProfileResponse
+	(*DedupSummary)(nil),                    // 33: vekst.v1.DedupSummary
+	(*GetDedupSummaryRequest)(nil),          // 34: vekst.v1.GetDedupSummaryRequest
+	(*GetDedupSummaryResponse)(nil),         // 35: vekst.v1.GetDedupSummaryResponse
+	(*SkippedRow)(nil),                      // 36: vekst.v1.SkippedRow
+	(*ListSkippedRowsRequest)(nil),          // 37: vekst.v1.ListSkippedRowsRequest
+	(*ListSkippedRowsResponse)(nil),         // 38: vekst.v1.ListSkippedRowsResponse
+	(*InternalTransfer)(nil),                // 39: vekst.v1.InternalTransfer
+	(*ListInternalTransfersRequest)(nil),    // 40: vekst.v1.ListInternalTransfersRequest
+	(*ListInternalTransfersResponse)(nil),   // 41: vekst.v1.ListInternalTransfersResponse
+	(*DismissInternalTransferRequest)(nil),  // 42: vekst.v1.DismissInternalTransferRequest
+	(*DismissInternalTransferResponse)(nil), // 43: vekst.v1.DismissInternalTransferResponse
+	nil,                                     // 44: vekst.v1.CreateImportBatchResponse.UploadHeadersEntry
+	nil,                                     // 45: vekst.v1.ImportProfile.ColumnMapEntry
+	nil,                                     // 46: vekst.v1.CreateImportProfileRequest.ColumnMapEntry
+	nil,                                     // 47: vekst.v1.UpdateImportProfileRequest.ColumnMapEntry
+	(*timestamppb.Timestamp)(nil),           // 48: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),            // 49: google.protobuf.BoolValue
 }
 var file_vekst_v1_import_proto_depIdxs = []int32{
 	0,  // 0: vekst.v1.CreateImportBatchRequest.source_kind:type_name -> vekst.v1.SourceKind
-	11, // 1: vekst.v1.CreateImportBatchResponse.batch:type_name -> vekst.v1.ImportBatch
-	42, // 2: vekst.v1.CreateImportBatchResponse.upload_headers:type_name -> vekst.v1.CreateImportBatchResponse.UploadHeadersEntry
-	46, // 3: vekst.v1.CreateImportBatchResponse.expires_at:type_name -> google.protobuf.Timestamp
-	11, // 4: vekst.v1.ConfirmImportUploadResponse.batch:type_name -> vekst.v1.ImportBatch
-	11, // 5: vekst.v1.GetImportBatchResponse.batch:type_name -> vekst.v1.ImportBatch
-	11, // 6: vekst.v1.ListImportBatchesResponse.batches:type_name -> vekst.v1.ImportBatch
+	12, // 1: vekst.v1.CreateImportBatchResponse.batch:type_name -> vekst.v1.ImportBatch
+	44, // 2: vekst.v1.CreateImportBatchResponse.upload_headers:type_name -> vekst.v1.CreateImportBatchResponse.UploadHeadersEntry
+	48, // 3: vekst.v1.CreateImportBatchResponse.expires_at:type_name -> google.protobuf.Timestamp
+	12, // 4: vekst.v1.ConfirmImportUploadResponse.batch:type_name -> vekst.v1.ImportBatch
+	12, // 5: vekst.v1.GetImportBatchResponse.batch:type_name -> vekst.v1.ImportBatch
+	12, // 6: vekst.v1.ListImportBatchesResponse.batches:type_name -> vekst.v1.ImportBatch
 	0,  // 7: vekst.v1.ImportBatch.source_kind:type_name -> vekst.v1.SourceKind
 	1,  // 8: vekst.v1.ImportBatch.status:type_name -> vekst.v1.ImportStatus
-	46, // 9: vekst.v1.ImportBatch.created_at:type_name -> google.protobuf.Timestamp
-	13, // 10: vekst.v1.ValidationWarning.balance_mismatch:type_name -> vekst.v1.BalanceMismatchDetail
-	2,  // 11: vekst.v1.ValidationReport.outcome:type_name -> vekst.v1.ValidationOutcome
-	47, // 12: vekst.v1.ValidationReport.balance_check_passed:type_name -> google.protobuf.BoolValue
-	12, // 13: vekst.v1.ValidationReport.errors:type_name -> vekst.v1.ValidationError
-	14, // 14: vekst.v1.ValidationReport.warnings:type_name -> vekst.v1.ValidationWarning
-	46, // 15: vekst.v1.ValidationReport.overridden_at:type_name -> google.protobuf.Timestamp
-	15, // 16: vekst.v1.GetValidationReportResponse.report:type_name -> vekst.v1.ValidationReport
-	15, // 17: vekst.v1.OverrideValidationResponse.report:type_name -> vekst.v1.ValidationReport
-	0,  // 18: vekst.v1.ImportProfile.source_kind:type_name -> vekst.v1.SourceKind
-	43, // 19: vekst.v1.ImportProfile.column_map:type_name -> vekst.v1.ImportProfile.ColumnMapEntry
-	46, // 20: vekst.v1.ImportProfile.created_at:type_name -> google.protobuf.Timestamp
-	46, // 21: vekst.v1.ImportProfile.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 22: vekst.v1.CreateImportProfileRequest.source_kind:type_name -> vekst.v1.SourceKind
-	44, // 23: vekst.v1.CreateImportProfileRequest.column_map:type_name -> vekst.v1.CreateImportProfileRequest.ColumnMapEntry
-	20, // 24: vekst.v1.CreateImportProfileResponse.profile:type_name -> vekst.v1.ImportProfile
-	20, // 25: vekst.v1.GetImportProfileResponse.profile:type_name -> vekst.v1.ImportProfile
-	20, // 26: vekst.v1.ListImportProfilesResponse.profiles:type_name -> vekst.v1.ImportProfile
-	45, // 27: vekst.v1.UpdateImportProfileRequest.column_map:type_name -> vekst.v1.UpdateImportProfileRequest.ColumnMapEntry
-	20, // 28: vekst.v1.UpdateImportProfileResponse.profile:type_name -> vekst.v1.ImportProfile
-	31, // 29: vekst.v1.GetDedupSummaryResponse.summary:type_name -> vekst.v1.DedupSummary
-	46, // 30: vekst.v1.SkippedRow.created_at:type_name -> google.protobuf.Timestamp
-	34, // 31: vekst.v1.ListSkippedRowsResponse.rows:type_name -> vekst.v1.SkippedRow
-	46, // 32: vekst.v1.InternalTransfer.detected_at:type_name -> google.protobuf.Timestamp
-	46, // 33: vekst.v1.InternalTransfer.dismissed_at:type_name -> google.protobuf.Timestamp
-	37, // 34: vekst.v1.ListInternalTransfersResponse.transfers:type_name -> vekst.v1.InternalTransfer
-	37, // 35: vekst.v1.DismissInternalTransferResponse.transfer:type_name -> vekst.v1.InternalTransfer
-	3,  // 36: vekst.v1.ImportService.CreateImportBatch:input_type -> vekst.v1.CreateImportBatchRequest
-	5,  // 37: vekst.v1.ImportService.ConfirmImportUpload:input_type -> vekst.v1.ConfirmImportUploadRequest
-	7,  // 38: vekst.v1.ImportService.GetImportBatch:input_type -> vekst.v1.GetImportBatchRequest
-	9,  // 39: vekst.v1.ImportService.ListImportBatches:input_type -> vekst.v1.ListImportBatchesRequest
-	16, // 40: vekst.v1.ImportService.GetValidationReport:input_type -> vekst.v1.GetValidationReportRequest
-	18, // 41: vekst.v1.ImportService.OverrideValidation:input_type -> vekst.v1.OverrideValidationRequest
-	21, // 42: vekst.v1.ImportService.CreateImportProfile:input_type -> vekst.v1.CreateImportProfileRequest
-	23, // 43: vekst.v1.ImportService.GetImportProfile:input_type -> vekst.v1.GetImportProfileRequest
-	25, // 44: vekst.v1.ImportService.ListImportProfiles:input_type -> vekst.v1.ListImportProfilesRequest
-	27, // 45: vekst.v1.ImportService.UpdateImportProfile:input_type -> vekst.v1.UpdateImportProfileRequest
-	29, // 46: vekst.v1.ImportService.DeleteImportProfile:input_type -> vekst.v1.DeleteImportProfileRequest
-	32, // 47: vekst.v1.ImportService.GetDedupSummary:input_type -> vekst.v1.GetDedupSummaryRequest
-	35, // 48: vekst.v1.ImportService.ListSkippedRows:input_type -> vekst.v1.ListSkippedRowsRequest
-	38, // 49: vekst.v1.ImportService.ListInternalTransfers:input_type -> vekst.v1.ListInternalTransfersRequest
-	40, // 50: vekst.v1.ImportService.DismissInternalTransfer:input_type -> vekst.v1.DismissInternalTransferRequest
-	4,  // 51: vekst.v1.ImportService.CreateImportBatch:output_type -> vekst.v1.CreateImportBatchResponse
-	6,  // 52: vekst.v1.ImportService.ConfirmImportUpload:output_type -> vekst.v1.ConfirmImportUploadResponse
-	8,  // 53: vekst.v1.ImportService.GetImportBatch:output_type -> vekst.v1.GetImportBatchResponse
-	10, // 54: vekst.v1.ImportService.ListImportBatches:output_type -> vekst.v1.ListImportBatchesResponse
-	17, // 55: vekst.v1.ImportService.GetValidationReport:output_type -> vekst.v1.GetValidationReportResponse
-	19, // 56: vekst.v1.ImportService.OverrideValidation:output_type -> vekst.v1.OverrideValidationResponse
-	22, // 57: vekst.v1.ImportService.CreateImportProfile:output_type -> vekst.v1.CreateImportProfileResponse
-	24, // 58: vekst.v1.ImportService.GetImportProfile:output_type -> vekst.v1.GetImportProfileResponse
-	26, // 59: vekst.v1.ImportService.ListImportProfiles:output_type -> vekst.v1.ListImportProfilesResponse
-	28, // 60: vekst.v1.ImportService.UpdateImportProfile:output_type -> vekst.v1.UpdateImportProfileResponse
-	30, // 61: vekst.v1.ImportService.DeleteImportProfile:output_type -> vekst.v1.DeleteImportProfileResponse
-	33, // 62: vekst.v1.ImportService.GetDedupSummary:output_type -> vekst.v1.GetDedupSummaryResponse
-	36, // 63: vekst.v1.ImportService.ListSkippedRows:output_type -> vekst.v1.ListSkippedRowsResponse
-	39, // 64: vekst.v1.ImportService.ListInternalTransfers:output_type -> vekst.v1.ListInternalTransfersResponse
-	41, // 65: vekst.v1.ImportService.DismissInternalTransfer:output_type -> vekst.v1.DismissInternalTransferResponse
-	51, // [51:66] is the sub-list for method output_type
-	36, // [36:51] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	48, // 9: vekst.v1.ImportBatch.created_at:type_name -> google.protobuf.Timestamp
+	13, // 10: vekst.v1.ImportBatch.classification_run:type_name -> vekst.v1.ClassificationRun
+	2,  // 11: vekst.v1.ClassificationRun.status:type_name -> vekst.v1.ClassificationRunStatus
+	48, // 12: vekst.v1.ClassificationRun.started_at:type_name -> google.protobuf.Timestamp
+	48, // 13: vekst.v1.ClassificationRun.finished_at:type_name -> google.protobuf.Timestamp
+	15, // 14: vekst.v1.ValidationWarning.balance_mismatch:type_name -> vekst.v1.BalanceMismatchDetail
+	3,  // 15: vekst.v1.ValidationReport.outcome:type_name -> vekst.v1.ValidationOutcome
+	49, // 16: vekst.v1.ValidationReport.balance_check_passed:type_name -> google.protobuf.BoolValue
+	14, // 17: vekst.v1.ValidationReport.errors:type_name -> vekst.v1.ValidationError
+	16, // 18: vekst.v1.ValidationReport.warnings:type_name -> vekst.v1.ValidationWarning
+	48, // 19: vekst.v1.ValidationReport.overridden_at:type_name -> google.protobuf.Timestamp
+	17, // 20: vekst.v1.GetValidationReportResponse.report:type_name -> vekst.v1.ValidationReport
+	17, // 21: vekst.v1.OverrideValidationResponse.report:type_name -> vekst.v1.ValidationReport
+	0,  // 22: vekst.v1.ImportProfile.source_kind:type_name -> vekst.v1.SourceKind
+	45, // 23: vekst.v1.ImportProfile.column_map:type_name -> vekst.v1.ImportProfile.ColumnMapEntry
+	48, // 24: vekst.v1.ImportProfile.created_at:type_name -> google.protobuf.Timestamp
+	48, // 25: vekst.v1.ImportProfile.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 26: vekst.v1.CreateImportProfileRequest.source_kind:type_name -> vekst.v1.SourceKind
+	46, // 27: vekst.v1.CreateImportProfileRequest.column_map:type_name -> vekst.v1.CreateImportProfileRequest.ColumnMapEntry
+	22, // 28: vekst.v1.CreateImportProfileResponse.profile:type_name -> vekst.v1.ImportProfile
+	22, // 29: vekst.v1.GetImportProfileResponse.profile:type_name -> vekst.v1.ImportProfile
+	22, // 30: vekst.v1.ListImportProfilesResponse.profiles:type_name -> vekst.v1.ImportProfile
+	47, // 31: vekst.v1.UpdateImportProfileRequest.column_map:type_name -> vekst.v1.UpdateImportProfileRequest.ColumnMapEntry
+	22, // 32: vekst.v1.UpdateImportProfileResponse.profile:type_name -> vekst.v1.ImportProfile
+	33, // 33: vekst.v1.GetDedupSummaryResponse.summary:type_name -> vekst.v1.DedupSummary
+	48, // 34: vekst.v1.SkippedRow.created_at:type_name -> google.protobuf.Timestamp
+	36, // 35: vekst.v1.ListSkippedRowsResponse.rows:type_name -> vekst.v1.SkippedRow
+	48, // 36: vekst.v1.InternalTransfer.detected_at:type_name -> google.protobuf.Timestamp
+	48, // 37: vekst.v1.InternalTransfer.dismissed_at:type_name -> google.protobuf.Timestamp
+	39, // 38: vekst.v1.ListInternalTransfersResponse.transfers:type_name -> vekst.v1.InternalTransfer
+	39, // 39: vekst.v1.DismissInternalTransferResponse.transfer:type_name -> vekst.v1.InternalTransfer
+	4,  // 40: vekst.v1.ImportService.CreateImportBatch:input_type -> vekst.v1.CreateImportBatchRequest
+	6,  // 41: vekst.v1.ImportService.ConfirmImportUpload:input_type -> vekst.v1.ConfirmImportUploadRequest
+	8,  // 42: vekst.v1.ImportService.GetImportBatch:input_type -> vekst.v1.GetImportBatchRequest
+	10, // 43: vekst.v1.ImportService.ListImportBatches:input_type -> vekst.v1.ListImportBatchesRequest
+	18, // 44: vekst.v1.ImportService.GetValidationReport:input_type -> vekst.v1.GetValidationReportRequest
+	20, // 45: vekst.v1.ImportService.OverrideValidation:input_type -> vekst.v1.OverrideValidationRequest
+	23, // 46: vekst.v1.ImportService.CreateImportProfile:input_type -> vekst.v1.CreateImportProfileRequest
+	25, // 47: vekst.v1.ImportService.GetImportProfile:input_type -> vekst.v1.GetImportProfileRequest
+	27, // 48: vekst.v1.ImportService.ListImportProfiles:input_type -> vekst.v1.ListImportProfilesRequest
+	29, // 49: vekst.v1.ImportService.UpdateImportProfile:input_type -> vekst.v1.UpdateImportProfileRequest
+	31, // 50: vekst.v1.ImportService.DeleteImportProfile:input_type -> vekst.v1.DeleteImportProfileRequest
+	34, // 51: vekst.v1.ImportService.GetDedupSummary:input_type -> vekst.v1.GetDedupSummaryRequest
+	37, // 52: vekst.v1.ImportService.ListSkippedRows:input_type -> vekst.v1.ListSkippedRowsRequest
+	40, // 53: vekst.v1.ImportService.ListInternalTransfers:input_type -> vekst.v1.ListInternalTransfersRequest
+	42, // 54: vekst.v1.ImportService.DismissInternalTransfer:input_type -> vekst.v1.DismissInternalTransferRequest
+	5,  // 55: vekst.v1.ImportService.CreateImportBatch:output_type -> vekst.v1.CreateImportBatchResponse
+	7,  // 56: vekst.v1.ImportService.ConfirmImportUpload:output_type -> vekst.v1.ConfirmImportUploadResponse
+	9,  // 57: vekst.v1.ImportService.GetImportBatch:output_type -> vekst.v1.GetImportBatchResponse
+	11, // 58: vekst.v1.ImportService.ListImportBatches:output_type -> vekst.v1.ListImportBatchesResponse
+	19, // 59: vekst.v1.ImportService.GetValidationReport:output_type -> vekst.v1.GetValidationReportResponse
+	21, // 60: vekst.v1.ImportService.OverrideValidation:output_type -> vekst.v1.OverrideValidationResponse
+	24, // 61: vekst.v1.ImportService.CreateImportProfile:output_type -> vekst.v1.CreateImportProfileResponse
+	26, // 62: vekst.v1.ImportService.GetImportProfile:output_type -> vekst.v1.GetImportProfileResponse
+	28, // 63: vekst.v1.ImportService.ListImportProfiles:output_type -> vekst.v1.ListImportProfilesResponse
+	30, // 64: vekst.v1.ImportService.UpdateImportProfile:output_type -> vekst.v1.UpdateImportProfileResponse
+	32, // 65: vekst.v1.ImportService.DeleteImportProfile:output_type -> vekst.v1.DeleteImportProfileResponse
+	35, // 66: vekst.v1.ImportService.GetDedupSummary:output_type -> vekst.v1.GetDedupSummaryResponse
+	38, // 67: vekst.v1.ImportService.ListSkippedRows:output_type -> vekst.v1.ListSkippedRowsResponse
+	41, // 68: vekst.v1.ImportService.ListInternalTransfers:output_type -> vekst.v1.ListInternalTransfersResponse
+	43, // 69: vekst.v1.ImportService.DismissInternalTransfer:output_type -> vekst.v1.DismissInternalTransferResponse
+	55, // [55:70] is the sub-list for method output_type
+	40, // [40:55] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_vekst_v1_import_proto_init() }
@@ -3016,8 +3209,8 @@ func file_vekst_v1_import_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vekst_v1_import_proto_rawDesc), len(file_vekst_v1_import_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   43,
+			NumEnums:      4,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
