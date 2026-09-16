@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,8 +17,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/MyauDev/vekst/core/classify"
 	gendb "github.com/MyauDev/vekst/core/gen/db"
 	"github.com/MyauDev/vekst/core/internal/blob"
+	"github.com/MyauDev/vekst/core/internal/classifyrun"
 	"github.com/MyauDev/vekst/core/internal/db"
 	"github.com/MyauDev/vekst/core/internal/jobs"
 )
@@ -129,8 +132,26 @@ func newTestEnvWithConfig(t *testing.T, cfg Config) *testEnv {
 	d := testDB(t)
 	store := testStore(t)
 
+	// Both registrars, because the pipeline does not stop at `imported`: the
+	// persist job enqueues classification in the same transaction that lands a
+	// batch there, and River refuses to insert a job whose kind no registered
+	// worker handles. A client holding only these workers therefore fails
+	// *persist*, not classification -- the transaction rolls back, the batch
+	// stays at `validated`, and River retries it forever.
+	//
+	// That is the failure this harness produced the first time, across fourteen
+	// tests that never mention classification, each reporting only that a batch
+	// did not reach `imported`. TestPersistEnqueuesClassification below is what
+	// says so in one line instead.
+	//
+	// classify.Unavailable is the classifier here: these tests are about ingest
+	// and none of them waits for a classification. The job is enqueued, and
+	// whether it then finds an engine is core/internal/classifyrun's business.
 	workers := NewWorkers(d, store, cfg)
-	jobsClient, err := jobs.New(d, workers)
+	classifiers := classifyrun.NewWorkers(d, classify.Unavailable{},
+		classifyrun.Versions{Taxonomy: "v1", Ruleset: "v1"})
+
+	jobsClient, err := jobs.New(d, workers, classifiers)
 	if err != nil {
 		t.Fatalf("jobs.New: %v", err)
 	}
@@ -784,5 +805,80 @@ func TestConfirmImportUploadTwiceIsIdempotent(t *testing.T) {
 	}
 	if first.ByteLength != second.ByteLength {
 		t.Errorf("ByteLength changed between runs: %v != %v", first.ByteLength, second.ByteLength)
+	}
+}
+
+// The pipeline does not stop at `imported`, and this is the one line that says
+// so.
+//
+// The persist job enqueues a classification run in the same transaction that
+// lands a batch there -- inside, not after, because a job inserted once the
+// commit has already happened is one a crash in between loses, and a batch that
+// is imported and never classified looks finished while showing a business with
+// no revenue.
+//
+// The consequence is a coupling worth asserting rather than remembering: River
+// refuses to insert a job whose kind no registered worker handles, so a client
+// built with these workers and not the classification ones fails *persist*. The
+// batch then stays at `validated` and River retries it forever, and every test
+// that waits for `imported` reports only that. Fourteen of them did exactly
+// that the first time this change was pushed, none of them mentioning
+// classification.
+func TestPersistEnqueuesClassification(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	owner := testUser(t, env.db)
+	org, entityID := testOrgAndEntity(t, env.db, owner)
+
+	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "priorbank-by", "*.csv"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no Priorbank fixtures found: %v", err)
+	}
+	body, err := os.ReadFile(paths[0])
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	batch, upload, err := env.svc.CreateImportBatch(ctx, owner, org.UUID(), CreateBatchInput{
+		EntityID: entityID, SourceKind: SourceKindBank, FileName: filepath.Base(paths[0]),
+		DeclaredBytes: int64(len(body)), DeclaredType: "text/csv",
+	})
+	if err != nil {
+		t.Fatalf("CreateImportBatch: %v", err)
+	}
+	putBytes(t, upload.URL, upload.Headers, body)
+	if _, err := env.svc.ConfirmImportUpload(ctx, owner, org.UUID(), batch.ID); err != nil {
+		t.Fatalf("ConfirmImportUpload: %v", err)
+	}
+	env.waitForStatus(t, org, batch.ID, StatusImported)
+
+	// River's own table, read directly. There is no tenant context here and
+	// there is not meant to be: river_job carries no org_id and no policy,
+	// which is exactly why a job's arguments carry the organisation rather
+	// than the payload carrying customer data.
+	var kinds int
+	var args []byte
+	err = env.db.InSystemTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `
+			SELECT count(*) FROM river_job
+			 WHERE kind = 'classify_batch' AND args->>'batch_id' = $1`,
+			batch.ID.String()).Scan(&kinds); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `
+			SELECT args FROM river_job
+			 WHERE kind = 'classify_batch' AND args->>'batch_id' = $1`,
+			batch.ID.String()).Scan(&args)
+	})
+	if err != nil {
+		t.Fatalf("reading river_job: %v", err)
+	}
+	if kinds != 1 {
+		t.Fatalf("%d classify_batch jobs for this batch, want exactly 1", kinds)
+	}
+	// And it names the organisation, because a worker takes its tenant from
+	// its own arguments and never from ambient state.
+	if !strings.Contains(string(args), org.UUID().String()) {
+		t.Errorf("the job's arguments do not name the organisation: %s", args)
 	}
 }

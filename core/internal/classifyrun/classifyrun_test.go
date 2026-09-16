@@ -444,9 +444,6 @@ func TestEveryRowIsOfferedExactlyOnceAcrossChunks(t *testing.T) {
 // different question, not that one line of its answer is wrong -- so the run
 // fails rather than storing the part that happened to parse.
 func TestAnUnknownCategoryRejectsTheWholeChunk(t *testing.T) {
-	f := newFixture(t)
-	ids := f.transactions(t, 3)
-
 	for name, bad := range map[string]string{
 		"a code that does not exist": "no-such-code",
 		// '91' is GM: a computed line, excluded from what core sends, because
@@ -455,11 +452,11 @@ func TestAnUnknownCategoryRejectsTheWholeChunk(t *testing.T) {
 		"a computed line": computedGM,
 	} {
 		t.Run(name, func(t *testing.T) {
-			f := f
-			if name != "a code that does not exist" {
-				f = newFixture(t)
-				ids = f.transactions(t, 3)
-			}
+			// Its own fixture per case: a run is refused a second time for the
+			// same batch, so two cases sharing one would have the second assert
+			// nothing.
+			f := newFixture(t)
+			ids := f.transactions(t, 3)
 			f.stub.proposals = []classify.Proposal{
 				proposal(ids[0], revenueLeaf), // good
 				proposal(ids[1], bad),         // and this one poisons the chunk
