@@ -151,6 +151,51 @@ message ImportBatch {
   string failure_code = 7;
 
   google.protobuf.Timestamp created_at = 8;
+
+  // What happened when this batch was classified, absent until the job that
+  // does it has opened a run.
+  //
+  // Absent is a real answer and not a missing one: a batch that has just
+  // reached `imported` has not been classified yet, and that is different from
+  // a run that failed. The Imports screen renders the two differently -- "still
+  // working" against "something is wrong" -- and collapsing them into an empty
+  // struct would make the first look like the second.
+  ClassificationRun classification_run = 9;
+}
+
+// --- add-classification-run (change 3.4) -----------------------------------
+
+enum ClassificationRunStatus {
+  CLASSIFICATION_RUN_STATUS_UNSPECIFIED = 0;
+
+  // The job is working through the batch's chunks, or waiting to retry a
+  // classifier that is not answering. Either way the user sees "still working":
+  // an engine outage is a retryable condition, not a failed import.
+  CLASSIFICATION_RUN_STATUS_RUNNING = 1;
+
+  CLASSIFICATION_RUN_STATUS_CLASSIFIED = 2;
+  CLASSIFICATION_RUN_STATUS_FAILED = 3;
+}
+
+message ClassificationRun {
+  ClassificationRunStatus status = 1;
+
+  // A code, never a sentence. The client owns the words.
+  string failure_code = 2;
+
+  // How many requests the batch took. Not progress -- a run says running or it
+  // does not -- but the number that explains a long one.
+  int32 chunk_count = 3;
+
+  // Answered confidently enough to write down, and answered but not
+  // confidently enough. The second is not a failure: it is the review queue's
+  // ordinary input, and a screen saying "820 of 1,294 classified, 474 to
+  // review" is describing normal work rather than a problem.
+  int32 classified_count = 4;
+  int32 review_count = 5;
+
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp finished_at = 7;
 }
 
 // --- add-ingest-validation (change 2.3) ------------------------------------

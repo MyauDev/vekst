@@ -344,19 +344,54 @@ const unclassifiedTransactions = `-- name: UnclassifiedTransactions :many
 SELECT t.org_id, t.id, t.entity_id, t.account_id, t.batch_id, t.source_kind, t.document_ref, t.posting_no, t.booked_on, t.value_on, t.direction, t.amount_minor, t.currency, t.fx_rate, t.fx_rate_on, t.base_amount_minor, t.base_currency, t.counterparty_raw, t.counterparty_key, t.description_raw, t.description_norm, t.normalize_version, t.regulated_code, t.bank_ref, t.dedup_hash, t.created_at, t.line_no
 FROM transactions t
 LEFT JOIN classifications c
-    ON c.transaction_id = t.id AND c.superseded_by IS NULL
+    ON c.org_id = t.org_id
+   AND c.transaction_id = t.id
+   AND c.superseded_by IS NULL
+   AND c.retracted_at IS NULL
 WHERE c.id IS NULL
+  AND t.batch_id = $1
+  AND ($2::date IS NULL
+       OR (t.booked_on, t.id) > ($2::date, $3::uuid))
 ORDER BY t.booked_on, t.id
-LIMIT $1
+LIMIT $4
 `
 
-// A page of rows with no live classification, oldest booked_on first, for
-// the worker a later change writes. Self-advancing: once the worker inserts
-// a classification for a row in one page, that row's classification is live
-// and the next call no longer returns it -- there is no offset to track or
-// to get out of step with a concurrent insert.
-func (q *Queries) UnclassifiedTransactions(ctx context.Context, limit int32) ([]Transaction, error) {
-	rows, err := q.db.Query(ctx, unclassifiedTransactions, limit)
+type UnclassifiedTransactionsParams struct {
+	BatchID        pgtype.UUID
+	CursorBookedOn pgtype.Date
+	CursorID       pgtype.UUID
+	RowLimit       int32
+}
+
+// A page of one batch's rows with no live classification, oldest first.
+//
+// Three things here were corrected while change 3.4 wrote the worker that
+// reads it, and each of them was wrong in a way nothing could see until
+// something actually paged through the result.
+//
+//	**A cursor, not a self-advancing read.** The original relied on rows
+//	leaving the result as they were classified, so the next call returned the
+//	next page. That holds only if every row gets classified -- and the whole
+//	point of a threshold is that some do not. A batch with one below-threshold
+//	row would hand the worker the same page forever.
+//
+//	**Scoped to a batch.** The job classifies the batch it was enqueued for.
+//	Reading the organisation's whole backlog would make two concurrent
+//	imports classify each other's rows and each count them as its own.
+//
+//	**retracted_at.** Migration 007 grew a second way for a classification to
+//	stop being live -- a review decision undone, with no successor to point at
+//	-- and this join still only knew about supersession. A retracted row was
+//	therefore invisible here while the review queue and every report counted
+//	it as unanswered: stuck, permanently, in the one state nothing would act
+//	on.
+func (q *Queries) UnclassifiedTransactions(ctx context.Context, arg UnclassifiedTransactionsParams) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, unclassifiedTransactions,
+		arg.BatchID,
+		arg.CursorBookedOn,
+		arg.CursorID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

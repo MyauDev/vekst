@@ -18,7 +18,7 @@ were raised, so three of them are now changes to merged code and are made here.
 - [x] 0.1 §D2(a): the RLS coverage test learns a `shared+tenant` state. Implemented as `deploy/db/rls-shared-tenant-tables.txt` plus `checkSharedTenantPolicies`, which demands a **stricter** pair — one read policy admitting shared-or-mine, one write policy admitting only mine — rather than relaxing the general rule
 - [x] 0.2 §D2(b): `parent_id` takes a constraint trigger, not a composite foreign key
 - [x] 0.3 §D2(c): seed precedes `ENABLE`/`FORCE` inside migration 005
-- [ ] 0.4 §D2(d): `memberships.entity_id`. Migration 004 is written and merged without it, so this is now its own migration rather than one column in an unwritten one. Still cheap — nullable, no policy reads it — and still the same argument 1.1 accepts for `entities`
+- [x] 0.4 §D2(d): `memberships.entity_id`. **Delivered 2026-09-16 as migration 017**, nullable and read by nothing: the policy on every tenant table still scopes by `org_id`, and narrowing that to an entity is a change with its own tests and its own screen. The column costs nothing now; adding it together with the rule that reads it would mean writing both under time pressure the first time a customer needs the second. The composite key needed a `NO FORCE` window on `memberships` and `entities` — adding it validates against every existing row, both tables are FORCE'd, and `app_current_org()` raises in a migration that binds to no tenant
 
 **A design correction found while implementing.** The proposal split shared from
 per-organisation by depth: levels 1-2 shared, 3+ not. That is wrong, and the

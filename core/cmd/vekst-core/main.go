@@ -16,6 +16,7 @@ import (
 	"github.com/MyauDev/vekst/core/classify"
 	"github.com/MyauDev/vekst/core/internal/blob"
 	"github.com/MyauDev/vekst/core/internal/buildinfo"
+	"github.com/MyauDev/vekst/core/internal/classifyrun"
 	"github.com/MyauDev/vekst/core/internal/config"
 	"github.com/MyauDev/vekst/core/internal/db"
 	"github.com/MyauDev/vekst/core/internal/identity"
@@ -158,7 +159,15 @@ func run() error {
 	}
 	ingestWorkers := ingest.NewWorkers(database, store, ingestCfg)
 
-	jobsClient, err := jobs.New(database, ident, ingestWorkers)
+	// The job that turns persisted rows into classifications. It holds the
+	// same Classifier the health check reports on: one client, one connection
+	// to the engine, and no second place that decides what "the classifier" is.
+	classifyWorkers := classifyrun.NewWorkers(database, classifier, classifyrun.Versions{
+		Taxonomy: taxonomyVersion,
+		Ruleset:  rulesetVersion,
+	})
+
+	jobsClient, err := jobs.New(database, ident, ingestWorkers, classifyWorkers)
 	if err != nil {
 		return err
 	}

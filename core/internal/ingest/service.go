@@ -13,6 +13,7 @@ import (
 
 	gendb "github.com/MyauDev/vekst/core/gen/db"
 	"github.com/MyauDev/vekst/core/internal/blob"
+	"github.com/MyauDev/vekst/core/internal/classifyrun"
 	"github.com/MyauDev/vekst/core/internal/db"
 	"github.com/MyauDev/vekst/core/internal/jobs"
 )
@@ -67,6 +68,16 @@ type Batch struct {
 	ByteLength  int64 // 0 until the measurement job has run.
 	FailureCode string
 	CreatedAt   time.Time
+
+	// What happened when this batch was classified, and whether anything has.
+	// Read on GetImportBatch and deliberately not on the list: the list answers
+	// "how did my uploads go", which is this table's own status column, and one
+	// join per row to answer a question the list does not ask is a cost the
+	// screen that does ask can pay when it opens a batch. If the Imports list
+	// turns out to need it, that is one LEFT JOIN in ListImportBatches and a
+	// conversation with the change that owns the screen.
+	Classification       classifyrun.Run
+	HasClassificationRun bool
 }
 
 // CreateBatchInput is what the caller of CreateImportBatch supplies, aside
@@ -266,9 +277,18 @@ func (s *Service) GetImportBatch(ctx context.Context, userID, requestedOrgID, ba
 	}
 
 	var row gendb.GetImportBatchRow
+	var run classifyrun.Run
+	var hasRun bool
 	err = s.database.InTx(ctx, org, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		row, err = gendb.New(tx).GetImportBatch(ctx, pgtype.UUID{Bytes: batchID, Valid: true})
+		if row, err = gendb.New(tx).GetImportBatch(ctx, pgtype.UUID{Bytes: batchID, Valid: true}); err != nil {
+			return err
+		}
+		// In the same transaction as the batch itself: the status and what
+		// classification made of it are read at one moment, so a screen never
+		// shows an import that is still persisting beside a run that has
+		// already finished it.
+		run, hasRun, err = classifyrun.ForBatch(ctx, tx, batchID)
 		return err
 	})
 	switch {
@@ -277,7 +297,9 @@ func (s *Service) GetImportBatch(ctx context.Context, userID, requestedOrgID, ba
 	case err != nil:
 		return Batch{}, fmt.Errorf("ingest: get_import_batch: %w", err)
 	}
-	return batchFromGetRow(row), nil
+	out := batchFromGetRow(row)
+	out.Classification, out.HasClassificationRun = run, hasRun
+	return out, nil
 }
 
 // ListImportBatches lists one entity's batches, most recent first.

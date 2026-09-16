@@ -69,11 +69,12 @@ expect_count() {
 }
 
 expect_count InSystemTx       8 'InSystemTx('
-# 4: TenantProbeWorker (design's worked example), add-file-upload's
-# measurementWorker and expiryWorker, and add-ingest-validation's
-# validateWorker -- all four take their tenant from their own job arguments
-# and nowhere else, per CLAUDE.md.
-expect_count OrgIDFromJobArgs 5 'OrgIDFromJobArgs('
+# 6: TenantProbeWorker (design's worked example), add-file-upload's
+# measurementWorker and expiryWorker, add-ingest-validation's validateWorker,
+# add-dedup's persistWorker, and add-classification-run's classifyWorker --
+# all six take their tenant from their own job arguments and nowhere else,
+# per CLAUDE.md.
+expect_count OrgIDFromJobArgs 6 'OrgIDFromJobArgs('
 expect_count OrgIDForNewOrg   1 'OrgIDForNewOrg()'
 
 # --- The tenant context is set in exactly one place ------------------------

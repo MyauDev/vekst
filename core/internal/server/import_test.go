@@ -11,9 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/MyauDev/vekst/core/classify"
 	gendb "github.com/MyauDev/vekst/core/gen/db"
 	vektv1 "github.com/MyauDev/vekst/core/gen/vekst/v1"
 	"github.com/MyauDev/vekst/core/internal/blob"
+	"github.com/MyauDev/vekst/core/internal/classifyrun"
 	"github.com/MyauDev/vekst/core/internal/db"
 	"github.com/MyauDev/vekst/core/internal/identity"
 	"github.com/MyauDev/vekst/core/internal/ingest"
@@ -118,8 +120,15 @@ func testHandler(t *testing.T) (*importHandler, *db.DB) {
 	d := testDB(t)
 	store := testStore(t)
 	cfg := ingest.Config{UploadMaxBytes: 26_214_400, UploadURLLifetime: 15 * time.Minute}
+	// The classification registrar too: the persist job enqueues a
+	// classification run in the same transaction that lands a batch on
+	// `imported`, and River refuses a job whose kind nothing handles -- so a
+	// client missing it fails the import rather than the classification.
 	workers := ingest.NewWorkers(d, store, cfg)
-	jobsClient, err := jobs.New(d, workers)
+	classifiers := classifyrun.NewWorkers(d, classify.Unavailable{},
+		classifyrun.Versions{Taxonomy: "v1", Ruleset: "v1"})
+
+	jobsClient, err := jobs.New(d, workers, classifiers)
 	if err != nil {
 		t.Fatalf("jobs.New: %v", err)
 	}

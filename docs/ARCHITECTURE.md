@@ -183,6 +183,30 @@ that the boundary was drawn in the wrong place. Move the logic, not the credenti
 | Classifier is slow | Batches are chunked at 5,000 transactions. Timeout 60 s per chunk |
 | Classifier returns an unknown `category_id` | `core` rejects the whole response. Never trust the other side's ids |
 
+Implemented by change `add-classification-run` in `core/internal/classifyrun`,
+as one River job per import batch, enqueued in the same transaction that lands
+the batch on `imported` — inside, not after, because a job inserted after the
+commit is one a crash in between loses, and a batch that is imported and never
+classified looks finished while showing a business with no revenue.
+
+Two details of the table above turned out to need saying more precisely.
+
+**"Retries" and "fails atomically" are told apart by the engine, not guessed
+here.** `INVALID_ARGUMENT` and `FAILED_PRECONDITION` mean the request itself was
+refused, and a retry sends the identical request — which is the property that
+makes a retry *safe* everywhere else, and here is what makes one pointless.
+Everything else is a condition that can pass. `classify.IsRejected` is that
+distinction, and it lives in the boundary package because interpreting a
+transport status is what that package is for.
+
+**"Chunked at 5,000" needs a cursor, not a self-advancing read.** The query this
+job pages was written to rely on rows leaving the result as they were
+classified. That holds only while every row gets classified, and the entire
+purpose of a confidence threshold is that some do not: one below-threshold row
+would hand the worker the same page forever. It pages by `(booked_on, id)`, and
+is scoped to one batch, so two imports running at once cannot classify each
+other's rows.
+
 ---
 
 ## 4. The classification engine
@@ -465,7 +489,7 @@ classifies a pair and changes nothing about either row.
 organizations(id, name, country, base_currency, created_at)          -- id IS the tenant key
 entities(org_id, id, name, legal_name, tax_id, created_at)           -- one per org in Demo
 users(id, email, name, locale, created_at)
-memberships(org_id, user_id, role, created_at)                       -- owner|admin|approver|viewer
+memberships(org_id, user_id, role, entity_id, created_at)            -- owner|admin|approver|viewer
 accounts(org_id, id, entity_id, name, currency, external_ref, created_at)
 
 import_batches(id, org_id, entity_id, uploaded_by, source_kind,      -- ledger | bank
@@ -502,6 +526,9 @@ review_decisions(org_id, id, counterparty_key, key_version, outcome,      -- rep
              category_id, decided_by, decided_at,
              covered_count, covered_minor, covered_currency,
              undone_at, undone_by)                                 -- stamped, never deleted
+classification_runs(org_id, id, batch_id, status, failure_code,       -- one per batch
+             chunk_count, classified_count, review_count,
+             started_at, finished_at)
 report_runs(id, org_id, entity_id, kind, params_jsonb, taxonomy_version,
              ruleset_version, engine_version, status, result_key, created_at)
 audit_events(id, org_id, actor_id, action, target, payload_jsonb, at)  -- APPEND ONLY

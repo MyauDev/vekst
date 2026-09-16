@@ -13,6 +13,7 @@ import (
 
 	gendb "github.com/MyauDev/vekst/core/gen/db"
 	"github.com/MyauDev/vekst/core/internal/blob"
+	"github.com/MyauDev/vekst/core/internal/classifyrun"
 	"github.com/MyauDev/vekst/core/internal/db"
 	"github.com/MyauDev/vekst/core/internal/dedup"
 	"github.com/MyauDev/vekst/core/internal/ledger"
@@ -158,7 +159,25 @@ func (w *persistWorker) Work(ctx context.Context, job *river.Job[PersistImportAr
 			ID:     batchID,
 			Status: string(StatusImported),
 		})
-		return db.ExactlyOneRow(affected, err)
+		if err := db.ExactlyOneRow(affected, err); err != nil {
+			return err
+		}
+
+		// Classification, enqueued in the same transaction that lands the
+		// batch on imported. Inside, not after: a job inserted after the
+		// commit is one a crash in between loses, and a batch that is imported
+		// and never classified looks finished while showing a business with no
+		// revenue. River's own insert is a row in the same database, so this
+		// costs nothing and makes the two facts one.
+		//
+		// A duplicate enqueue is harmless -- classification_runs' unique
+		// constraint on the batch is what refuses the second run, rather than
+		// a check here that would have a window between its two halves.
+		_, err = river.ClientFromContext[pgx.Tx](ctx).InsertTx(ctx, tx, classifyrun.ClassifyBatchArgs{
+			TenantJobArgs: db.TenantJobArgs{OrgID: org.UUID()},
+			BatchID:       job.Args.BatchID,
+		}, nil)
+		return err
 	})
 
 	// D1's actual backstop: measure.go's own check narrows the race window

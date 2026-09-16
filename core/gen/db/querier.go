@@ -173,7 +173,19 @@ type Querier interface {
 	// already import this".
 	FindTransactionByDedupHash(ctx context.Context, dedupHash string) (FindTransactionByDedupHashRow, error)
 	FindUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	// The run is over, one way or the other.
+	//
+	// `failure_code` is NULL on success and set on failure, which is what the
+	// table's own CHECK requires: a failure names its reason and a success has none.
+	// The WHERE clause makes a second finish affect no row, which db.ExactlyOneRow
+	// turns into an error rather than a silent success -- a run finished twice
+	// would mean the job ran twice, and that is worth hearing about.
+	FinishClassificationRun(ctx context.Context, arg FinishClassificationRunParams) (ClassificationRun, error)
 	GetAccount(ctx context.Context, id pgtype.UUID) (Account, error)
+	// What the import screen reads beside the batch's own status. Absent is a real
+	// answer -- a batch that has not been classified yet has no run -- and is not
+	// the same as a run that failed.
+	GetClassificationRun(ctx context.Context, batchID pgtype.UUID) (ClassificationRun, error)
 	// id alone, with no org_id beside it. entities is keyed (org_id, id) and the
 	// policy supplies the org_id half, so this cannot resolve outside the caller's
 	// own organisation however the identifier was obtained.
@@ -199,6 +211,23 @@ type Querier interface {
 	// A correction is an insert plus a pointer, never an update: this is the
 	// insert half.
 	InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error)
+	// The record of classifying one batch. Change 3.4, capability
+	// `classification-run`.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context, and none
+	// of them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else. Each takes `org_id` from
+	// `app_current_org()` rather than as a parameter, for the same reason -- a
+	// parameter is a chance to pass the wrong value, and the transaction already
+	// knows the right one.
+	// Opened the moment the job starts, with everything at zero.
+	//
+	// No "does a run already exist" read first. `UNIQUE (org_id, batch_id)` is the
+	// guard, and it is the only one that holds when two enqueues of the same batch
+	// race: a check-then-insert has a window between the two halves, and the window
+	// is exactly where a duplicate job lands. The loser gets 23505 and stops, which
+	// is what idempotent means here.
+	InsertClassificationRun(ctx context.Context, batchID pgtype.UUID) (ClassificationRun, error)
 	// Queries for dedup_skips, internal_transfers and internal_transfer_members
 	// (change 2.6, migration 012).
 	//
@@ -265,7 +294,7 @@ type Querier interface {
 	// The creator's own membership, written in the same transaction that creates
 	// the organisation (design D4). role is stored and nothing checks it yet --
 	// enforcement is Product's, per the proposal's non-goals.
-	InsertMembership(ctx context.Context, arg InsertMembershipParams) (Membership, error)
+	InsertMembership(ctx context.Context, arg InsertMembershipParams) (InsertMembershipRow, error)
 	// Queries for the four tenant tables: organizations, entities, accounts and
 	// memberships.
 	//
@@ -422,7 +451,7 @@ type Querier interface {
 	// scripts/check-identity-queries.sh keeps the four identity tables reachable
 	// from one query file only. A member list showing names and addresses is a
 	// browser-facing read, which arrives with 2.1 and brings that decision with it.
-	ListMemberships(ctx context.Context) ([]Membership, error)
+	ListMemberships(ctx context.Context) ([]ListMembershipsRow, error)
 	// What a decision wrote, found again by the counterparty it was about. Used by
 	// the undo, which has a decision and needs the rows it touched.
 	LiveClassificationsForCounterparty(ctx context.Context, counterpartyKey string) ([]Classification, error)
@@ -485,6 +514,15 @@ type Querier interface {
 	// legs of every pair are inside this entity it comes to zero, and a zero with a
 	// reason beside it is worth more than a blank.
 	ReconciliationForPeriod(ctx context.Context, arg ReconciliationForPeriodParams) (ReconciliationForPeriodRow, error)
+	// One chunk's outcome, added to the run in the same transaction that wrote the
+	// chunk's classifications.
+	//
+	// Increments rather than assignments: the counters are the sum of what the
+	// chunks did, and a worker that computed a running total in Go and wrote it
+	// back would lose the arithmetic of any chunk whose transaction rolled back
+	// after it. Read-modify-write over a whole-run total would also be a lost
+	// update the moment anything else touches the row.
+	RecordChunkResult(ctx context.Context, arg RecordChunkResultParams) (ClassificationRun, error)
 	// Written once (design D4): nothing here reads the current row first to
 	// decide whether to write, because there is no legitimate second write --
 	// overridden_at IS NULL is not checked here because the CHECK constraint
@@ -670,12 +708,29 @@ type Querier interface {
 	// "412 rows across 88 counterparties left." What the screen puts above the
 	// queue, and what tells a person whether fifteen minutes is plausible.
 	UnclassifiedTotals(ctx context.Context, entityID pgtype.UUID) (UnclassifiedTotalsRow, error)
-	// A page of rows with no live classification, oldest booked_on first, for
-	// the worker a later change writes. Self-advancing: once the worker inserts
-	// a classification for a row in one page, that row's classification is live
-	// and the next call no longer returns it -- there is no offset to track or
-	// to get out of step with a concurrent insert.
-	UnclassifiedTransactions(ctx context.Context, limit int32) ([]Transaction, error)
+	// A page of one batch's rows with no live classification, oldest first.
+	//
+	// Three things here were corrected while change 3.4 wrote the worker that
+	// reads it, and each of them was wrong in a way nothing could see until
+	// something actually paged through the result.
+	//
+	//   **A cursor, not a self-advancing read.** The original relied on rows
+	//   leaving the result as they were classified, so the next call returned the
+	//   next page. That holds only if every row gets classified -- and the whole
+	//   point of a threshold is that some do not. A batch with one below-threshold
+	//   row would hand the worker the same page forever.
+	//
+	//   **Scoped to a batch.** The job classifies the batch it was enqueued for.
+	//   Reading the organisation's whole backlog would make two concurrent
+	//   imports classify each other's rows and each count them as its own.
+	//
+	//   **retracted_at.** Migration 007 grew a second way for a classification to
+	//   stop being live -- a review decision undone, with no successor to point at
+	//   -- and this join still only knew about supersession. A retracted row was
+	//   therefore invisible here while the review queue and every report counted
+	//   it as unanswered: stuck, permanently, in the one state nothing would act
+	//   on.
+	UnclassifiedTransactions(ctx context.Context, arg UnclassifiedTransactionsParams) ([]Transaction, error)
 	// Stamped, never deleted: what a person did and then reversed is part of the
 	// audit trail. The WHERE clause makes a second undo affect no row, which
 	// db.ExactlyOneRow turns into an error rather than a silent success.
