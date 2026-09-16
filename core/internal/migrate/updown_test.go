@@ -89,10 +89,12 @@ func TestUpDownUp(t *testing.T) {
 	// and vendors (00006) + import_batches, transactions and
 	// classifications (00007) + raw_rows (00009) + import_validations
 	// (00010) + import_profiles (00011) + dedup_skips, internal_transfers
-	// and internal_transfer_members (00012). 00008 adds no table of its
-	// own -- it only widens import_batches.
+	// and internal_transfer_members (00012) + review_decisions (00013).
+	// 00008 adds no table of its own -- it only widens import_batches, 00014
+	// only fills a column 00005 left NULL, and 00015 only adds one to
+	// transactions.
 
-	assertTableCount(t, url, 26)
+	assertTableCount(t, url, 27)
 
 	// Down once per migration that creates a table, newest first. Named
 	// rather than counted: when the count is wrong the failure says which
@@ -104,6 +106,7 @@ func TestUpDownUp(t *testing.T) {
 	// database has ever been migrated. This test runs against a scratch
 	// database beside the real one, which is the case that cannot work.
 	for _, name := range []string{
+		"00015 transaction line_no", "00014 pnl sections", "00013 review decisions",
 		"00012 dedup", "00011 import profiles", "00010 ingest validation", "00009 raw rows",
 		"00008 file upload", "00007 transaction ledger", "00006 classification rules",
 		"00005 taxonomy", "00004 tenancy",
@@ -122,7 +125,7 @@ func TestUpDownUp(t *testing.T) {
 	if err := Up(ctx, url); err != nil {
 		t.Fatalf("Up again: %v", err)
 	}
-	assertTableCount(t, url, 26)
+	assertTableCount(t, url, 27)
 }
 
 func assertTableCount(t *testing.T, connURL string, want int) {

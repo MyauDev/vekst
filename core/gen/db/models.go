@@ -36,7 +36,7 @@ type Category struct {
 	ParentID           pgtype.UUID
 	Level              int16
 	Name               string
-	PnlSection         pgtype.Text
+	PnlSection         string
 	IsPnl              bool
 	IsLeaf             bool
 	IsComputed         bool
@@ -60,6 +60,8 @@ type Classification struct {
 	DecidedBy        pgtype.UUID
 	DecidedAt        pgtype.Timestamptz
 	SupersededBy     pgtype.UUID
+	RetractedAt      pgtype.Timestamptz
+	RetractedBy      pgtype.UUID
 }
 
 type ClassificationRule struct {
@@ -198,6 +200,22 @@ type RawRow struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+type ReviewDecision struct {
+	OrgID           pgtype.UUID
+	ID              pgtype.UUID
+	CounterpartyKey string
+	KeyVersion      string
+	Outcome         string
+	CategoryID      pgtype.UUID
+	DecidedBy       pgtype.UUID
+	DecidedAt       pgtype.Timestamptz
+	CoveredCount    int32
+	CoveredMinor    int64
+	CoveredCurrency string
+	UndoneAt        pgtype.Timestamptz
+	UndoneBy        pgtype.UUID
+}
+
 type Session struct {
 	ID          pgtype.UUID
 	TokenSha256 []byte
@@ -236,6 +254,7 @@ type Transaction struct {
 	BankRef          string
 	DedupHash        string
 	CreatedAt        pgtype.Timestamptz
+	LineNo           int32
 }
 
 type User struct {

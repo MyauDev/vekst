@@ -67,6 +67,10 @@ type Querier interface {
 	// refused by that foreign key, not by an application-level check first.
 	DeleteImportProfile(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteMembership(ctx context.Context, userID pgtype.UUID) (int64, error)
+	// The one non-append-only write in this flow, and the asymmetry is deliberate:
+	// memory is current state, classifications are history. A superseded vendor row
+	// would keep answering L0 with a category the user has just taken back.
+	DeleteVendor(ctx context.Context, arg DeleteVendorParams) (int64, error)
 	// Both columns set together (internal_transfers_dismissal_is_whole,
 	// migration 012) -- who and when travel as one fact, never separately.
 	// :one rather than :execrows: the caller returns the pair it just
@@ -303,6 +307,10 @@ type Querier interface {
 	// ("function unnest(unknown, unknown) does not exist") even though
 	// PostgreSQL itself accepts it fine. This is the shape sqlc can see through.
 	InsertRawRows(ctx context.Context, arg InsertRawRowsParams) (int64, error)
+	// One row per human decision about a counterparty. The covered count and total
+	// are what the user was shown, recorded so the decision stays explicable in the
+	// terms it was taken in.
+	InsertReviewDecision(ctx context.Context, arg InsertReviewDecisionParams) (ReviewDecision, error)
 	// token_sha256 is the SHA-256 of 32 random bytes; the raw value lives only in
 	// the cookie and is never stored, so a read of this table yields nothing a
 	// browser could present.
@@ -325,6 +333,11 @@ type Querier interface {
 	// an ordinary update is correct here: the deferred constraint trigger is
 	// what makes the momentary two-live-rows state between them safe, not a
 	// single combined statement.
+	// direction is not among the columns: migration 007 generates it from the sign
+	// of amount_minor, and Postgres refuses an insert that names a generated
+	// column at all. That is the point of generating it -- the amount and its
+	// direction cannot be written into disagreement -- and it is why Transaction's
+	// own Direction field is read-only.
 	InsertTransaction(ctx context.Context, arg InsertTransactionParams) (Transaction, error)
 	// Provisioning, and the only statement that ever writes a user row. A
 	// duplicate address raises 23505 on users_email_key, which the caller
@@ -346,6 +359,50 @@ type Querier interface {
 	// columns, so a query naming any of the six would not even compile against
 	// that grant.
 	InsertValidation(ctx context.Context, arg InsertValidationParams) (ImportValidation, error)
+	// The same cell, summed. What the screen puts above the list -- "9 rows,
+	// 412,000" -- so a reader knows whether the page they are looking at is the
+	// whole answer.
+	//
+	// The predicate is copied from the query above, deliberately and visibly: sqlc
+	// generates static SQL, so a shared fragment is not available, and the two must
+	// be read together. What keeps them equal is not proximity but the test, which
+	// compares this total, the sum of the paged rows, and the report's own figure
+	// -- three numbers from three code paths, and any two disagreeing names which
+	// one drifted.
+	LineTotal(ctx context.Context, arg LineTotalParams) (LineTotalRow, error)
+	// Opening a figure. Change 4.2, capability `report-mgmt-pnl`.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context, and none
+	// of them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else.
+	//
+	// The whole difficulty of this change is in the first query, and it is not the
+	// SQL. A drill-down that returns rows adding up to something other than the
+	// figure they were opened from is worse than no drill-down: it makes a correct
+	// report look wrong, or -- the case that matters -- a wrong report look
+	// checked. So there is **one** predicate here and not one per line. `@line`
+	// discriminates inside it, in the same order `report.Compute` places a row, and
+	// the two are kept honest by a test that sums every non-zero cell's drill-down
+	// back to the cell.
+	//
+	// Everything else follows the report's own file: one `source_kind` per read,
+	// `coalesce(base_amount_minor, amount_minor)` so amounts are summed in one
+	// currency, and dates as a closed interval on `booked_on`.
+	// The rows behind one cell, oldest first, from a cursor.
+	//
+	// The line predicate below is `report.Compute`'s switch, written out. Read them
+	// side by side, in this order, because the order is load-bearing: a row of the
+	// other basis never reaches a bucket about classification; an unclassified row
+	// is unclassified whatever its category would have said; a category marked
+	// non-P&L is excluded before anybody asks whether it needs allocating. Change
+	// one and the figure and its drill-down stop agreeing, which is the one failure
+	// this file exists to prevent.
+	//
+	// The classification is a LEFT JOIN and not an inner one, because three of the
+	// four buckets contain rows that have none, and an inner join would return them
+	// as an empty page -- which reads as "these rows went missing" rather than as
+	// "these rows were never answered".
+	LineTransactions(ctx context.Context, arg LineTransactionsParams) ([]LineTransactionsRow, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
 	ListAccountsForEntity(ctx context.Context, entityID pgtype.UUID) ([]Account, error)
 	// Every undismissed pair for this entity, on either side -- what
@@ -366,6 +423,40 @@ type Querier interface {
 	// from one query file only. A member list showing names and addresses is a
 	// browser-facing read, which arrives with 2.1 and brings that decision with it.
 	ListMemberships(ctx context.Context) ([]Membership, error)
+	// What a decision wrote, found again by the counterparty it was about. Used by
+	// the undo, which has a decision and needs the rows it touched.
+	LiveClassificationsForCounterparty(ctx context.Context, counterpartyKey string) ([]Classification, error)
+	LiveDecisionForCounterparty(ctx context.Context, arg LiveDecisionForCounterpartyParams) (ReviewDecision, error)
+	// Everything this entity moved before the range, in the base currency.
+	//
+	// Derived, and the response says so. A real opening balance is the one the
+	// statement itself declared, which nothing stores yet -- change 2.3's balance
+	// check is where those arrive. Until then the identity at the foot of the table
+	// holds by construction, and labelling that as derived is the difference
+	// between an informative strip and a check somebody trusts for something it
+	// cannot do.
+	OpeningBalanceBefore(ctx context.Context, arg OpeningBalanceBeforeParams) (int64, error)
+	// The review queue: the read that builds it, and the writes that empty it.
+	//
+	// The queue is not a table. A transaction needing review is one with no live
+	// classification, which `classifications` already says -- so these are queries
+	// over `transactions`, not over a state somebody has to keep current.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context. None of
+	// them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else, and writing it again here would be a
+	// second place to get isolation right.
+	//
+	// Every insert takes org_id from app_current_org() rather than as a parameter,
+	// for the same reason. db.OrgID cannot be built outside core/internal/db and
+	// its wire form is unexported, so a caller could not supply one anyway -- but
+	// the deeper point is that a parameter is a chance to pass the wrong value,
+	// and the transaction already knows the right one. The WITH CHECK on each
+	// policy would reject a mismatch; not being able to express one is better.
+	// The currency every total in this file is denominated in. Read inside the
+	// same transaction that sums, rather than passed in by a caller who read it
+	// earlier: a total and the code beside it have to come from one moment.
+	OrganizationBaseCurrency(ctx context.Context) (string, error)
 	// Change 4.1 calls this and puts what it returns on the report (design D4).
 	// A report that does not call it is a report that hides an override, so
 	// 4.1's own task list carries a test that fails when the call is missing.
@@ -376,6 +467,24 @@ type Querier interface {
 	// excludes nothing from a report that does not exist yet; it only detects
 	// and records pairs.
 	PairedTransactionIDsForEntity(ctx context.Context, entityID pgtype.UUID) ([]pgtype.UUID, error)
+	// The strip at the foot of the table: in, out and transfers, of one basis over
+	// one range.
+	//
+	// Money in and money out are reported as positive magnitudes, because that is
+	// how they read on a page, and the store's signs are what separates them here.
+	//
+	// A transfer leg is excluded from both and counted on its own. It is the
+	// organisation moving its own money, and calling it revenue in one account and
+	// an expense in another is how a business appears to trade with itself. The
+	// join to `internal_transfers` carries the dismissal: a pair a person has
+	// dismissed is not a transfer any more, and its legs go back to being ordinary
+	// movement -- which is why the membership row alone is not the test.
+	//
+	// The transfers term is signed as an outflow, so the strip's identity reads the
+	// way DESIGN.md writes it: opening + in - out - transfers = closing. Where both
+	// legs of every pair are inside this entity it comes to zero, and a zero with a
+	// reason beside it is worth more than a blank.
+	ReconciliationForPeriod(ctx context.Context, arg ReconciliationForPeriodParams) (ReconciliationForPeriodRow, error)
 	// Written once (design D4): nothing here reads the current row first to
 	// decide whether to write, because there is no legitimate second write --
 	// overridden_at IS NULL is not checked here because the CHECK constraint
@@ -390,6 +499,115 @@ type Querier interface {
 	// these three columns left NULL, which import_batches_measured_past_upload
 	// permits only for a 'failed' row.
 	RecordUploadMeasurement(ctx context.Context, arg RecordUploadMeasurementParams) (int64, error)
+	// The management P&L's reads. Change 4.1, capability `report-mgmt-pnl`.
+	//
+	// Every statement runs inside db.InTx, which sets the tenant context, and none
+	// of them restates the tenant predicate: row-level security already admits this
+	// organisation's rows and nothing else, and writing it again would be a second
+	// place to get isolation right.
+	//
+	// Three properties hold across the whole file, and each is a way this product
+	// would otherwise print a wrong number.
+	//
+	//   **One source kind.** Every read filters on `source_kind`, because a line
+	//   computed from a mix of ledger and bank rows counts an invoice and its
+	//   payment twice (ARCHITECTURE.md 5.1). `report_source_kind_test.go` asserts
+	//   that no query here omits the filter -- a join somebody adds later without
+	//   it is the failure no other test can see.
+	//
+	//   **The base currency, always.** `coalesce(base_amount_minor, amount_minor)`:
+	//   migration 007 stores the conversion rather than deriving it, and a row with
+	//   no conversion is already in the base currency. So this is exact, not an
+	//   approximation, and summing face values across currencies -- arithmetic on
+	//   incompatible units -- cannot happen.
+	//
+	//   **Aggregates, not rows.** The report sums; it does not need identifiers.
+	//   Returning one row per transaction would put a year of a real business --
+	//   tens of thousands of rows -- on the wire to produce a table of twelve
+	//   columns. These return one row per (period, category), which is bounded by
+	//   the taxonomy no matter how much a customer trades. The drill-down that does
+	//   want the transactions is change 4.2, and it asks for one figure at a time.
+	//
+	// Periods are months here and nothing else. Quarters and years are months
+	// folded in `core/internal/report`, where the arithmetic is a pure function
+	// with tests and not a `to_char` format string repeated in four queries.
+	// What the report is computed from: transactions with a live classification,
+	// of the requested basis, in the requested range.
+	//
+	// The category's own `is_pnl` and `requires_allocation` travel with the sum
+	// rather than being decided here. Which bucket a row falls in is D6's rule and
+	// it lives in one place; a CASE here would be a second copy of it, in the
+	// language least able to test it.
+	ReportLines(ctx context.Context, arg ReportLinesParams) ([]ReportLinesRow, error)
+	// What the report is not computed from, counted rather than dropped (design
+	// D4). Where an organisation holds both ledger and bank rows for a period, the
+	// other side is reconciliation evidence: a figure a person can compare against,
+	// and the thing that makes "this is the bank basis" a statement with a
+	// consequence rather than a label.
+	//
+	// `<>` and not a second parameter naming the other kind: there are exactly two,
+	// and a caller that could name the third could name the same one twice.
+	ReportOtherBasisTotals(ctx context.Context, arg ReportOtherBasisTotalsParams) ([]ReportOtherBasisTotalsRow, error)
+	// The bucket that decides whether the table above can be trusted: rows of the
+	// report's own basis that no live classification answers. A P&L summing only
+	// what was classified describes a smaller business than the one that exists,
+	// and looks finished while doing it.
+	//
+	// Same NOT EXISTS as the review queue, and deliberately so: "needs review" and
+	// "missing from the report" are one fact, and two definitions of it would
+	// drift into a row that is in neither.
+	ReportUnclassifiedTotals(ctx context.Context, arg ReportUnclassifiedTotalsParams) ([]ReportUnclassifiedTotalsRow, error)
+	// The versions the summed classifications were actually made under.
+	//
+	// Read from the rows, never from the binary. A constant compiled into the
+	// process says what this build would classify with today; a report says what
+	// its figures were classified with, and those are the same string only until
+	// the first redeploy. Those three versions plus the normalisation that produced
+	// the text they matched on are what make a March report reproduce in June, and
+	// an accountant will ask.
+	//
+	// DISTINCT, and returned as a set: a report summing rows classified under two
+	// engine versions was produced under two engine versions, and naming one of
+	// them is a claim about reproducibility that is not true.
+	ReportVersions(ctx context.Context, arg ReportVersionsParams) ([]ReportVersionsRow, error)
+	// ---------------------------------------------------------------------------
+	// The writes a decision fans out into.
+	// ---------------------------------------------------------------------------
+	// Inserting a classification lives in core/internal/ledger, which change 2.5
+	// gave a typed home and its own tests. A second copy here would be a second
+	// place to get the append-only rule wrong.
+	// The undo path. A retraction is not a supersession: supersession names the
+	// classification that replaced this one, and an undo has no replacement --
+	// the rows go back into the queue with no answer at all. Migration 007 carries
+	// both columns for exactly this reason, and a row may carry one or the other
+	// and never both.
+	RetractClassificationsOfTransactions(ctx context.Context, arg RetractClassificationsOfTransactionsParams) (int64, error)
+	ReviewDecisionByID(ctx context.Context, id pgtype.UUID) (ReviewDecision, error)
+	// The transactions behind one group, for the drill-down the screen opens and
+	// for the resolve that follows it. Ordered by date so a person reading them
+	// sees a story rather than a set.
+	ReviewGroupRows(ctx context.Context, arg ReviewGroupRowsParams) ([]ReviewGroupRowsRow, error)
+	// The queue, grouped by counterparty and ordered so that the largest amount is
+	// settled first.
+	//
+	// Three things here are decisions rather than SQL.
+	//
+	//   coalesce(base_amount_minor, amount_minor) -- comparing amounts across
+	//   currencies is only meaningful in one of them, and migration 007 stores the
+	//   converted amount rather than deriving it. A row with no conversion is
+	//   already in the base currency, so this is exact and not an approximation.
+	//   Summing face values would put a JPY row at the top of every queue.
+	//
+	//   abs(...) -- a 40,000 refund matters as much as a 40,000 payment, and
+	//   sorting signed puts every expense below every income.
+	//
+	//   counterparty_key last -- a deterministic tiebreak, so two reads agree and
+	//   the ground does not move under somebody working by keyboard.
+	//
+	// The empty key is a group like any other: a row whose counterparty could not
+	// be identified is the hardest row in the queue, and a queue that hides those
+	// reports a completion it did not reach.
+	ReviewGroups(ctx context.Context, arg ReviewGroupsParams) ([]ReviewGroupsRow, error)
 	// Sign-out marks the row revoked rather than deleting it, so the session is
 	// auditable afterwards and the expiry job is what finally removes it.
 	RevokeSession(ctx context.Context, tokenSha256 []byte) error
@@ -449,12 +667,19 @@ type Querier interface {
 	// the common case, not the rare one. $4 is the same coalesced value, read
 	// for the transaction this is candidates for.
 	TransferCandidatesForTransaction(ctx context.Context, arg TransferCandidatesForTransactionParams) ([]TransferCandidatesForTransactionRow, error)
+	// "412 rows across 88 counterparties left." What the screen puts above the
+	// queue, and what tells a person whether fifteen minutes is plausible.
+	UnclassifiedTotals(ctx context.Context, entityID pgtype.UUID) (UnclassifiedTotalsRow, error)
 	// A page of rows with no live classification, oldest booked_on first, for
 	// the worker a later change writes. Self-advancing: once the worker inserts
 	// a classification for a row in one page, that row's classification is live
 	// and the next call no longer returns it -- there is no offset to track or
 	// to get out of step with a concurrent insert.
 	UnclassifiedTransactions(ctx context.Context, limit int32) ([]Transaction, error)
+	// Stamped, never deleted: what a person did and then reversed is part of the
+	// audit trail. The WHERE clause makes a second undo affect no row, which
+	// db.ExactlyOneRow turns into an error rather than a silent success.
+	UndoReviewDecision(ctx context.Context, arg UndoReviewDecisionParams) (ReviewDecision, error)
 	UpdateAccountName(ctx context.Context, arg UpdateAccountNameParams) (int64, error)
 	UpdateEntityName(ctx context.Context, arg UpdateEntityNameParams) (int64, error)
 	// source_kind is deliberately absent from the SET list: a profile's kind is
@@ -464,6 +689,14 @@ type Querier interface {
 	UpdateImportProfile(ctx context.Context, arg UpdateImportProfileParams) (int64, error)
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) (int64, error)
 	UpdateOrganizationName(ctx context.Context, name string) (int64, error)
+	// ---------------------------------------------------------------------------
+	// Vendor memory: the reason month two takes three minutes.
+	// ---------------------------------------------------------------------------
+	// Written only when a category was chosen. An internal transfer is not a
+	// vendor fact and a non-P&L marking is a property of the movement -- memory
+	// for either would make L0 answer next month with something that is not a
+	// category.
+	UpsertVendor(ctx context.Context, arg UpsertVendorParams) (Vendor, error)
 	// L0: what this organisation has already decided about a counterparty.
 	//
 	// Filtered by key_version, not merely tagged with it. Keys produced by an

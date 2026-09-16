@@ -149,14 +149,18 @@ func testBatch(t *testing.T, d *db.DB, org db.OrgID, entityID uuid.UUID, sourceK
 // fields they care about from here.
 func baseTransaction(entityID, accountID, batchID uuid.UUID, sourceKind string) Transaction {
 	return Transaction{
-		EntityID:         entityID,
-		AccountID:        accountID,
-		BatchID:          batchID,
-		SourceKind:       sourceKind,
-		PostingNo:        0,
-		BookedOn:         time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
-		Direction:        DirectionExpense,
-		Amount:           money.Money{CurrencyCode: "NOK", MinorUnits: 12345},
+		EntityID:   entityID,
+		AccountID:  accountID,
+		BatchID:    batchID,
+		LineNo:     1,
+		SourceKind: sourceKind,
+		PostingNo:  0,
+		BookedOn:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		// Direction is generated from the sign, so the fixture states an
+		// expense by being negative. Setting the field and leaving the amount
+		// positive would make the row claim one thing and the database say the
+		// other, which is exactly what generating it prevents.
+		Amount:           money.Money{CurrencyCode: "NOK", MinorUnits: -12345},
 		CounterpartyRaw:  "Test Counterparty AS",
 		CounterpartyKey:  "name:test-counterparty-as",
 		DescriptionRaw:   "Test payment",

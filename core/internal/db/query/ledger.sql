@@ -18,15 +18,20 @@
 -- single combined statement.
 
 -- name: InsertTransaction :one
+-- direction is not among the columns: migration 007 generates it from the sign
+-- of amount_minor, and Postgres refuses an insert that names a generated
+-- column at all. That is the point of generating it -- the amount and its
+-- direction cannot be written into disagreement -- and it is why Transaction's
+-- own Direction field is read-only.
 INSERT INTO transactions (
-    org_id, entity_id, account_id, batch_id, source_kind,
-    document_ref, posting_no, booked_on, value_on, direction,
+    org_id, entity_id, account_id, batch_id, line_no, source_kind,
+    document_ref, posting_no, booked_on, value_on,
     amount_minor, currency, fx_rate, fx_rate_on, base_amount_minor, base_currency,
     counterparty_raw, counterparty_key, description_raw, description_norm,
     normalize_version, regulated_code, bank_ref, dedup_hash
 ) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8, $9, $10,
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20,
     $21, $22, $23, $24

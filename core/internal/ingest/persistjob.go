@@ -230,6 +230,7 @@ func buildTransaction(entityID, accountID, batchID uuid.UUID, sourceKind, curren
 		EntityID:         entityID,
 		AccountID:        accountID,
 		BatchID:          batchID,
+		LineNo:           int32(r.LineNo),
 		SourceKind:       sourceKind,
 		Direction:        direction,
 		BookedOn:         booked,

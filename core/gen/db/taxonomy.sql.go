@@ -33,7 +33,7 @@ type CategoryByCodeRow struct {
 	ParentID           pgtype.UUID
 	Level              int16
 	Name               string
-	PnlSection         pgtype.Text
+	PnlSection         string
 	IsPnl              bool
 	IsLeaf             bool
 	IsComputed         bool
@@ -86,7 +86,7 @@ type ClassifiableCategoriesRow struct {
 	ParentID           pgtype.UUID
 	Level              int16
 	Name               string
-	PnlSection         pgtype.Text
+	PnlSection         string
 	IsPnl              bool
 	IsLeaf             bool
 	IsComputed         bool
@@ -155,7 +155,7 @@ type EffectiveTaxonomyRow struct {
 	ParentID           pgtype.UUID
 	Level              int16
 	Name               string
-	PnlSection         pgtype.Text
+	PnlSection         string
 	IsPnl              bool
 	IsLeaf             bool
 	IsComputed         bool
