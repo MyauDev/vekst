@@ -444,6 +444,23 @@
     font-feature-settings: "tnum" 1;
   }
 
+  /*
+   * The drill-down panel's entrance, and the only place these two tokens are
+   * spent. §5 budgets 120ms for this one overlay and zero for everything else;
+   * the tokens have existed since the shell landed and nothing had used them,
+   * so the panel appeared instantly while its own comment claimed it moved.
+   *
+   * It enters from the edge it is anchored to, which is Apple's spatial rule:
+   * a panel emerges from where it lives, so the reader knows where it went.
+   * `transform` and `opacity` only -- both composite, neither reflows a figure.
+   *
+   * The reduced-motion floor below collapses this automatically: at 0.01ms with
+   * `both`, the panel simply starts at its resting state.
+   */
+  .panel-enter {
+    animation: vk-panel-in var(--duration-panel) var(--ease-panel) both;
+  }
+
   /* Motion is a preference, and honouring it is not optional. */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -453,6 +470,40 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+    }
+  }
+
+  /*
+   * Motion is one of three independent signals, not the only one. A reader who
+   * asks for less transparency or more contrast is asking for the same kind of
+   * accommodation and gets ignored by most interfaces because only the motion
+   * query is well known.
+   *
+   * Both are answered at the token layer rather than per component, for the
+   * same reason §3 gives for everything else here: a component that has to
+   * remember is a component that forgets.
+   */
+  @media (prefers-contrast: more) {
+    :root,
+    [data-theme="dark"] {
+      /* The weakest measured pair in §9 -- 4.52:1 light, 5.17:1 dark -- moves
+         up to the muted step's 6.35:1 / 7.58:1. Hierarchy survives: subtle and
+         muted merge, text stays above both. */
+      --vk-text-subtle: var(--vk-text-muted);
+      --vk-border: var(--vk-border-strong);
+    }
+  }
+
+  /*
+   * A translucent surface becomes an opaque one. Register B has none -- §5
+   * buys hierarchy with hairlines, not glass -- so this reaches only the
+   * landing's floating bar, which is the one place the product stacks a
+   * surface over moving content.
+   */
+  @media (prefers-reduced-transparency: reduce) {
+    .landing-nav {
+      background-color: var(--color-surface-raised);
+      backdrop-filter: none;
     }
   }
 
@@ -477,6 +528,18 @@
   }
 }
 
+/* The one keyframe Register B owns. Paired with `.panel-enter` above. */
+@keyframes vk-panel-in {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* ---------------------------------------------------------------------------
  * 5. Self-hosted Inter.
  *
@@ -487,3 +550,46 @@
  * can run. It lives in `add-web-experience` task 9.6, which is what adds the
  * two woff2 subsets under `web/public/fonts/`.
  * ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+ * 6. Register A embellishment — the landing page only.
+ *
+ * A deliberate departure from DESIGN.md §14.1 for `site/LandingPage.tsx`, not
+ * an exception to the token rule: both new classes are built from the
+ * existing tokens via `color-mix`, so they still follow the active theme, and
+ * neither a component nor `scripts/check-web-tokens.sh` ever sees a literal
+ * colour -- this file is the one place that is allowed to hold one.
+ * ------------------------------------------------------------------------- */
+
+.landing-mesh {
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% -10%, color-mix(in oklch, var(--color-text) 10%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, color-mix(in oklch, var(--color-text) 6%, transparent), transparent 60%);
+}
+
+.landing-grain {
+  position: relative;
+}
+
+.landing-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* A CSS-only loop, not a GSAP one: it runs for as long as the section is on
+   screen and costs nothing to keep correct. The reduced-motion floor in §4
+   already freezes it -- `animation-duration: 0.01ms !important` applies here
+   too, so the track just holds its position. */
+@keyframes vk-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.landing-marquee-track {
+  animation: vk-marquee 26s linear infinite;
+}

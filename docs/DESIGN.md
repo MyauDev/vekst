@@ -4,6 +4,14 @@ Date: 2026-09-06 · Applies from change 5.1 `add-web-app-shell` onward.
 **Amended 2026-09-08** — §3, §4, §6, §9, §11 and §12. The chrome is monochrome,
 the accent is ink rather than blue, and dark mode ships rather than waiting for
 Product. The reasoning is in `.design/web-app-shell/DECISIONS.md` §7–§10.
+**Amended 2026-09-16** — §1 and §14. `site/LandingPage.tsx` gets a named,
+file-scoped exception to §14's shapes and to Register A's "restrained" motion
+row in §1; nothing else in this document moves. See §14.1.
+**Amended 2026-09-17** — §1, §1.1, §5, §13 and §14. The application moves to a
+card-and-whitespace idiom: type to 36 px, 40 px rows, surfaces instead of
+hairlines, and the first chart ships. §2's trust list, §4's money rules and
+§5's "never animate a figure" did not move, and were the conditions of the
+change rather than survivors of it. See §14.2.
 Companion documents: `WORKFLOW.md` §5, `ARCHITECTURE.md`, `openspec/config.yaml`.
 
 > This document decides how the product looks and why. It is a constraint on
@@ -46,16 +54,34 @@ problem is a minimal application that still shows a twelve-column P&L.
 | --- | --- | --- |
 | Where | One landing page. `/site` later | Everything behind sign-in |
 | Job | One promise, one call to action | Read many numbers without error |
-| Type scale | Up to 48 px | Caps at 24 px |
-| Spacing base | 8 px, sections at 64–96 px | 4 px, sections at 16–24 px |
+| Type scale | Up to 48 px | Caps at 36 px² |
+| Spacing base | 8 px, sections at 64–96 px | 4 px, sections at 24–40 px² |
 | Elements per view | Few | Many, ordered |
-| Motion | Allowed, restrained | Overlays only |
+| Motion | Allowed, restrained¹ | Overlays only |
 | Colour | One accent, large areas | Neutral chrome, colour for meaning only |
+
+¹ Except `site/LandingPage.tsx`, which trades "restrained" for a named,
+file-scoped exception — §14.1. Every other Register A surface (`SignIn.tsx`,
+`PublicLayout.tsx`) still reads this row as written.
+
+² Raised 2026-09-17 from 24 px and from 16–24 px. A screen heading is 30 px and
+a stat tile's figure 30 px; 36 px is the ceiling and nothing reaches it yet.
+48 px stays Register A's alone — it is sized for one promise on an empty page,
+and `site/site.test.ts` still fails the build if it appears behind sign-in.
+The spacing ceiling moved from 32 px to 64 px in
+`scripts/check-web-tokens.sh`, which is still a ceiling and still enforced.
 
 Both registers use the **same tokens** in section 3. They differ in the spacing
 scale, the type scale and the element count. Nothing else.
 
 ### 1.1 What minimal means at high density
+
+*Superseded in part on 2026-09-17. The rule below was reversed for the
+application by §14.2: it now buys white space with padding and groups with
+cards, which is exactly what this section was written to prevent. What survives
+is the **measure** — rows per screen on a twelve-period P&L — and the
+instruction to re-check it. The table is kept rather than deleted because it
+states the cost of the decision that replaced it.*
 
 The minimal look and a dense table do not conflict, but only under one rule:
 
@@ -219,13 +245,23 @@ Money rendering rules:
 
 ## 5. Density — Register B, the app
 
-- **Spacing scale:** 2, 4, 6, 8, 12, 16, 24, 32. Nothing above 32 inside the app.
-- **Row height:** 32 px in tables, 36 px in the review queue (it takes keyboard
-  focus and needs a larger target).
-- **Borders instead of shadows.** Hierarchy comes from 1 px `--color-border`
-  hairlines and from surface steps. Shadows are for true overlays only: the
-  drill-down panel, a menu, a dialog.
-- **No card inside a card.** One border level per view.
+*Amended 2026-09-17 — the first four bullets. See §14.2.*
+
+- **Spacing scale:** 2, 4, 6, 8, 12, 16, 24, 32, 40, 48, 64. Nothing above 64
+  inside the app, enforced by `scripts/check-web-tokens.sh`.
+- **Row height:** 40 px in tables, 44 px in the review queue (it takes keyboard
+  focus and needs a larger target). Was 32 and 36.
+- **Cards over hairlines, and still no shadows.** A screen groups with a
+  `--radius-panel` card on `--color-surface-raised` over a
+  `--color-surface-sunken` canvas. The three surface steps carry the hierarchy;
+  shadows remain for true overlays only — the drill-down panel, a menu, a
+  dialog — because a shadow used for grouping is noise at any row height.
+- **No card inside a card.** Unchanged, and it does more work now than it did:
+  one card level per view, and a table inside a card does not get a second
+  border of its own.
+- **A frozen cell paints the surface it slides over.** The P&L's frozen column
+  and header are `surface-raised`, matching the card. A frozen cell in a
+  different surface colour makes the freeze visible as a seam.
 - **Sticky where a table scrolls.** The P&L has a period per column. Freeze the
   category column and the header row. Horizontal scroll is expected, not a bug.
 - **No zebra striping.** Hairlines between section groups instead. Zebra fights
@@ -508,6 +544,15 @@ monotone in lightness with visible steps and clear the near-surface floor in bot
 
 ### 13.4 Sequential — one hue, and rarely the right answer
 
+*The sorted expense bar shipped 2026-09-17 as `app/ExpenseChart.tsx`, built on
+ECharts — the library `ARCHITECTURE.md` already named. It follows this section:
+slot 1 at one step, the title as the legend, and the table view §13.5 requires
+reachable from a control beside it. The bars read the palette from the
+`--vk-*` properties at render time and re-read it when the theme changes,
+because a canvas inherits no token. Where a canvas cannot be drawn at all the
+component renders the table instead, which is not a fallback so much as the
+same figures in the form this section already demanded.*
+
 Blue, in ordered lightness steps, for continuous magnitude. **No Demo chart uses it.**
 
 The sorted expense bar looks like a case for it and is not: bar length already encodes
@@ -568,3 +613,107 @@ generic:
 - **Let type carry hierarchy.** Weight, size and case, in that order. A label in
   small letterspaced capitals above a figure does the work a card was reached
   for, in one line and no chrome.
+
+### 14.1 Exception: the landing page
+
+*Added 2026-09-16, by explicit direction, after `site/LandingPage.tsx` was
+rebuilt to the `gpt-taste` skill's playbook — a cinematic photographic hero,
+a bordered bento grid, an infinite marquee and GSAP-driven motion. That is
+close to the exact inventory §14 exists to keep out, so the exception is
+recorded here rather than left for the next reader to discover as drift.*
+
+**Scope: `web/src/site/LandingPage.tsx`, and nothing else.** `SignIn.tsx`,
+`PublicLayout.tsx`, `NotFound.tsx` and every surface behind sign-in still read
+§14 as written — a rejected shape appearing in any of those is still a defect,
+not a precedent. The exception is a property of one file, not of Register A as
+a category.
+
+**What is exempted:** the shapes table above — a card around a group (the
+bento cells), evenly gapped grids, a photograph as decoration, and motion
+beyond "restrained" (the §1 footnote). The reasoning is that this page's job
+is different in kind from every other screen in the product: it has to earn a
+stranger's attention before they have seen a single real number, where every
+other screen (including `SignIn.tsx`) is read by someone who already decided
+to be there. Financial print is the right reference for a report; it is not
+obviously the right reference for the one page whose only content *is* a call
+to action.
+
+**What is not exempted:**
+
+- **§3's token rule.** Every colour on the page is still `--color-*` or a
+  `color-mix()` of one — see the new §6 in `index.css`. `LandingPage.tsx`
+  passes `scripts/check-web-tokens.sh` the same as any other file; the
+  exception bought new shapes, not a new palette, and dark mode still costs
+  nothing extra because of it.
+- **§5.4's reasoning for showing the real report.** The P&L on the page is
+  still the actual `PnlTable` component on sample data, still `linked={false}`,
+  for the same reason as before: a marketing page that drops a reader into a
+  sign-in wall mid-scroll has spent their attention badly.
+- **§9's accessibility floor.** Focus rings, a skip-to-content link and
+  `prefers-reduced-motion` all still apply. The GSAP entrances are written so
+  that a reduced-motion reader, or any environment without `matchMedia`
+  (jsdom's, notably — this page renders inside `router.test.tsx`), simply
+  never has anything hidden from them in the first place: nothing is set to
+  `opacity: 0` outside the animation code path itself, the same discipline the
+  deleted `Reveal.tsx` used.
+
+**What this costs:** the landing page and the rest of the product now read as
+two different pieces of design work, not one. That is a real inconsistency,
+not a free upgrade, and it is why the exception is named and dated rather than
+folded silently into §14's rule. If the direction holds, the next honest step
+is deciding whether Register B's restraint should move toward this page or
+this page should move back — not leaving both as permanent, unrelated
+answers.
+
+### 14.2 The application follows
+
+*Added 2026-09-17, by explicit direction. §14.1 closed by naming the choice
+between moving the application toward the landing page or moving the landing
+page back. This is the first answer: the application moved.*
+
+This is not an exception like §14.1. It is an amendment — the rows below no
+longer describe Register B, and §1, §1.1 and §5 have been changed to match
+rather than annotated around.
+
+| Was rejected | Now | Where |
+| --- | --- | --- |
+| A card around every group | A card *is* the group. One level, `--radius-panel`, `surface-raised` on a `surface-sunken` canvas | Stat tiles, the P&L, reconciliation, review, imports, the feedback states |
+| Radius on everything | Radius on cards and controls, still nothing on a rule or a swatch | §5 |
+| Buying white space with padding | 40 px rows, 24 px card padding, 24–40 px between sections | §1.1, §5 |
+| Type capped at 24 px | Screen headings at 30 px, stat figures at 30 px, ceiling 36 px | §1 |
+
+**What did not move, and would not:**
+
+- **§2's list.** Every item is still on screen: the basis label beside the
+  table, the reconciliation strip, the reason on a blocked line, the engine
+  layer and confidence in the drill-down, the original file line number in a
+  validation error, the four import counts. §2 says a minimal pass deletes
+  these first; a *maximal* one is just as capable of it, and the list is why
+  neither did.
+- **§4 and §6.** Tabular figures in every column, the minus sign not
+  parentheses, the currency once in the header, negative never red.
+- **§5's last bullet.** No figure animates, in a chart or out of one. The
+  drill-down panel's 120 ms entrance and a chart's draw-in are the whole
+  motion budget, and both stop under `prefers-reduced-motion`.
+- **§3's token rule.** Not one literal colour was added.
+  `check-web-tokens.sh` passes unchanged in that respect, which is what kept
+  dark mode free through a full restyle — it was re-checked, not assumed.
+- **§9's floor.** Focus rings, no hover-only information, and the contrast
+  pairs as measured. `prefers-contrast` and `prefers-reduced-transparency` are
+  now answered too, which they were not before.
+
+**What this costs:** a twelve-period P&L shows fewer rows per screen than it
+did, which is the exact failure mode §1.1 was written to name. It was measured
+rather than waved through, and **the measurement did not come back clean**: at
+1440×900 the demo report's last row now ends roughly 20 px below the fold,
+where before the whole table fitted. The page is 1552 px tall against a 900 px
+viewport.
+
+That is §1.1's failure mode arriving, in miniature. One scroll to see the net
+result is not a lost comparison, and the periods still read across without
+scrolling, which is the axis that matters most. But it is a regression against
+a stated measure, it was bought knowingly, and it is the reason the number is
+written down here rather than described as fine. Re-run it before anyone raises
+a row height or a padding step again; the budget is already spent. The second cost is subtler: hairlines are
+cheap and cards are not, so a future screen that wants a group inside a group
+has nowhere to go. "No card inside a card" is doing more work than it used to.

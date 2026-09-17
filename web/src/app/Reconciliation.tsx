@@ -32,18 +32,18 @@ function Cell({
       <span className="text-2xs uppercase tracking-widest text-text-subtle">
         {t(labelKey, locale)}
       </span>
-      <span className={`tabular text-sm ${strong ? "font-semibold" : ""} text-figure`}>{text}</span>
+      <span className={`tabular text-md ${strong ? "font-semibold" : ""} text-figure`}>{text}</span>
     </div>
   );
 }
 
 export function Reconciliation({ recon, locale }: Readonly<{ recon: Recon; locale: Locale }>) {
   return (
-    <section className="mt-6 border-t-2 border-border-strong pt-4">
-      <h2 className="text-2xs font-semibold uppercase tracking-widest text-text">
+    <section className="rounded-panel border border-border bg-surface-raised p-6">
+      <h2 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
         {t("recon.title", locale)}
       </h2>
-      <div className="mt-3 flex flex-wrap gap-x-8 gap-y-4">
+      <div className="mt-4 flex flex-wrap gap-x-10 gap-y-6">
         <Cell labelKey="recon.opening" value={recon.opening} locale={locale} />
         <Cell labelKey="recon.in" value={recon.moneyIn} locale={locale} />
         <Cell labelKey="recon.out" value={recon.moneyOut} locale={locale} />

@@ -10,6 +10,7 @@ import type { RouterHistory } from "@tanstack/react-router";
 import type { Transport } from "@connectrpc/connect";
 
 import { LandingPage } from "./site/LandingPage";
+import { NotFound } from "./site/NotFound";
 import { SignInPage } from "./site/SignInPage";
 import { AppLayout } from "./app/AppLayout";
 import { ImportsScreen } from "./app/ImportsScreen";
@@ -209,7 +210,15 @@ export function makeRouter(transport: Transport, history?: RouterHistory) {
     ...devOnlyRoutes(),
   ]);
   // `history` is for tests, which need to start somewhere other than "/".
-  return createRouter({ routeTree, context: { transport }, ...(history ? { history } : {}) });
+  return createRouter({
+    routeTree,
+    context: { transport },
+    // A single fallback for any unmatched depth, public or signed-in: an
+    // unmatched path has no session answer yet, so it cannot inherit either
+    // register's chrome. See `site/NotFound.tsx`.
+    defaultNotFoundComponent: NotFound,
+    ...(history ? { history } : {}),
+  });
 }
 
 declare module "@tanstack/react-router" {

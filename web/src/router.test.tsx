@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
  *  testing what it claims to. */
 const repo = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", ...p);
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
@@ -70,11 +70,14 @@ describe("the gate on Register B", () => {
     // In, corrected, read. The rail is a map, not a ranking. Asserted on the
     // destinations rather than the text, because Review carries a count and the
     // text is therefore "Review2" -- which is the badge working, not a defect.
-    const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    // Scoped to the rail's own nav: the page also carries a skip-to-content
+    // link ahead of it, which is not one of the three rail items.
+    const rail = screen.getByRole("navigation");
+    const links = within(rail).getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(links).toEqual(["/app/imports", "/app/review", "/app/reports/pnl"]);
 
     // The count is the only badge in the interface, and it belongs to Review.
-    const review = screen.getAllByRole("link")[1]!;
+    const review = within(rail).getAllByRole("link")[1]!;
     expect(review.textContent).toMatch(new RegExp(`^${t("nav.review")}\\d+$`));
   });
 

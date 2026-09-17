@@ -7,10 +7,18 @@
  * shared table makes the most complex component in the codebase the one used
  * correctly in exactly one place.
  *
- * `DESIGN.md` §5: 32px rows, hairlines between groups, **no zebra striping** --
- * zebra fights the state colours -- and horizontal scroll is expected rather
- * than a defect. §1.1 is why the rows are tight: an accountant comparing twelve
- * periods scrolls to compare if padding lowers the rows per screen.
+ * `DESIGN.md` §5: hairlines between groups, **no zebra striping** -- zebra
+ * fights the state colours -- and horizontal scroll is expected rather than a
+ * defect.
+ *
+ * Rows are 40px since the §5 amendment of 2026-09-16, up from 32px. §1.1's
+ * rows-per-screen argument has not gone away, which is why the step was one
+ * and not three: a twelve-period P&L of this length still arrives in a single
+ * screen, and that is the measure to re-check if anyone raises it again.
+ *
+ * The frozen column and header paint `surface-raised` rather than `surface`
+ * because the table now sits inside a raised card. A frozen cell has to match
+ * the surface it slides over or the freeze becomes visible as a colour seam.
  */
 import { Link } from "@tanstack/react-router";
 
@@ -64,7 +72,10 @@ function Figure({
         to="/app/reports/pnl/cell/$categoryId/$period"
         params={{ categoryId, period }}
         search={{ from, to }}
-        className="block px-3 py-1.5 text-figure hover:bg-surface-sunken"
+        // A colour step on press, never a transform: this cell is a figure, and
+        // a figure that moves under the finger is a figure that looks like it
+        // is still being computed (§5).
+        className="block px-3 py-1.5 text-figure hover:bg-surface-sunken active:bg-border"
       >
         {text}
       </Link>
@@ -92,10 +103,10 @@ function Row({
   // dead end.
   if (line.blockedReason) {
     return (
-      <tr className="h-8 border-b border-border">
+      <tr className="h-10 border-b border-border">
         <th
           scope="row"
-          className="sticky left-0 z-10 bg-surface pr-3 pl-4 text-left font-normal text-text-muted"
+          className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left font-normal text-text-muted"
         >
           {line.label}
         </th>
@@ -112,10 +123,10 @@ function Row({
   }
 
   return (
-    <tr className="h-8 border-b border-border">
+    <tr className="h-10 border-b border-border">
       <th
         scope="row"
-        className="sticky left-0 z-10 bg-surface pr-3 pl-4 text-left font-normal"
+        className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left font-normal"
       >
         {line.label}
       </th>
@@ -147,8 +158,8 @@ function SubtotalRow({
   periods: readonly string[];
 }>) {
   return (
-    <tr className="h-8 border-b-2 border-border-strong font-medium">
-      <th scope="row" className="sticky left-0 z-10 bg-surface pr-3 pl-4 text-left">
+    <tr className="h-10 border-b-2 border-border-strong font-medium">
+      <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left">
         {section.label}
       </th>
       {section.subtotals.map((m, i) => (
@@ -181,13 +192,17 @@ export function PnlTable({
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="h-8">
+          <tr className="h-10">
             {/* The corner carries the currency, once. §4: repeating a code in
                 every cell costs a column of width and tells the reader nothing
                 they do not already know. */}
             <th
               scope="col"
-              className="sticky left-0 top-0 z-20 border-b border-border-strong bg-surface pr-3 pl-4 text-left"
+              // Wide enough for the longest category label to sit on one line.
+              // At 40px rows a wrapped label makes its row taller than its
+              // neighbours, and a column of figures whose rows are different
+              // heights is harder to read across than one that scrolls.
+              className="sticky left-0 top-0 z-20 whitespace-nowrap border-b border-border-strong bg-surface-raised pr-3 pl-4 text-left"
             >
               <span className="text-2xs uppercase tracking-widest text-text-subtle">
                 {t("report.category", locale)} · {report.currencyCode}
@@ -197,20 +212,20 @@ export function PnlTable({
               <th
                 key={p}
                 scope="col"
-                className="sticky top-0 z-10 border-b border-border-strong bg-surface px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle"
+                className="sticky top-0 z-10 border-b border-border-strong bg-surface-raised px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle"
               >
                 {formatPeriodShort(p, locale)}
               </th>
             ))}
             <th
               scope="col"
-              className="sticky top-0 z-10 border-b border-border-strong bg-surface px-3 text-right text-2xs font-semibold uppercase tracking-widest text-text"
+              className="sticky top-0 z-10 border-b border-border-strong bg-surface-raised px-3 text-right text-2xs font-semibold uppercase tracking-widest text-text"
             >
               {t("report.total", locale)}
             </th>
             <th
               scope="col"
-              className="sticky top-0 z-10 border-b border-border-strong bg-surface px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle"
+              className="sticky top-0 z-10 border-b border-border-strong bg-surface-raised px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle"
             >
               {t("report.percentOfRevenue", locale)}
             </th>
@@ -235,8 +250,8 @@ export function PnlTable({
         ))}
 
         <tfoot>
-          <tr className="h-9 font-semibold">
-            <th scope="row" className="sticky left-0 z-10 bg-surface pr-3 pl-4 text-left">
+          <tr className="h-11 font-semibold">
+            <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left">
               {t("report.net", locale)}
             </th>
             {report.netByPeriod.map((m, i) => (

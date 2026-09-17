@@ -138,6 +138,19 @@ describe("both palettes, and print", () => {
       renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
       expect(await screen.findByRole("heading", { name: t("report.title") })).toBeDefined();
       expect(screen.getByText(t("recon.closing"))).toBeDefined();
+
+      // Task 8.16: every chart from WORKFLOW.md §5.3 renders under both
+      // palettes. jsdom has no 2D canvas context, so each falls back to its
+      // table view -- still a real render of the same component tree.
+      for (const key of [
+        "chart.moneyflow.title",
+        "chart.expenses.title",
+        "chart.netresult.title",
+        "chart.revenueExpense.title",
+        "chart.trend.title",
+      ] as const) {
+        expect(screen.getByText(t(key))).toBeDefined();
+      }
     });
   }
 

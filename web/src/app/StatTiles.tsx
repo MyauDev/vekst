@@ -9,7 +9,9 @@
  * Every figure is computed from the rows the table renders, so a tile cannot
  * disagree with the column beneath it.
  *
- * §14: no cards. Hairlines and a small-caps label above the figure.
+ * Cards, since the §14 amendment of 2026-09-16. These were hairline-separated
+ * columns in a single row; the label-above-figure pairing is unchanged, and it
+ * is still the type that carries the hierarchy rather than the surface.
  */
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
 import { t } from "../i18n";
@@ -31,7 +33,7 @@ function Tile({
   const exp = exponentOf(value.currencyCode);
   const text = exp === undefined ? NO_DATA : formatMinorUnits(value.minorUnits, exp, locale);
   return (
-    <div className="flex flex-col gap-1 border-l border-border px-4 first:border-l-0 first:pl-0">
+    <div className="flex flex-col gap-2 rounded-panel border border-border bg-surface-raised p-6">
       <span className="text-2xs uppercase tracking-widest text-text-subtle">
         {t(labelKey, locale)}
       </span>
@@ -40,7 +42,7 @@ function Tile({
         align vertically; a single large number has no column to align with, and
         tabular spacing makes it look mechanical.
       */}
-      <span className={`text-xl font-semibold ${muted ? "text-text-muted" : "text-figure"}`}>
+      <span className={`text-2xl font-semibold ${muted ? "text-text-muted" : "text-figure"}`}>
         {text}
       </span>
     </div>
@@ -49,7 +51,7 @@ function Tile({
 
 export function StatTiles({ report, locale }: Readonly<{ report: Report; locale: Locale }>) {
   return (
-    <div className="flex flex-wrap gap-y-4 border-b border-border pb-5">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Tile labelKey="stat.revenue" value={report.revenueTotal} locale={locale} />
       <Tile labelKey="stat.expenses" value={report.expensesTotal} locale={locale} />
       <Tile labelKey="stat.net" value={report.netTotal} locale={locale} />

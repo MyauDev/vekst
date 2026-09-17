@@ -74,6 +74,16 @@ export function AppLayout({
 
   return (
     <div className="flex min-h-dvh">
+      {/* Visible only on keyboard focus. The review queue is keyboard-first
+          (DESIGN.md §9); skipping the rail and top bar matters most exactly
+          where a mouse is least likely to be in use. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-border-strong focus:bg-surface-raised focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-text"
+      >
+        {t("a11y.skipToContent", locale)}
+      </a>
+
       <Rail
         locale={locale}
         awaitingReview={review.data?.groups ?? 0}
@@ -85,7 +95,7 @@ export function AppLayout({
             <button
               type="button"
               onClick={signOut}
-              className="w-fit text-2xs uppercase tracking-widest text-text-subtle"
+              className="w-fit text-2xs uppercase tracking-widest text-text-subtle hover:text-text active:text-text-muted"
             >
               {t("signedIn.signOut", locale)}
             </button>
@@ -107,7 +117,9 @@ export function AppLayout({
           locale={locale}
           theme={theme}
         />
-        <main className="min-w-0 grow px-6 py-5">{children}</main>
+        <main id="main-content" className="min-w-0 grow bg-surface-sunken px-10 py-8">
+          {children}
+        </main>
       </div>
     </div>
   );

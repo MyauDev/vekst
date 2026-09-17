@@ -50,9 +50,12 @@ function Item({
   return (
     <Link
       to={to}
-      className="group flex h-8 items-center gap-2 pl-3 pr-3 text-sm text-text-muted"
+      // Press feedback is a colour step and nothing else: instant, so the row
+      // answers on pointer-down rather than on release, and flat, because a
+      // row that scales under the finger moves the label it is carrying.
+      className="group mx-2 flex h-10 items-center gap-2 rounded-panel px-3 text-sm text-text-muted hover:bg-surface-sunken hover:text-text active:bg-border"
       activeProps={{
-        className: "font-medium text-text",
+        className: "bg-surface-sunken font-medium text-text",
         "aria-current": "page",
       }}
     >
@@ -77,13 +80,13 @@ export function Rail({
   return (
     <nav
       aria-label={t("nav.reports", locale)}
-      className="flex w-52 shrink-0 flex-col border-r border-border"
+      className="flex w-60 shrink-0 flex-col border-r border-border bg-surface"
     >
-      <div className="flex h-12 items-center border-b border-border px-3">
+      <div className="flex h-16 items-center px-5">
         <span className="text-md font-semibold tracking-tight">{t("app.title", locale)}</span>
       </div>
 
-      <div className="flex flex-col py-2">
+      <div className="flex flex-col gap-1 py-2">
         <Item to="/app/imports" label={t("nav.imports", locale)} locale={locale} />
         <Item
           to="/app/review"
@@ -95,7 +98,7 @@ export function Rail({
       </div>
 
       {account ? (
-        <div className="mt-auto border-t border-border px-3 py-3">{account}</div>
+        <div className="mt-auto border-t border-border px-5 py-4">{account}</div>
       ) : null}
     </nav>
   );

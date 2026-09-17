@@ -61,7 +61,7 @@ function Errors({ errors, locale }: Readonly<{ errors: readonly ValidationError[
       {shown.map((e) => (
         <div
           key={`${e.fileLine}-${e.code}`}
-          className="flex h-8 items-baseline gap-4 border-b border-border text-sm"
+          className="flex h-10 items-baseline gap-4 border-b border-border text-sm"
         >
           <span className="tabular w-16 shrink-0 text-right text-text-subtle">{e.fileLine}</span>
           <span className="min-w-0 flex-1">{t(`error.${e.code}` as MessageKey, locale)}</span>
@@ -96,9 +96,9 @@ export function BatchScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-        <h1 className="text-lg font-semibold tracking-tight">{data.fileName}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{data.fileName}</h1>
         <BatchStateChip state={data.state} locale={locale} />
         <span className="text-2xs uppercase tracking-widest text-text-subtle">
           {t(`imports.source.${data.sourceKind}`, locale)}
@@ -108,13 +108,13 @@ export function BatchScreen() {
       {/* The outcome and its reason, at the top. A rejected batch that does not
           say why is a dead end. */}
       {data.rejectionReason ? (
-        <p className="max-w-prose border-l-2 border-danger pl-4 text-sm text-text">
+        <p className="max-w-prose rounded-panel border border-border border-l-2 border-l-danger bg-surface-raised p-6 text-sm text-text">
           {t(`batch.rejected.${data.rejectionReason}` as MessageKey, locale)}
         </p>
       ) : null}
 
       {data.counts ? (
-        <dl className="flex flex-wrap gap-x-8 gap-y-4 border-t border-border pt-4">
+        <dl className="flex flex-wrap gap-x-10 gap-y-6 rounded-panel border border-border bg-surface-raised p-6">
           {(
             [
               ["imports.counts.imported", data.counts.rowsImported],
@@ -134,11 +134,11 @@ export function BatchScreen() {
       ) : null}
 
       {data.balanceCheck ? (
-        <section className="border-t border-border pt-4">
-          <h2 className="text-2xs font-semibold uppercase tracking-widest text-text">
+        <section className="rounded-panel border border-border bg-surface-raised p-6">
+          <h2 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
             {t("batch.balance.title", locale)}
           </h2>
-          <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-4">
+          <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-6">
             {(
               [
                 ["batch.balance.opening", data.balanceCheck.opening],
@@ -159,15 +159,15 @@ export function BatchScreen() {
       ) : null}
 
       {data.errors.length > 0 ? (
-        <section className="border-t border-border pt-4">
+        <section className="rounded-panel border border-border bg-surface-raised p-6">
           <div className="flex flex-wrap items-baseline gap-4">
-            <h2 className="text-2xs font-semibold uppercase tracking-widest text-text">
+            <h2 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
               {t("batch.errors.title", locale)}
             </h2>
             <button
               type="button"
               onClick={() => download(data, locale)}
-              className="border-b border-text pb-px text-2xs font-semibold uppercase tracking-widest text-text"
+              className="border-b border-text pb-px text-2xs font-semibold uppercase tracking-widest text-text hover:border-text-muted hover:text-text-muted active:text-text-subtle"
             >
               {t("batch.errors.download", locale)}
             </button>

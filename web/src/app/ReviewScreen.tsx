@@ -10,8 +10,9 @@
  * every row that will ever carry that name, and the backend writes vendor memory
  * so the next import does not ask again.
  *
- * 36px rows rather than the 32px of the tables (§5). This screen takes keyboard
- * focus and its rows are targets.
+ * 44px rows rather than the 40px of the tables (§5, as amended 2026-09-16).
+ * This screen takes keyboard focus and its rows are targets, so it keeps the
+ * one-step lead over the tables it has always had.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,7 +27,7 @@ import { Kbd } from "../ui/Kbd";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { EmptyState, ErrorState, Loading } from "../ui/feedback";
 
-const ROW = 36;
+const ROW = 44;
 
 function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): string {
   const e = exponentOf(m.currencyCode);
@@ -50,7 +51,7 @@ function Legend({ locale }: Readonly<{ locale: Locale }>) {
   ] as const;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-3">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-panel border border-border bg-surface-raised p-6">
       <span className="text-2xs font-semibold uppercase tracking-widest text-text">
         {t("review.legend", locale)}
       </span>
@@ -154,17 +155,17 @@ export function ReviewScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="text-lg font-semibold tracking-tight">{t("review.title", locale)}</h1>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("review.title", locale)}</h1>
         <span className="tabular text-2xs uppercase tracking-widest text-text-subtle">
           {index + 1} {t("review.groupOf", locale)} {list.length}
         </span>
       </header>
 
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-4">
-        <h2 className="text-md font-semibold">{group.counterpartyLabel}</h2>
-        <span className="tabular text-md text-figure">{fmt(group.total, locale)}</span>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 rounded-panel border border-border bg-surface-raised p-6">
+        <h2 className="text-lg font-semibold tracking-tight">{group.counterpartyLabel}</h2>
+        <span className="tabular text-lg text-figure">{fmt(group.total, locale)}</span>
         {group.suggestedCategoryId ? (
           <span className="text-2xs uppercase tracking-widest text-text-subtle">
             {t("review.suggested", locale)} · {group.suggestedCategoryId}
@@ -175,7 +176,7 @@ export function ReviewScreen() {
         ) : null}
       </div>
 
-      <ol className="flex flex-wrap gap-x-4 gap-y-2">
+      <ol className="flex flex-wrap gap-x-6 gap-y-3 rounded-panel border border-border bg-surface-raised p-6">
         {(categories.data ?? []).map((c, i) => (
           <li key={c.id} className="flex items-center gap-1.5">
             <Kbd>{i + 1}</Kbd>
@@ -192,11 +193,11 @@ export function ReviewScreen() {
         ))}
       </ol>
 
-      <section>
-        <h3 className="text-2xs font-semibold uppercase tracking-widest text-text">
+      <section className="rounded-panel border border-border bg-surface-raised p-6">
+        <h3 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
           {t("review.transactions", locale)}
         </h3>
-        <div ref={parentRef} className="mt-2 max-h-96 overflow-y-auto">
+        <div ref={parentRef} className="mt-4 max-h-96 overflow-y-auto">
           <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
             {virtual.getVirtualItems().map((item) => {
               const row = rows[item.index]!;

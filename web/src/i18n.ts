@@ -13,6 +13,11 @@ const messages = {
   en: {
     "app.title": "Veekst",
     "app.tagline": "Management reporting for owner-run companies.",
+    "a11y.skipToContent": "Skip to content",
+
+    "notFound.title": "Page not found",
+    "notFound.detail": "There is nothing at this address.",
+    "notFound.cta": "Back to Veekst",
 
     "signIn.heading": "Sign in",
     "signIn.google": "Continue with Google",
@@ -72,11 +77,27 @@ const messages = {
       "The Management P&L is built from imported transactions. Import a bank statement or a ledger export and the report opens here.",
     "empty.batch.title": "Batch not found",
     "empty.batch.detail": "This import no longer exists, or it belongs to another organisation.",
+    "chart.expenses.title": "Top expense categories",
+    "chart.moneyflow.title": "Money flow",
+    "chart.moneyflow.totalIn": "Total in",
+    "chart.moneyflow.other": "Other",
+    "chart.netresult.title": "Net result by month",
+    "chart.netresult.series": "Net result",
+    "chart.revenueExpense.title": "Revenue against expenses",
+    "chart.revenueExpense.revenue": "Revenue",
+    "chart.revenueExpense.expenses": "Expenses",
+    "chart.trend.title": "Category trend",
+    "chart.view.chart": "Chart",
+    "chart.view.table": "Table",
+
     "landing.cta": "Sign in",
+    "landing.cta.secondary": "See the report",
+    "landing.nav.how": "How it works",
+    "landing.nav.product": "The report",
 
     "landing.promise": "Know what your business actually earned.",
     "landing.sub":
-      "Vekst turns your bank statements and your accountant's ledger into a management P&L you can open, line by line, down to the transaction.",
+      "Veekst turns your bank statements and your accountant's ledger into a management P&L you can open, line by line, down to the transaction.",
     "landing.problem.title": "Your bank and your accountant disagree, and both are right",
     "landing.problem.body":
       "A bank statement says when money moved. A ledger says when it was earned. Neither is a management report, and reconciling them by hand each month is where the evening goes — so the numbers arrive late, or they arrive rounded, or they arrive as a feeling.",
@@ -218,6 +239,11 @@ const messages = {
   ru: {
     "app.title": "Veekst",
     "app.tagline": "Управленческая отчётность для собственников бизнеса.",
+    "a11y.skipToContent": "Перейти к содержимому",
+
+    "notFound.title": "Страница не найдена",
+    "notFound.detail": "По этому адресу ничего нет.",
+    "notFound.cta": "Вернуться в Veekst",
 
     "signIn.heading": "Вход",
     "signIn.google": "Войти через Google",
@@ -271,11 +297,27 @@ const messages = {
       "Управленческий ОПиУ строится из импортированных операций. Загрузите выписку или выгрузку — и отчёт откроется здесь.",
     "empty.batch.title": "Пакет не найден",
     "empty.batch.detail": "Этот импорт больше не существует или принадлежит другой организации.",
+    "chart.expenses.title": "Основные статьи расходов",
+    "chart.moneyflow.title": "Движение денег",
+    "chart.moneyflow.totalIn": "Всего поступило",
+    "chart.moneyflow.other": "Прочее",
+    "chart.netresult.title": "Итог по месяцам",
+    "chart.netresult.series": "Итог",
+    "chart.revenueExpense.title": "Выручка и расходы",
+    "chart.revenueExpense.revenue": "Выручка",
+    "chart.revenueExpense.expenses": "Расходы",
+    "chart.trend.title": "Динамика по категориям",
+    "chart.view.chart": "График",
+    "chart.view.table": "Таблица",
+
     "landing.cta": "Войти",
+    "landing.cta.secondary": "Смотреть отчёт",
+    "landing.nav.how": "Как это работает",
+    "landing.nav.product": "Отчёт",
 
     "landing.promise": "Узнайте, сколько бизнес заработал на самом деле.",
     "landing.sub":
-      "Vekst превращает банковские выписки и учётные данные бухгалтера в управленческий отчёт, который можно раскрыть построчно — вплоть до операции.",
+      "Veekst превращает банковские выписки и учётные данные бухгалтера в управленческий отчёт, который можно раскрыть построчно — вплоть до операции.",
     "landing.problem.title": "Банк и бухгалтер противоречат друг другу, и оба правы",
     "landing.problem.body":
       "Выписка показывает, когда деньги пришли. Учёт показывает, когда они заработаны. Ни то ни другое не является управленческим отчётом, а сверять их вручную каждый месяц — это потерянный вечер. Поэтому цифры приходят поздно, округлённо или на уровне ощущений.",
