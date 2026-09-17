@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Ink and inverse only -- DESIGN.md §6: the chrome is monochrome, the
+       accent is ink rather than a hue. Approximates --color-accent and
+       --color-text-inverse; a favicon renders outside the token layer, so
+       exact values live here instead of in a component. -->
+  <rect width="32" height="32" rx="6" fill="#24221e"/>
+  <path d="M9 10 L16 23 L23 10" fill="none" stroke="#fdfcfb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
