@@ -302,10 +302,11 @@ const BarInner = memo(function BarInner({
             }
           } else {
             x = 0;
-            // For grouped bars, offset y position
-            const effectiveGroupGap = seriesCount > 1 ? groupGap : 0;
-            y = bandPos + seriesIndex * (barWidth + effectiveGroupGap);
           }
+          // CodeQL: the registry version set y a second time inside the
+          // `else` above with this identical formula, an unreachable dead
+          // store. Corrected by hand; re-apply if `shadcn add --overwrite`
+          // ever touches this file again.
           y = stacked
             ? bandPos
             : bandPos +
@@ -328,10 +329,11 @@ const BarInner = memo(function BarInner({
             }
           } else {
             y = valuePos;
-            // For grouped bars, offset x position
-            const effectiveGroupGap = seriesCount > 1 ? groupGap : 0;
-            x = bandPos + seriesIndex * (barWidth + effectiveGroupGap);
           }
+          // CodeQL: the registry version set x a second time inside the
+          // `else` above with this identical formula, an unreachable dead
+          // store. Corrected by hand; re-apply if `shadcn add --overwrite`
+          // ever touches this file again.
           x = stacked
             ? bandPos
             : bandPos +
