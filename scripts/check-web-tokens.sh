@@ -30,10 +30,18 @@ fi
 
 # Generated clients are not ours. The mock is scheduled for deletion with 5.2
 # and holds its own isolated token layer on purpose (web/src/mock/README.md).
+# src/components/** is vendored third-party source: bklit charts, copied in by
+# the shadcn registry CLI rather than written here. The token rule is about
+# what *we* write -- a vendored file cannot be edited to satisfy it without
+# making the next `shadcn add` a merge conflict. Vekst's own chart code lives
+# in src/app/charts and is checked like everything else; it is what passes the
+# palette in, so the tokens still govern what actually renders.
 sources() {
   find "$SRC" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \) \
     -not -path "$SRC/gen/*" \
     -not -path "$SRC/mock/*" \
+    -not -path "$SRC/components/*" \
+    -not -path "$SRC/lib/*" \
     -not -path "$TOKENS" \
     | sort
 }

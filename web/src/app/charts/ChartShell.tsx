@@ -1,62 +1,42 @@
 /**
- * The chart shell every chart in `WORKFLOW.md` §5.3 is built from: title,
- * table-view toggle, canvas lifecycle. §8.2 exists so the rules in §8.3–8.6
- * are satisfied once here rather than five times in five chart files.
+ * The chart shell every chart in `WORKFLOW.md` §5.3 is built from: title and
+ * table-view toggle. §8.2 exists so the rules in §8.3–8.6 are satisfied once
+ * here rather than five times in five chart files.
  *
- * A chart-specific legend, where §8.4 requires one, lives inside that chart's
- * own ECharts `option` (`legend: {...}`) rather than in this shell — it is
- * chart config, not shell chrome, and only `RevenueExpenseChart` needs it.
+ * Rebuilt for bklit: the ECharts version owned a canvas's imperative
+ * init/resize/dispose lifecycle here. bklit's charts are ordinary React
+ * components with no instance to manage, so this shell is back to pure
+ * presentation -- title, toggle, a slot for whichever child renders.
+ *
+ * A chart-specific legend, where §8.4 requires one, is chart JSX (bklit has
+ * no shell-level legend concept) rather than shell chrome -- only
+ * `RevenueExpenseChart` needs one.
  */
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
-import * as echarts from "echarts/core";
 
 import { t } from "../../i18n";
 import type { Locale, MessageKey } from "../../i18n";
-import { canDrawCanvas } from "./support";
+import { canRenderChart } from "./support";
 
 interface ChartShellProps {
   titleKey: MessageKey;
   locale: Locale;
-  /** `null` when there is nothing to draw (e.g. every value is zero). */
-  option: Record<string, unknown> | null;
+  /** `false` when there is nothing to draw (e.g. every value is zero). */
+  hasData: boolean;
+  chart: ReactNode;
   table: ReactNode;
-  /** Tailwind height class for the canvas host. */
-  height?: string;
 }
 
 export function ChartShell({
   titleKey,
   locale,
-  option,
+  hasData,
+  chart,
   table,
-  height = "h-80",
 }: Readonly<ChartShellProps>) {
-  const drawable = canDrawCanvas() && option !== null;
+  const drawable = canRenderChart() && hasData;
   const [asTable, setAsTable] = useState(!drawable);
-  const host = useRef<HTMLDivElement>(null);
-
-  // Init when there is something to draw and the reader wants the chart,
-  // tear down and redraw whenever `option`'s identity changes -- the
-  // caller's own `useMemo` (over the report, locale and theme) is what
-  // decides when that identity actually changes.
-  useEffect(() => {
-    const node = host.current;
-    if (!node || !option || asTable) return;
-
-    const chart = echarts.init(node);
-    // §8.15: a chart may draw itself in; a figure inside it may not count up.
-    chart.setOption(option);
-
-    const ro =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => chart.resize());
-    ro?.observe(node);
-
-    return () => {
-      ro?.disconnect();
-      chart.dispose();
-    };
-  }, [option, asTable]);
 
   return (
     <section className="rounded-panel border border-border bg-surface-raised p-6">
@@ -75,9 +55,7 @@ export function ChartShell({
         ) : null}
       </div>
 
-      <div className="mt-4">
-        {asTable || !drawable ? table : <div ref={host} className={`w-full ${height}`} />}
-      </div>
+      <div className="mt-4">{asTable || !drawable ? table : chart}</div>
     </section>
   );
 }

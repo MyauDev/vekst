@@ -53,6 +53,8 @@ const messages = {
     "state.row.needsReview": "Needs review",
     "state.row.blocked": "Blocked",
 
+    "nav.primary": "Main",
+    "nav.home": "Home",
     "nav.imports": "Imports",
     "nav.review": "Review",
     "nav.reports": "Reports",
@@ -116,6 +118,13 @@ const messages = {
       "Not a screenshot — the same component the application renders, on sample figures. The basis is stated where you read it, a line that cannot be computed honestly says so instead of guessing, and the reconciliation proves nothing was dropped.",
     "landing.close.title": "See it on your own numbers",
     "landing.rights": "Management reporting for owner-run companies.",
+
+    "home.title": "Home",
+    "home.imports.count": "Batches",
+    "home.imports.latest": "Latest",
+    "home.review.awaiting": "Awaiting review",
+    "home.reports.net": "Net result",
+    "home.account.title": "Account",
 
     "imports.title": "Imports",
     "imports.upload": "Upload a file",
@@ -204,6 +213,8 @@ const messages = {
     "review.groupOf": "of",
 
     "report.title": "Management P&L",
+    "report.tab.table": "Table",
+    "report.tab.charts": "Charts",
     "report.category": "Category",
     "report.total": "Total",
     "report.percentOfRevenue": "% of revenue",
@@ -275,6 +286,8 @@ const messages = {
     "state.row.needsReview": "На проверку",
     "state.row.blocked": "Заблокировано",
 
+    "nav.primary": "Основное",
+    "nav.home": "Главная",
     "nav.imports": "Импорт",
     "nav.review": "Проверка",
     "nav.reports": "Отчёты",
@@ -336,6 +349,13 @@ const messages = {
       "Не скриншот — тот же компонент, что рендерит приложение, на демонстрационных данных. Метод учёта указан там, где вы читаете, строка, которую нельзя посчитать честно, говорит об этом вместо догадки, а сверка доказывает, что ничего не потеряно.",
     "landing.close.title": "Посмотрите на своих данных",
     "landing.rights": "Управленческая отчётность для собственников бизнеса.",
+
+    "home.title": "Главная",
+    "home.imports.count": "Импортировано",
+    "home.imports.latest": "Последний",
+    "home.review.awaiting": "На проверке",
+    "home.reports.net": "Финансовый результат",
+    "home.account.title": "Аккаунт",
 
     "imports.title": "Импорт",
     "imports.upload": "Загрузить файл",
@@ -418,6 +438,8 @@ const messages = {
     "review.groupOf": "из",
 
     "report.title": "Управленческий ОПиУ",
+    "report.tab.table": "Таблица",
+    "report.tab.charts": "Графики",
     "report.category": "Категория",
     "report.total": "Итого",
     "report.percentOfRevenue": "% от выручки",

@@ -332,11 +332,19 @@ change 5.1b freezes the message catalog.
 
 ## 8. Screen skeletons — the Demo
 
-**App shell.** Left rail: Imports · Review · Reports. Top bar: organisation,
-**entity**, period range, language. The entity selector ships even though v1
-creates one entity per organisation. The schema carries `entity_id` from the
-first migration for the same reason: the slot is cheap now and a retro-fit is
-not.
+**App shell.** Left rail: Home · Imports · Review · Reports. Top bar:
+organisation, **entity**, period range, language. The entity selector ships
+even though v1 creates one entity per organisation. The schema carries
+`entity_id` from the first migration for the same reason: the slot is cheap
+now and a retro-fit is not.
+
+**Home.** `/app` lands here rather than on the Management P&L — a starting
+point, not a fourth pipeline stage. Three cards in pipeline order (Imports,
+Review, Reports), each a shortcut carrying a real figure from the same query
+its destination uses, never an invented placeholder. A fourth card is the
+identity summary: name, email, sign out — the same data the rail's own account
+slot already renders, not a settings screen; there is no settings data behind
+one yet.
 
 **Imports.** A batch list with the state from §7 and the `source_kind` tag on
 every row. Upload accepts CSV and XLSX and asks for `ledger` or `bank` before

@@ -1,163 +1,112 @@
 /**
  * Category trend — small multiples, one line each. `WORKFLOW.md` §5.3, task
- * 8.12.
+ * 8.12. Built on the vendored `@bklit/line-chart`: bklit has no small-
+ * multiples primitive, so this is a CSS grid of small `LineChart` instances,
+ * one per category.
  *
- * One hue plus `--color-chart-deemph` for context (§13.4): small multiples
- * are an all-pairs comparison, which caps distinguishable series at three by
- * colour alone, so every facet uses the same hue and identity comes from the
- * facet's own title instead. The de-emphasis line is each category's own
+ * One hue plus de-emphasis grey for context (§13.4): small multiples are an
+ * all-pairs comparison, which caps distinguishable series at three by colour
+ * alone, so every facet uses the same hue and identity comes from the
+ * facet's own heading instead. The de-emphasis line is each category's own
  * average across the range — the context a reader actually wants ("is this
  * month high or low for this line"), not a second series.
  *
- * One y-axis per facet (§8.7 forbids two inside *one* chart; a grid of
- * single-axis facets is not that).
+ * No axis at all, not even the locale-safe label row `RevenueExpenseChart`
+ * builds: eight facets this small have no room for one, and "beats an
+ * 8-line spaghetti chart" (§5.3) is a shape-recognition job, not a
+ * read-the-exact-value one — that is what the table view and each facet's
+ * own tooltip are for.
  */
 import { useMemo } from "react";
-import { LineChart } from "echarts/charts";
-import { GraphicComponent, GridComponent, TooltipComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
-import * as echarts from "echarts/core";
+import { LineChart } from "@/components/charts/line-chart";
+import { Line } from "@/components/charts/line";
+import { ChartTooltip } from "@/components/charts/tooltip";
 
 import { exponentOf, formatMinorUnits } from "../../money";
 import type { Locale } from "../../i18n";
-import { useTheme } from "../../ui/preferences";
 import type { Report } from "../../data/report";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
-import { chartToken, reducedMotion } from "./support";
-
-echarts.use([LineChart, GraphicComponent, GridComponent, TooltipComponent, CanvasRenderer]);
+import { chartsAnimate } from "./support";
 
 const MAX_FACETS = 8;
-const COLS = 4;
 
 interface Facet {
   categoryId: string;
   label: string;
-  values: readonly number[];
+  rows: { period: string; value: number }[];
   texts: readonly string[];
 }
 
 function facets(report: Report, locale: Locale): Facet[] {
   const exp = exponentOf(report.currencyCode);
-  const all = report.sections
+  return report.sections
     .flatMap((s) => s.lines)
     .filter((l) => l.total !== null)
-    .map((l) => {
-      const magnitude = (m: { minorUnits: string } | null) =>
-        m && exp !== undefined ? Math.abs(Number(BigInt(m.minorUnits)) / 10 ** exp) : 0;
-      return {
-        categoryId: l.categoryId,
-        label: l.label,
-        totalAbs: Math.abs(exp === undefined || !l.total ? 0 : Number(BigInt(l.total.minorUnits))),
-        values: l.values.map(magnitude),
-        texts: l.values.map((v) => (v && exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
-      };
-    })
+    .map((l) => ({
+      categoryId: l.categoryId,
+      label: l.label,
+      totalAbs: exp === undefined || !l.total ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
+      rows: report.periods.map((period, i) => {
+        const m = l.values[i];
+        const value = m && exp !== undefined ? Math.abs(Number(BigInt(m.minorUnits)) / 10 ** exp) : 0;
+        return { period, value };
+      }),
+      texts: l.values.map((v) => (v && exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
+    }))
     .sort((a, b) => b.totalAbs - a.totalAbs)
     .slice(0, MAX_FACETS);
-  return all;
+}
+
+function Facet({ facet }: Readonly<{ facet: Facet }>) {
+  const avg = facet.rows.reduce((s, r) => s + r.value, 0) / (facet.rows.length || 1);
+  const rowsWithAvg = facet.rows.map((r) => ({ ...r, avg }));
+
+  return (
+    <div>
+      <p className="text-2xs font-semibold text-text-subtle">{facet.label}</p>
+      <LineChart data={rowsWithAvg} xDataKey="period" margin={{ top: 8, right: 4, bottom: 4, left: 4 }} aspectRatio="2.4 / 1">
+        <Line dataKey="value" stroke="var(--chart-1)" strokeWidth={2} animate={chartsAnimate()} showMarkers={false} />
+        <Line dataKey="avg" stroke="var(--vk-chart-deemph)" strokeWidth={1} animate={false} showMarkers={false} showHighlight={false} />
+        <ChartTooltip
+          showDatePill={false}
+          rows={(point) => [
+            {
+              color: "var(--chart-1)",
+              label: facet.label,
+              value: facet.texts[facet.rows.findIndex((r) => r.period === point["period"])] ?? "",
+            },
+          ]}
+        />
+      </LineChart>
+    </div>
+  );
 }
 
 export function CategoryTrendChart({
   report,
   locale,
 }: Readonly<{ report: Report; locale: Locale }>) {
-  const [theme] = useTheme();
   const data = useMemo(() => facets(report, locale), [report, locale]);
-
-  const option = useMemo(() => {
-    if (data.length === 0) return null;
-    const rows = Math.ceil(data.length / COLS);
-    const gapPct = 4;
-    const cellW = (100 - gapPct * (COLS - 1)) / COLS;
-    const cellH = (100 - gapPct * (rows - 1)) / rows;
-    const line = chartToken("--vk-series-1");
-    const deemph = chartToken("--vk-chart-deemph");
-    const label = chartToken("--vk-text-muted");
-
-    const grids = data.map((_, i) => {
-      const col = i % COLS;
-      const row = Math.floor(i / COLS);
-      return {
-        left: `${col * (cellW + gapPct)}%`,
-        top: `${row * (cellH + gapPct) + 6}%`,
-        width: `${cellW}%`,
-        height: `${cellH - 8}%`,
-      };
-    });
-
-    return {
-      animation: !reducedMotion(),
-      animationDuration: 300,
-      grid: grids,
-      tooltip: { trigger: "axis" },
-      // The facet's title, as canvas-percentage text rather than a per-facet
-      // chart title component (that component cannot be gridIndex-scoped) and
-      // rather than a markPoint at a data coordinate (a category's own values
-      // rarely include zero, so a point pinned to y=0 lands outside the
-      // auto-scaled range and never actually appears -- this was tried first).
-      graphic: grids.map((g, i) => ({
-        type: "text",
-        left: g.left,
-        top: `${parseFloat(String(g.top)) - 4}%`,
-        style: {
-          text: data[i]!.label,
-          fill: label,
-          fontSize: 11,
-          fontWeight: 600,
-        },
-      })),
-      xAxis: data.map((_, i) => ({
-        gridIndex: i,
-        type: "category",
-        data: report.periods,
-        show: false,
-      })),
-      yAxis: data.map((_, i) => ({ gridIndex: i, type: "value", show: false })),
-      series: data.flatMap((f, i) => {
-        const avg = f.values.reduce((s, v) => s + v, 0) / (f.values.length || 1);
-        return [
-          {
-            name: f.label,
-            type: "line",
-            xAxisIndex: i,
-            yAxisIndex: i,
-            data: f.values,
-            symbol: "none",
-            lineStyle: { width: 2, color: line },
-          },
-          // The facet's own average, in the de-emphasis grey -- the context a
-          // reader wants ("high or low against its own normal"), not a second
-          // identity. A flat data series rather than a `markLine`: it shares
-          // the main line's coordinate system exactly, with no separate
-          // API to get subtly wrong.
-          {
-            type: "line",
-            xAxisIndex: i,
-            yAxisIndex: i,
-            data: f.values.map(() => avg),
-            symbol: "none",
-            silent: true,
-            lineStyle: { width: 1, color: deemph, type: "dashed" },
-          },
-        ];
-      }),
-    };
-  }, [data, report.periods, theme]);
 
   return (
     <ChartShell
       titleKey="chart.trend.title"
       locale={locale}
-      option={option}
-      height="h-96"
+      hasData={data.length > 0}
       table={
         <PeriodTable
           periods={report.periods}
           series={data.map((f) => ({ label: f.label, values: f.texts }))}
           locale={locale}
         />
+      }
+      chart={
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+          {data.map((f) => (
+            <Facet key={f.categoryId} facet={f} />
+          ))}
+        </div>
       }
     />
   );

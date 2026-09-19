@@ -86,37 +86,51 @@ describe("task 8.18 — no chart component references a raw series hex", () => {
 });
 
 describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
-  it("a negative net-result column never reaches for the danger token", () => {
+  it("the net-result diverging colours are bridged to the diverging palette, never danger", () => {
     // §6: an expense line is negative every month; a loss month is not an
-    // error, and red is what marks a rejected import. The diverging chart
-    // must use the diverging palette, never --vk-danger.
-    const body = readFileSync(join(chartsDir, "NetResultChart.tsx"), "utf8");
-    expect(body).toMatch(/--vk-diverge-neg-\d/);
-    expect(body).not.toMatch(/--vk-danger\b/);
+    // error, and red is what marks a rejected import. NetResultChart no
+    // longer names a --vk- token directly -- it reads the bklit-facing
+    // aliases index.css defines for it -- so both ends of that indirection
+    // are checked: the chart uses the aliases, and the aliases point at the
+    // diverging palette rather than danger.
+    const chart = readFileSync(join(chartsDir, "NetResultChart.tsx"), "utf8");
+    expect(chart).toMatch(/--chart-diverge-positive/);
+    expect(chart).toMatch(/--chart-diverge-negative/);
+
+    const css = readFileSync(web("src", "index.css"), "utf8");
+    const bridge = css.slice(css.indexOf("--chart-diverge-positive"));
+    expect(bridge.slice(0, bridge.indexOf(";"))).toMatch(/--vk-diverge-pos-\d/);
+    const negLine = bridge.slice(bridge.indexOf("--chart-diverge-negative"));
+    expect(negLine.slice(0, negLine.indexOf(";"))).toMatch(/--vk-diverge-neg-\d/);
+    expect(css).not.toMatch(/--chart-diverge-(positive|negative):\s*var\(--vk-danger/);
   });
 
-  it("the two-series chart declares a legend", () => {
-    // §13.5: a legend wherever two or more series appear.
+  it("the two-series chart renders a legend", () => {
+    // §13.5: a legend wherever two or more series appear. bklit ships no
+    // legend primitive, so this is plain JSX rather than an option key --
+    // data-chart-legend marks it for exactly this assertion.
     const body = readFileSync(join(chartsDir, "RevenueExpenseChart.tsx"), "utf8");
-    expect(body).toMatch(/legend\s*:/);
+    expect(body).toMatch(/data-chart-legend/);
   });
 
   it("the single-series charts do not", () => {
     // Absence is the assertion here: a legend on a single series is the
     // "an icon beside every label" mistake in chart form.
-    for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx"]) {
+    for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx", "CategoryTrendChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
-      expect(body).not.toMatch(/legend\s*:/);
+      expect(body).not.toMatch(/data-chart-legend/);
     }
   });
 
-  it("no chart's option carries two y-axes", () => {
-    // §8.7. CategoryTrendChart is the one exception the rule accounts for --
-    // it is `data.length` single-axis grids, not one chart with several.
+  it("no single-value-scale chart introduces a second y-axis", () => {
+    // §8.7. bklit's `yAxisId` prop is the only way to add a second scale to
+    // one chart; its absence is the guarantee. CategoryTrendChart is exempt
+    // -- it is `data.length` separate single-axis LineChart instances, not
+    // one chart with several -- and MoneyFlowChart is a Sankey, which has no
+    // y-axis concept at all.
     for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx", "RevenueExpenseChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
-      const yAxisCount = (body.match(/\byAxis\s*:/g) ?? []).length;
-      expect(yAxisCount, `${file} declares yAxis ${yAxisCount} times`).toBe(1);
+      expect(body, `${file} declares a yAxisId`).not.toMatch(/yAxisId/);
     }
   });
 });

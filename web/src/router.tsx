@@ -13,6 +13,7 @@ import { LandingPage } from "./site/LandingPage";
 import { NotFound } from "./site/NotFound";
 import { SignInPage } from "./site/SignInPage";
 import { AppLayout } from "./app/AppLayout";
+import { HomeScreen } from "./app/HomeScreen";
 import { ImportsScreen } from "./app/ImportsScreen";
 import { BatchScreen } from "./app/BatchScreen";
 import { ReviewScreen } from "./app/ReviewScreen";
@@ -80,21 +81,30 @@ const appRoute = createRoute({
 });
 
 /**
- * `/app` and `/app/reports` are destinations, not screens.
+ * `/app` redirects to `/app/home`, added 2026-09-19 alongside the home screen
+ * itself. Superseded comment, kept for the record: this used to send `/app`
+ * straight to the Management P&L "rather than through an overview nobody
+ * came for," on the reasoning that the P&L was the whole MVP and a landing
+ * screen would be a redirect through nothing. A rail with three destinations
+ * and no way back to a start is the thing that stopped being true — Home is
+ * that way back, not an overview added for its own sake.
  *
- * The Management P&L is the whole MVP, so `/app` goes straight there rather
- * than through an overview nobody came for. `/app/reports` keeps its segment
- * although one report exists: Sales, OPEX and Cash Flow arrive at Commercial as
- * siblings of `pnl`, and the cost of the segment now is one redirect while the
- * cost of adding it later is every saved link.
+ * `/app/reports` keeps its own segment although one report exists: Sales,
+ * OPEX and Cash Flow arrive at Commercial as siblings of `pnl`, and the cost
+ * of the segment now is one redirect while the cost of adding it later is
+ * every saved link.
  */
+const homeRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "home",
+  component: HomeScreen,
+});
+
 const appIndexRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/",
   beforeLoad: () => {
-    // The range is required on the target, so a redirect has to carry one.
-    // Year-to-date: an accountant's year is the unit that matters.
-    throw redirect({ to: "/app/reports/pnl", search: defaultRange() });
+    throw redirect({ to: "/app/home" });
   },
 });
 
@@ -122,7 +132,7 @@ const reportsRoute = createRoute({
   beforeLoad: () => {
     // The range is required on the target, so a redirect has to carry one.
     // Year-to-date: an accountant's year is the unit that matters.
-    throw redirect({ to: "/app/reports/pnl", search: defaultRange() });
+    throw redirect({ to: "/app/reports/pnl", search: { ...defaultRange(), view: "table" } });
   },
 });
 
@@ -137,16 +147,31 @@ const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
  * An unparseable range falls back to the default rather than erroring. A link
  * that someone truncated should still open the report.
  */
+/**
+ * "table" is the default and the fallback for anything unrecognised: the
+ * P&L table is the MVP (`ReportScreen`'s own file comment), and a truncated
+ * or hand-edited link should land on it rather than on a screen that needs
+ * more explaining.
+ */
+const VIEWS = ["table", "charts"] as const;
+export type ReportView = (typeof VIEWS)[number];
+
 const pnlRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "reports/pnl",
-  validateSearch: (search: Record<string, unknown>): { from: string; to: string } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { from: string; to: string; view: ReportView } => {
     const fallback = defaultRange();
     const pick = (v: unknown, d: string) =>
       typeof v === "string" && PERIOD.test(v) ? v : d;
+    const view = VIEWS.includes(search["view"] as ReportView)
+      ? (search["view"] as ReportView)
+      : "table";
     return {
       from: pick(search["from"], fallback.from),
       to: pick(search["to"], fallback.to),
+      view,
     };
   },
   component: ReportScreen,
@@ -201,6 +226,7 @@ export function makeRouter(transport: Transport, history?: RouterHistory) {
     signInRoute,
     appRoute.addChildren([
       appIndexRoute,
+      homeRoute,
       importsRoute,
       batchRoute,
       reviewRoute,

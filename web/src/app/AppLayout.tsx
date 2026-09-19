@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Code, ConnectError, createClient, type Transport } from "@connectrpc/connect";
 
 import { IdentityService } from "../gen/vekst/v1/identity_pb";
+import { signOut } from "../data/auth";
 import { reviewSummary } from "../data/review";
 import { t } from "../i18n";
 import { NO_DATA } from "../money";
@@ -20,13 +21,6 @@ import { useLocale, useTheme } from "../ui/preferences";
 import { ErrorState, Loading } from "../ui/feedback";
 import { Rail } from "./Rail";
 import { TopBar } from "./TopBar";
-
-async function signOut() {
-  // A plain fetch, not an RPC: sign-out clears a cookie in the same response
-  // that ends the session, and it belongs with the other two auth routes.
-  await fetch("/auth/logout", { method: "POST" });
-  window.location.assign("/");
-}
 
 export function AppLayout({
   transport,

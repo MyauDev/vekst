@@ -1,27 +1,25 @@
 /**
  * Top expense categories — horizontal bar, sorted. `WORKFLOW.md` §5.3, task
- * 8.9.
+ * 8.9. Built on the vendored `@bklit/bar-chart`.
  *
  * One hue, slot 1, every bar the same step (§13.4): bar length already
  * encodes magnitude, so colouring bars by their own value spends the
  * identity channel re-encoding what length already shows.
  */
 import { useMemo } from "react";
-import { BarChart } from "echarts/charts";
-import { GridComponent, TooltipComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
-import * as echarts from "echarts/core";
+import { BarChart } from "@/components/charts/bar-chart";
+import { Bar } from "@/components/charts/bar";
+import { Grid } from "@/components/charts/grid";
+import { BarYAxis } from "@/components/charts/bar-y-axis";
+import { ChartTooltip } from "@/components/charts/tooltip";
 
 import { NO_DATA, exponentOf, formatMinorUnits } from "../../money";
 import type { Locale } from "../../i18n";
-import { useTheme } from "../../ui/preferences";
 import type { Report } from "../../data/report";
 import { ChartShell } from "./ChartShell";
 import { CategoryTable } from "./ChartTable";
-import { axisNumberFormatter, chartToken, foldTopN, reducedMotion } from "./support";
+import { chartsAnimate, foldTopN } from "./support";
 import type { Sliced } from "./support";
-
-echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
 const MAX_SLOTS = 8;
 
@@ -51,7 +49,7 @@ function rows(report: Report, locale: Locale) {
     : kept;
 
   return named.map((r) => ({
-    label: r.label,
+    name: r.label,
     value: r.value,
     text: exp === undefined ? NO_DATA : formatMinorUnits(String(Math.round(r.value * 10 ** exp)), exp, locale),
   }));
@@ -61,56 +59,44 @@ export function ExpenseCategoriesChart({
   report,
   locale,
 }: Readonly<{ report: Report; locale: Locale }>) {
-  const [theme] = useTheme();
   const data = useMemo(() => rows(report, locale), [report, locale]);
-
-  const option = useMemo(() => {
-    if (data.length === 0) return null;
-    const sorted = [...data].sort((a, b) => a.value - b.value); // ascending: largest bar on top
-    return {
-      animation: !reducedMotion(),
-      animationDuration: 300,
-      grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        // Repeats the figure, never reveals it -- §9 forbids hover-only information.
-        formatter: (params: readonly { dataIndex: number }[]) => {
-          const row = sorted[params[0]?.dataIndex ?? 0];
-          return row ? `${row.label}<br/>${row.text}` : "";
-        },
-      },
-      xAxis: {
-        type: "value",
-        axisLabel: { color: chartToken("--vk-text-subtle"), fontSize: 11, formatter: axisNumberFormatter(locale) },
-        splitLine: { lineStyle: { color: chartToken("--vk-chart-grid") } },
-      },
-      yAxis: {
-        type: "category",
-        data: sorted.map((r) => r.label),
-        axisLabel: { color: chartToken("--vk-text-muted"), fontSize: 12 },
-        axisLine: { lineStyle: { color: chartToken("--vk-chart-axis") } },
-        axisTick: { show: false },
-      },
-      series: [
-        {
-          type: "bar",
-          data: sorted.map((r) => r.value),
-          itemStyle: { color: chartToken("--vk-series-1") },
-          barMaxWidth: 18,
-        },
-      ],
-    };
-    // theme is a dependency because every colour above is re-read from the
-    // token layer, which the theme attribute changes.
-  }, [data, locale, theme]);
+  // Largest at the top: BarChart plots array order bottom-to-top for a
+  // horizontal orientation, so the sort is reversed from the table's own
+  // (largest-first) order.
+  const sorted = useMemo(() => [...data].sort((a, b) => a.value - b.value), [data]);
 
   return (
     <ChartShell
       titleKey="chart.expenses.title"
       locale={locale}
-      option={option}
-      table={<CategoryTable rows={data} locale={locale} />}
+      hasData={data.length > 0}
+      table={<CategoryTable rows={data.map(({ name, text }) => ({ label: name, text }))} locale={locale} />}
+      chart={
+        <BarChart
+          data={sorted}
+          xDataKey="name"
+          orientation="horizontal"
+          aspectRatio="2.4 / 1"
+          // Wide enough for the longest category label ("Software and
+          // subscriptions") at BarYAxis's patched 190px cap -- see the
+          // comment there.
+          margin={{ left: 200, right: 16, top: 8, bottom: 8 }}
+          animationDuration={chartsAnimate() ? 600 : 0}
+        >
+          <Grid horizontal={false} vertical />
+          <BarYAxis showAllLabels />
+          <Bar dataKey="value" fill="var(--chart-1)" />
+          <ChartTooltip
+            rows={(point) => [
+              {
+                color: "var(--chart-1)",
+                label: String(point["name"]),
+                value: sorted.find((r) => r.name === point["name"])?.text ?? "",
+              },
+            ]}
+          />
+        </BarChart>
+      }
     />
   );
 }

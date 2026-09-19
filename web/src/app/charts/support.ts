@@ -7,18 +7,16 @@ import { localeTag } from "../../money";
 import type { Locale } from "../../i18n";
 
 /**
- * A canvas needs a 2D context, and jsdom has none. Where a chart cannot be
- * drawn, every chart in this module falls back to its table view — not as a
- * placeholder, but as the same figures in the form `WORKFLOW.md` §5.3 already
- * requires reachable from every chart.
+ * bklit's charts measure their container with `@visx/responsive`'s
+ * `ParentSize`, which needs a real `ResizeObserver` -- jsdom has none. Where
+ * a chart cannot be measured it never reports a size, `ParentSize` never
+ * renders its children, and the reader would see an empty card. Every chart
+ * in this module falls back to its table view instead — not a placeholder,
+ * the same figures in the form `WORKFLOW.md` §5.3 already requires reachable
+ * from every chart.
  */
-export function canDrawCanvas(): boolean {
-  try {
-    if (typeof document === "undefined") return false;
-    return document.createElement("canvas").getContext("2d") !== null;
-  } catch {
-    return false;
-  }
+export function canRenderChart(): boolean {
+  return typeof ResizeObserver !== "undefined";
 }
 
 /** Fails toward "do not animate" in any environment that cannot answer, the
@@ -35,26 +33,22 @@ export function reducedMotion(): boolean {
   }
 }
 
-/**
- * Reads a raw `--vk-*` custom property from the document.
- *
- * A canvas inherits no token the way an element does, so this is how a chart
- * stays inside the same token layer as everything else: read at render time,
- * re-read when the theme changes. jsdom applies no stylesheet (the existing
- * precedent is `report.test.tsx`'s "both palettes" describe block), so this
- * returns `""` under test — every caller treats an empty string as "let
- * ECharts use its structural default," never as a crash.
- */
-export function chartToken(name: string): string {
-  if (typeof document === "undefined") return "";
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-/** `ru` groups with a space; ECharts' own default is always a comma. §4
- *  reaches an axis exactly as it reaches a table cell. */
+/** `ru` groups with a space; a chart library's own default is always a comma.
+ *  §4 reaches an axis exactly as it reaches a table cell. */
 export function axisNumberFormatter(locale: Locale): (v: number) => string {
   const fmt = new Intl.NumberFormat(localeTag(locale));
   return (v: number) => fmt.format(v);
+}
+
+/**
+ * §8.15: a chart may draw itself in; a figure inside it may not count up.
+ * bklit's charts animate via `motion` springs rather than a CSS transition,
+ * so the global `prefers-reduced-motion` floor in `index.css` §4 does not
+ * reach them on its own -- every chart in this module passes this to its
+ * `animate` prop instead of hard-coding `true`.
+ */
+export function chartsAnimate(): boolean {
+  return !reducedMotion();
 }
 
 export interface Sliced<T> {

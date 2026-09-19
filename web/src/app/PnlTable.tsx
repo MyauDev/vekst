@@ -71,7 +71,9 @@ function Figure({
       <Link
         to="/app/reports/pnl/cell/$categoryId/$period"
         params={{ categoryId, period }}
-        search={{ from, to }}
+        // A figure cell only exists in the table view -- this table is never
+        // rendered under the charts tab -- so the panel opens back onto it.
+        search={{ from, to, view: "table" }}
         // A colour step on press, never a transform: this cell is a figure, and
         // a figure that moves under the finger is a figure that looks like it
         // is still being computed (§5).

@@ -1,142 +1,146 @@
 /**
  * Revenue against expenses — two lines, one axis. `WORKFLOW.md` §5.3, task
- * 8.11.
+ * 8.11. Built on the vendored `@bklit/line-chart`.
  *
- * Two series, so `DESIGN.md` §13.5 requires both a legend and direct labels
- * -- neither stands in for the other; a legend is scanned once, a direct
- * label is read at the point that matters. Slots 1 and 2 in the fixed
+ * Two series, so `DESIGN.md` §13.5 requires a legend — built here rather than
+ * with a bklit primitive, since none ships one. Slots 1 and 2 in the fixed
  * categorical order (§13.2), never chosen for this chart specifically.
+ *
+ * No `<XAxis>`: bklit's ships one, but its tick labels go through
+ * `shortDateFmt`, a hard-coded `Intl.DateTimeFormat("en-US", ...)` with no
+ * locale parameter — DESIGN.md §4 requires `ru` to read correctly, and this
+ * is a monthly P&L, not a day-precision series, so "Jan 15" would be wrong
+ * twice over. A locale-correct period row is built here instead; the exact
+ * period is always available on hover (the tooltip is ours) and in the table.
  */
 import { useMemo } from "react";
-import { LineChart } from "echarts/charts";
-import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
-import * as echarts from "echarts/core";
+import { LineChart } from "@/components/charts/line-chart";
+import { Line } from "@/components/charts/line";
+import { Grid } from "@/components/charts/grid";
+import { ChartTooltip } from "@/components/charts/tooltip";
 
 import { exponentOf, formatMinorUnits, sumMinorUnits } from "../../money";
-import type { Locale } from "../../i18n";
 import { t } from "../../i18n";
-import { useTheme } from "../../ui/preferences";
+import type { Locale } from "../../i18n";
 import { formatPeriodShort } from "../../ui/period";
 import type { Report } from "../../data/report";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
-import { axisNumberFormatter, chartToken, reducedMotion } from "./support";
+import { chartsAnimate } from "./support";
 
-echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+const MARGIN = { top: 24, right: 16, bottom: 8, left: 16 };
 
 export function RevenueExpenseChart({
   report,
   locale,
 }: Readonly<{ report: Report; locale: Locale }>) {
-  const [theme] = useTheme();
   const exp = exponentOf(report.currencyCode);
 
   const revenue = report.sections.find((s) => s.id === "revenue")!;
   const expenseSections = report.sections.filter((s) => s.id !== "revenue");
 
-  const revenueMinor = revenue.subtotals.map((m) => m.minorUnits);
-  const expenseMinor = report.periods.map((_, i) =>
-    // Cost of sales and operating expenses combined, as a positive magnitude
-    // -- this chart compares two magnitudes, and expenses are stored negative.
-    sumMinorUnits(expenseSections.map((s) => s.subtotals[i]!.minorUnits)).replace(/^-/, ""),
+  const rows = useMemo(
+    () =>
+      report.periods.map((period, i) => {
+        const revenueMinor = revenue.subtotals[i]!.minorUnits;
+        // Cost of sales and operating expenses combined, as a positive
+        // magnitude -- this chart compares two magnitudes, and expenses are
+        // stored negative.
+        const expenseMinor = sumMinorUnits(
+          expenseSections.map((s) => s.subtotals[i]!.minorUnits),
+        ).replace(/^-/, "");
+        return {
+          period,
+          revenue: exp === undefined ? 0 : Number(BigInt(revenueMinor)) / 10 ** exp,
+          expenses: exp === undefined ? 0 : Number(BigInt(expenseMinor)) / 10 ** exp,
+          revenueText: exp === undefined ? "" : formatMinorUnits(revenueMinor, exp, locale),
+          expensesText: exp === undefined ? "" : formatMinorUnits(expenseMinor, exp, locale),
+        };
+      }),
+    [report, revenue, expenseSections, exp, locale],
   );
 
-  const revenueMajor = useMemo(
-    () => revenueMinor.map((u) => (exp === undefined ? 0 : Number(BigInt(u)) / 10 ** exp)),
-    [revenueMinor, exp],
-  );
-  const expenseMajor = useMemo(
-    () => expenseMinor.map((u) => (exp === undefined ? 0 : Number(BigInt(u)) / 10 ** exp)),
-    [expenseMinor, exp],
-  );
-
-  const revenueText = useMemo(
-    () => revenueMinor.map((u) => (exp === undefined ? "" : formatMinorUnits(u, exp, locale))),
-    [revenueMinor, exp, locale],
-  );
-  const expenseText = useMemo(
-    () => expenseMinor.map((u) => (exp === undefined ? "" : formatMinorUnits(u, exp, locale))),
-    [expenseMinor, exp, locale],
-  );
-
-  const option = useMemo(() => {
-    if (revenueMajor.every((v) => v === 0) && expenseMajor.every((v) => v === 0)) return null;
-    const revenueLabel = t("chart.revenueExpense.revenue", locale);
-    const expensesLabel = t("chart.revenueExpense.expenses", locale);
-    const text = chartToken("--vk-text-muted");
-    return {
-      animation: !reducedMotion(),
-      animationDuration: 300,
-      grid: { left: 8, right: 48, top: 40, bottom: 24, containLabel: true },
-      legend: {
-        top: 0,
-        left: 0,
-        icon: "circle",
-        itemWidth: 8,
-        itemHeight: 8,
-        textStyle: { color: text, fontSize: 12 },
-      },
-      tooltip: {
-        trigger: "axis",
-        formatter: (params: readonly { dataIndex: number }[]) => {
-          const i = params[0]?.dataIndex ?? 0;
-          return `${formatPeriodShort(report.periods[i]!, locale)}<br/>${revenueLabel}: ${revenueText[i]}<br/>${expensesLabel}: ${expenseText[i]}`;
-        },
-      },
-      xAxis: {
-        type: "category",
-        data: report.periods.map((p) => formatPeriodShort(p, locale)),
-        axisLabel: { color: chartToken("--vk-text-subtle"), fontSize: 11 },
-        axisLine: { lineStyle: { color: chartToken("--vk-chart-axis") } },
-        axisTick: { show: false },
-      },
-      yAxis: {
-        type: "value",
-        axisLabel: {
-          color: chartToken("--vk-text-subtle"),
-          fontSize: 11,
-          formatter: axisNumberFormatter(locale),
-        },
-        splitLine: { lineStyle: { color: chartToken("--vk-chart-grid") } },
-      },
-      series: [
-        {
-          name: revenueLabel,
-          type: "line",
-          data: revenueMajor,
-          symbolSize: 8,
-          lineStyle: { width: 2, color: chartToken("--vk-series-1") },
-          itemStyle: { color: chartToken("--vk-series-1") },
-          endLabel: { show: true, formatter: revenueLabel, color: chartToken("--vk-series-1"), fontSize: 11 },
-        },
-        {
-          name: expensesLabel,
-          type: "line",
-          data: expenseMajor,
-          symbolSize: 8,
-          lineStyle: { width: 2, color: chartToken("--vk-series-2") },
-          itemStyle: { color: chartToken("--vk-series-2") },
-          endLabel: { show: true, formatter: expensesLabel, color: chartToken("--vk-series-2"), fontSize: 11 },
-        },
-      ],
-    };
-  }, [revenueMajor, expenseMajor, revenueText, expenseText, report.periods, locale, theme]);
+  const hasData = rows.some((r) => r.revenue !== 0 || r.expenses !== 0);
+  const revenueLabel = t("chart.revenueExpense.revenue", locale);
+  const expensesLabel = t("chart.revenueExpense.expenses", locale);
 
   return (
     <ChartShell
       titleKey="chart.revenueExpense.title"
       locale={locale}
-      option={option}
+      hasData={hasData}
       table={
         <PeriodTable
           periods={report.periods}
           series={[
-            { label: t("chart.revenueExpense.revenue", locale), values: revenueText },
-            { label: t("chart.revenueExpense.expenses", locale), values: expenseText },
+            { label: revenueLabel, values: rows.map((r) => r.revenueText) },
+            { label: expensesLabel, values: rows.map((r) => r.expensesText) },
           ]}
           locale={locale}
         />
+      }
+      chart={
+        <div>
+          {/* The legend §13.5 requires for two or more series. Marked with
+              data-chart-legend so charts.test.tsx can assert its presence
+              here and its absence on the single-series charts, without
+              parsing JSX to find it. */}
+          <div data-chart-legend className="mb-3 flex items-center gap-5 text-2xs text-text-muted">
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: "var(--chart-1)" }}
+              />
+              {revenueLabel}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: "var(--chart-2)" }}
+              />
+              {expensesLabel}
+            </span>
+          </div>
+
+          <LineChart data={rows} xDataKey="period" margin={MARGIN} aspectRatio="2.6 / 1">
+            <Grid horizontal vertical={false} />
+            <Line
+              dataKey="revenue"
+              stroke="var(--chart-1)"
+              animate={chartsAnimate()}
+              showMarkers
+            />
+            <Line
+              dataKey="expenses"
+              stroke="var(--chart-2)"
+              animate={chartsAnimate()}
+              showMarkers
+            />
+            <ChartTooltip
+              rows={(point) => {
+                const row = rows.find((r) => r.period === point["period"]);
+                return [
+                  { color: "var(--chart-1)", label: revenueLabel, value: row?.revenueText ?? "" },
+                  { color: "var(--chart-2)", label: expensesLabel, value: row?.expensesText ?? "" },
+                ];
+              }}
+            />
+          </LineChart>
+
+          {/* Locale-correct period labels -- see file header. Padding matches
+              the chart's own left/right margin so labels sit roughly under
+              their point; exact identification is the tooltip's job. */}
+          <div
+            className="mt-1 flex justify-between text-2xs text-text-subtle"
+            style={{ paddingLeft: MARGIN.left, paddingRight: MARGIN.right }}
+          >
+            {rows.map((r) => (
+              <span key={r.period}>{formatPeriodShort(r.period, locale)}</span>
+            ))}
+          </div>
+        </div>
       }
     />
   );
