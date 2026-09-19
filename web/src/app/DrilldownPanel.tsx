@@ -6,7 +6,15 @@
  * report. The report stays mounted underneath.
  *
  * §5 allows a shadow here: this is a true overlay, which is the only place one
- * is permitted. 120ms, and it is the only motion in the application.
+ * is permitted. 120ms, and it is the only motion in the application -- carried
+ * by `.panel-enter` in the token layer, which spends `--duration-panel` and
+ * `--ease-panel`. It slides in from the edge it is anchored to, so the panel
+ * emerges from where it lives rather than fading in from nowhere.
+ *
+ * The entrance is animated and the dismissal is not: the panel is a route, and
+ * the router unmounts it the moment the back button fires. Holding it mounted
+ * to play an exit would put a render concern inside navigation, which is a
+ * worse trade than an asymmetry nobody has complained about.
  */
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -40,7 +48,7 @@ function Rows({ rows, locale }: Readonly<{ rows: readonly DrilldownRow[]; locale
       {rows.map((row) => (
         <div
           key={row.id}
-          className="flex h-8 items-center gap-3 border-b border-border text-xs"
+          className="flex h-10 items-center gap-3 border-b border-border text-xs"
         >
           <span className="tabular w-20 shrink-0 text-text-muted">{row.bookedOn}</span>
           <span className="min-w-0 flex-1 truncate">{row.description}</span>
@@ -75,12 +83,12 @@ export function DrilldownPanel() {
   });
 
   return (
-    <div className="fixed inset-y-0 right-0 z-30 flex w-full max-w-2xl flex-col border-l border-border bg-overlay shadow-panel">
-      <header className="flex items-start gap-3 border-b border-border px-5 py-4">
+    <div className="panel-enter fixed inset-y-0 right-0 z-30 flex w-full max-w-2xl flex-col border-l border-border bg-overlay shadow-panel">
+      <header className="flex items-start gap-3 border-b border-border px-8 py-6">
         <div className="min-w-0">
           {/* A shared link arrives with no memory of the click, so the panel has
               to say which figure this is rather than assume the reader knows. */}
-          <h2 className="truncate text-md font-semibold">
+          <h2 className="truncate text-lg font-semibold tracking-tight">
             {data?.categoryLabel ?? categoryId}
           </h2>
           <p className="mt-0.5 text-2xs uppercase tracking-widest text-text-subtle">
@@ -96,17 +104,20 @@ export function DrilldownPanel() {
           to="/app/reports/pnl"
           search={search}
           aria-label={t("drilldown.close", locale)}
-          className="ml-3 shrink-0 border-b border-transparent pb-px text-2xs uppercase tracking-widest text-text-subtle hover:border-text hover:text-text"
+          className="ml-3 shrink-0 border-b border-transparent pb-px text-2xs uppercase tracking-widest text-text-subtle hover:border-text hover:text-text active:text-text-muted"
         >
           {t("drilldown.close", locale)}
         </Link>
       </header>
 
-      <div className="min-h-0 grow overflow-hidden px-5">
+      <div className="min-h-0 grow overflow-hidden px-8">
         {isPending ? <Loading label="…" rows={4} /> : null}
         {error ? <ErrorState message={String(error)} /> : null}
+        {/* No rule of its own: the header above already carries one, and a
+            `border-t` under `max-w-prose` stops short of the panel edge, which
+            reads as a broken divider rather than a deliberate one. */}
         {data?.rowsUnavailable ? (
-          <p className="max-w-prose border-t border-border py-6 text-sm text-text-muted">
+          <p className="max-w-prose py-6 text-sm text-text-muted">
             {t("drilldown.unavailable", locale)}
           </p>
         ) : null}
@@ -114,7 +125,7 @@ export function DrilldownPanel() {
       </div>
 
       {data ? (
-        <footer className="border-t border-border px-5 py-3">
+        <footer className="border-t border-border px-8 py-4">
           {/* The three strings that make a March report reproduce in June. */}
           <p className="tabular text-2xs text-text-subtle">
             {t("drilldown.provenance", locale)

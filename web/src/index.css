@@ -69,7 +69,6 @@
   --vk-danger:           oklch(50%  0.170  27);
   --vk-danger-surface:   oklch(96%  0.025  27);
 
-
   /* ---- Charts. See docs/DESIGN.md §13. Validated, not chosen by eye. ----
    * Slot order is the colourblind-safety mechanism and is never reordered.
    * Re-stepped for THIS product's surfaces rather than adopted from a reference:
@@ -108,6 +107,9 @@
   --vk-shadow-menu:  0 1px 2px oklch(24% 0.008 95 / 0.08),
                      0 4px 12px oklch(24% 0.008 95 / 0.12);
 }
+/* `shadcn add` re-appends its own broken --chart-* block here on every run
+   (four-dash typo, static values, no dark step -- see §2.1's comment below
+   for the full story). Deleted on each re-run; do not let it come back. */
 
 /*
  * Dark. Chosen steps, not an inversion -- WORKFLOW.md §5.3 requires this and
@@ -146,7 +148,6 @@
   --vk-warn-surface:     oklch(29% 0.048  75);
   --vk-danger:           oklch(70% 0.140  27);
   --vk-danger-surface:   oklch(30% 0.062  27);
-
 
   /* Charts — the same eight hues, re-stepped for this surface with the light
    * palette's lightness structure preserved. A flat palette (every slot at the
@@ -316,6 +317,110 @@
 
   --shadow-panel:          var(--vk-shadow-panel);
   --shadow-menu:           var(--vk-shadow-menu);
+
+  /*
+   * The four bklit names Tailwind must generate a utility for (the vendored
+   * source uses `bg-chart-tooltip-background`, `text-chart-label`, etc.) --
+   * `--color-*` is a namespace Tailwind recognises, so `inline` is what makes
+   * these safe here, for the same reason the block above needs it. The rest
+   * of the bridge, below, is plain `var()` aliasing and does NOT belong in
+   * this block: `@theme inline` silently drops any custom-property name that
+   * is not one of Tailwind's known namespaces, which is what the first
+   * attempt at this bridge got wrong -- the properties compiled to nothing.
+   */
+  --color-chart-tooltip-background: var(--vk-overlay);
+  --color-chart-tooltip-foreground: var(--vk-text);
+  --color-chart-tooltip-muted:      var(--vk-text-muted);
+  --color-chart-label:              var(--vk-text-subtle);
+}
+
+/* ---------------------------------------------------------------------------
+ * 2.1 The bklit bridge.
+ *
+ * The vendored charts under `src/components/charts` are shadcn-registry
+ * source and read raw `--chart-*` custom properties directly (not through a
+ * Tailwind utility); they cannot be edited to read `--vk-*` without making
+ * the next `shadcn add` a merge conflict. So the names are bridged here
+ * instead, and §13's validated palette remains the only place a chart colour
+ * is decided.
+ *
+ * Plain CSS, deliberately outside any `@theme` block: a plain `@theme` bakes
+ * a build-time constant (dark mode would silently do nothing, same reasoning
+ * as §2's own comment), and `@theme inline` drops the property entirely for
+ * an unrecognised name like `--chart-1` (verified against the compiled
+ * output -- the first attempt at this bridge used `@theme inline` and none
+ * of it survived to `dist/`). Ordinary CSS custom properties resolve their
+ * `var()` reference live, against whatever `--vk-series-1` computes to on
+ * that element right now, so one declaration correctly serves both palettes
+ * with no dark-mode copy.
+ *
+ * Written by hand rather than by `shadcn add`, which gets this wrong on
+ * every single run: it emits `var(----chart-1)` (four dashes -- a different,
+ * undefined property, seen in both the top-of-file `:root` and this file's
+ * `@theme inline` block) and puts the dark values on a `.dark` class this
+ * product does not use. `shadcn add @bklit/<x>` re-appends its own broken
+ * version in whichever block it touches; delete what it adds and keep this
+ * section instead of trying to reconcile the two.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --chart-1: var(--vk-series-1);
+  --chart-2: var(--vk-series-2);
+  --chart-3: var(--vk-series-3);
+  --chart-4: var(--vk-series-4);
+  --chart-5: var(--vk-series-5);
+  /* Not bklit names -- its own default cycle stops at 5. §13.2's fixed slot
+     order runs to 8; `MoneyFlowChart` is the one chart with enough
+     categories on one side to need the rest. */
+  --chart-6: var(--vk-series-6);
+  --chart-7: var(--vk-series-7);
+  --chart-8: var(--vk-series-8);
+  --chart-line-primary: var(--vk-series-1);
+  --chart-line-secondary: var(--vk-series-2);
+
+  /* Not a bklit name -- ours, for the one chart that needs a positive/negative
+     pair rather than a single series hue. `NetResultChart` is the only
+     reader. §13.3: blue positive, orange negative, never red (§6). */
+  --chart-diverge-positive: var(--vk-diverge-pos-3);
+  --chart-diverge-negative: var(--vk-diverge-neg-3);
+
+  --chart-background: var(--vk-surface-raised);
+  --chart-foreground: var(--vk-text);
+  --chart-foreground-muted: var(--vk-text-muted);
+  --chart-label: var(--vk-text-subtle);
+  --chart-grid: var(--vk-chart-grid);
+  --chart-crosshair: var(--vk-chart-axis);
+  --chart-brush-border: var(--vk-chart-axis);
+
+  /* The tooltip is a true overlay, so it takes the overlay surface rather
+     than a chart colour -- DESIGN.md §5. */
+  --chart-tooltip-background: var(--vk-overlay);
+  --chart-tooltip-foreground: var(--vk-text);
+  --chart-tooltip-muted: var(--vk-text-muted);
+  --chart-marker-background: var(--vk-surface-sunken);
+  --chart-marker-border: var(--vk-border-strong);
+  --chart-marker-foreground: var(--vk-text);
+  --chart-marker-badge-background: var(--vk-accent);
+  --chart-marker-badge-foreground: var(--vk-accent-text);
+
+  /* The hover indicator on a line/area chart. Ink, like every other primary
+     mark -- §6: the accent is ink, not a hue. */
+  --chart-indicator-color: var(--vk-accent);
+  --chart-indicator-secondary-color: var(--vk-text-subtle);
+
+  /* A stacked/segmented chart's own dividers, not a category's identity. */
+  --chart-segment-background: var(--vk-surface-sunken);
+  --chart-segment-line: var(--vk-border);
+
+  /* A sequential ramp. §13.4: one hue in ordered lightness steps, and no Demo
+     chart uses it -- these exist so a vendored component that reaches for one
+     does not fall back to its own purple. */
+  --chart-scale-01: var(--vk-diverge-pos-1);
+  --chart-scale-02: var(--vk-diverge-pos-2);
+  --chart-scale-03: var(--vk-diverge-pos-3);
+  --chart-scale-04: var(--vk-diverge-pos-4);
+  --chart-scale-05: var(--vk-diverge-pos-4);
+  --chart-scale-pattern-color: var(--vk-chart-grid);
 }
 
 /* ---------------------------------------------------------------------------
@@ -444,6 +549,23 @@
     font-feature-settings: "tnum" 1;
   }
 
+  /*
+   * The drill-down panel's entrance, and the only place these two tokens are
+   * spent. §5 budgets 120ms for this one overlay and zero for everything else;
+   * the tokens have existed since the shell landed and nothing had used them,
+   * so the panel appeared instantly while its own comment claimed it moved.
+   *
+   * It enters from the edge it is anchored to, which is Apple's spatial rule:
+   * a panel emerges from where it lives, so the reader knows where it went.
+   * `transform` and `opacity` only -- both composite, neither reflows a figure.
+   *
+   * The reduced-motion floor below collapses this automatically: at 0.01ms with
+   * `both`, the panel simply starts at its resting state.
+   */
+  .panel-enter {
+    animation: vk-panel-in var(--duration-panel) var(--ease-panel) both;
+  }
+
   /* Motion is a preference, and honouring it is not optional. */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -453,6 +575,40 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+    }
+  }
+
+  /*
+   * Motion is one of three independent signals, not the only one. A reader who
+   * asks for less transparency or more contrast is asking for the same kind of
+   * accommodation and gets ignored by most interfaces because only the motion
+   * query is well known.
+   *
+   * Both are answered at the token layer rather than per component, for the
+   * same reason §3 gives for everything else here: a component that has to
+   * remember is a component that forgets.
+   */
+  @media (prefers-contrast: more) {
+    :root,
+    [data-theme="dark"] {
+      /* The weakest measured pair in §9 -- 4.52:1 light, 5.17:1 dark -- moves
+         up to the muted step's 6.35:1 / 7.58:1. Hierarchy survives: subtle and
+         muted merge, text stays above both. */
+      --vk-text-subtle: var(--vk-text-muted);
+      --vk-border: var(--vk-border-strong);
+    }
+  }
+
+  /*
+   * A translucent surface becomes an opaque one. Register B has none -- §5
+   * buys hierarchy with hairlines, not glass -- so this reaches only the
+   * landing's floating bar, which is the one place the product stacks a
+   * surface over moving content.
+   */
+  @media (prefers-reduced-transparency: reduce) {
+    .landing-nav {
+      background-color: var(--color-surface-raised);
+      backdrop-filter: none;
     }
   }
 
@@ -477,6 +633,18 @@
   }
 }
 
+/* The one keyframe Register B owns. Paired with `.panel-enter` above. */
+@keyframes vk-panel-in {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* ---------------------------------------------------------------------------
  * 5. Self-hosted Inter.
  *
@@ -487,3 +655,46 @@
  * can run. It lives in `add-web-experience` task 9.6, which is what adds the
  * two woff2 subsets under `web/public/fonts/`.
  * ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+ * 6. Register A embellishment — the landing page only.
+ *
+ * A deliberate departure from DESIGN.md §14.1 for `site/LandingPage.tsx`, not
+ * an exception to the token rule: both new classes are built from the
+ * existing tokens via `color-mix`, so they still follow the active theme, and
+ * neither a component nor `scripts/check-web-tokens.sh` ever sees a literal
+ * colour -- this file is the one place that is allowed to hold one.
+ * ------------------------------------------------------------------------- */
+
+.landing-mesh {
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% -10%, color-mix(in oklch, var(--color-text) 10%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, color-mix(in oklch, var(--color-text) 6%, transparent), transparent 60%);
+}
+
+.landing-grain {
+  position: relative;
+}
+
+.landing-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* A CSS-only loop, not a GSAP one: it runs for as long as the section is on
+   screen and costs nothing to keep correct. The reduced-motion floor in §4
+   already freezes it -- `animation-duration: 0.01ms !important` applies here
+   too, so the track just holds its position. */
+@keyframes vk-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.landing-marquee-track {
+  animation: vk-marquee 26s linear infinite;
+}

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { afterEach, describe, expect, it } from "vitest";
@@ -63,11 +64,48 @@ describe("the report", () => {
     expect(screen.getAllByText(/EUR/)).toHaveLength(1);
   });
 
+  it("defaults to the table tab and puts that in the URL", async () => {
+    const router = renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await screen.findByRole("heading", { name: t("report.title") });
+    expect(router.state.location.search.view).toBe("table");
+    // The P&L table's own % of revenue column -- unique to it, unlike
+    // "Category", which every chart's own jsdom table fallback also shows.
+    expect(screen.getByText(t("report.percentOfRevenue"))).toBeDefined();
+    expect(screen.queryByText(t("chart.moneyflow.title"))).toBeNull();
+  });
+
+  it("switches to the charts tab without leaving the URL behind", async () => {
+    const user = userEvent.setup();
+    const router = renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await screen.findByRole("heading", { name: t("report.title") });
+
+    await user.click(screen.getByRole("link", { name: t("report.tab.charts") }));
+
+    expect(await screen.findByText(t("chart.moneyflow.title"))).toBeDefined();
+    expect(screen.queryByText(t("report.percentOfRevenue"))).toBeNull();
+    expect(router.state.location.search.view).toBe("charts");
+    // A tab switch is not a new range -- the period survives it.
+    expect(router.state.location.search.from).toBe("2026-01");
+  });
+
+  it("keeps the reconciliation strip on both tabs", async () => {
+    // DESIGN.md §2: a minimal pass may never remove it. It is not a
+    // property of one tab.
+    const user = userEvent.setup();
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await screen.findByRole("heading", { name: t("report.title") });
+    expect(screen.getByText(t("recon.closing"))).toBeDefined();
+
+    await user.click(screen.getByRole("link", { name: t("report.tab.charts") }));
+    await screen.findByText(t("chart.moneyflow.title"));
+    expect(screen.getByText(t("recon.closing"))).toBeDefined();
+  });
+
   it("falls back to year-to-date when the link carries no range", async () => {
     // add-web-experience §4.11.
     const router = renderAt("/app/reports/pnl");
     await screen.findByRole("heading", { name: t("report.title") });
-    expect(router.state.location.search).toEqual(defaultRange());
+    expect(router.state.location.search).toEqual({ ...defaultRange(), view: "table" });
   });
 
   it("keeps a truncated range from breaking the link", async () => {
@@ -97,7 +135,7 @@ describe("the drill-down is a route, not a state flag", () => {
     await router.navigate({
       to: "/app/reports/pnl/cell/$categoryId/$period",
       params: { categoryId: "logistics", period: "2026-03" },
-      search: { from: "2026-01", to: "2026-08" },
+      search: { from: "2026-01", to: "2026-08", view: "table" },
     });
     await screen.findByText(t("drilldown.close"));
 
@@ -135,9 +173,24 @@ describe("both palettes, and print", () => {
   for (const theme of ["light", "dark"] as const) {
     it(`renders under the ${theme} palette`, async () => {
       document.documentElement.setAttribute("data-theme", theme);
-      renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+      renderAt("/app/reports/pnl?from=2026-01&to=2026-08&view=charts");
       expect(await screen.findByRole("heading", { name: t("report.title") })).toBeDefined();
       expect(screen.getByText(t("recon.closing"))).toBeDefined();
+
+      // Task 8.16: every chart from WORKFLOW.md §5.3 renders under both
+      // palettes, on the charts tab. jsdom has no 2D canvas context and no
+      // ResizeObserver, so each chart falls back to its own table view --
+      // still a real render of the same component tree, just not the
+      // report's own table tab (that path is covered by the tests above).
+      for (const key of [
+        "chart.moneyflow.title",
+        "chart.expenses.title",
+        "chart.netresult.title",
+        "chart.revenueExpense.title",
+        "chart.trend.title",
+      ] as const) {
+        expect(screen.getByText(t(key))).toBeDefined();
+      }
     });
   }
 

@@ -55,8 +55,8 @@ function Choice<T extends string>({
           aria-pressed={current === v}
           className={
             current === v
-              ? "border-b border-text pb-px text-2xs font-semibold uppercase tracking-widest text-text"
-              : "border-b border-transparent pb-px text-2xs uppercase tracking-widest text-text-subtle"
+              ? "border-b border-text pb-px text-2xs font-semibold uppercase tracking-widest text-text active:text-text-muted"
+              : "border-b border-transparent pb-px text-2xs uppercase tracking-widest text-text-subtle hover:border-border-strong hover:text-text active:text-text-muted"
           }
         >
           {v}
@@ -82,7 +82,7 @@ export function TopBar({
   theme: ThemeChoice;
 }>) {
   return (
-    <header className="flex h-12 shrink-0 flex-wrap items-center gap-4 border-b border-border bg-surface-raised px-6">
+    <header className="flex h-16 shrink-0 flex-wrap items-center gap-6 border-b border-border bg-surface px-10">
       <Field label={t("topbar.organisation", locale)} value={organisation} />
       <Divider />
       <Field label={t("topbar.entity", locale)} value={entity} />

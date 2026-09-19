@@ -1,19 +1,63 @@
 /**
  * The Management P&L. The whole MVP, and the Demo's definition of done.
  */
-import { Outlet, useSearch } from "@tanstack/react-router";
+import { Link, Outlet, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { getReport } from "../data/report";
 import { t } from "../i18n";
+import type { Locale, MessageKey } from "../i18n";
+import type { ReportView } from "../router";
 import { useLocale } from "../ui/preferences";
 import { EmptyState, ErrorState, Loading } from "../ui/feedback";
+import { CategoryTrendChart } from "./charts/CategoryTrendChart";
+import { ExpenseCategoriesChart } from "./charts/ExpenseCategoriesChart";
+import { MoneyFlowChart } from "./charts/MoneyFlowChart";
+import { NetResultChart } from "./charts/NetResultChart";
+import { RevenueExpenseChart } from "./charts/RevenueExpenseChart";
 import { PnlTable } from "./PnlTable";
 import { StatTiles } from "./StatTiles";
 import { Reconciliation } from "./Reconciliation";
 
+/**
+ * §14: no segmented controls and no pills, the same rule `TopBar`'s
+ * language/theme `Choice` already follows -- a choice is an underline. State
+ * lives in the URL rather than in `useState` so the tab a report was shared
+ * on is the tab the link reopens (task: chart placement, 2026-09-19).
+ */
+function ViewTabs({
+  view,
+  from,
+  to,
+  locale,
+}: Readonly<{ view: ReportView; from: string; to: string; locale: Locale }>) {
+  const tabs: readonly { view: ReportView; labelKey: MessageKey }[] = [
+    { view: "table", labelKey: "report.tab.table" },
+    { view: "charts", labelKey: "report.tab.charts" },
+  ];
+  return (
+    <nav aria-label={t("report.title", locale)} className="flex items-baseline gap-5 border-b border-border">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.view}
+          to="/app/reports/pnl"
+          search={{ from, to, view: tab.view }}
+          className={
+            tab.view === view
+              ? "border-b-2 border-text pb-2 text-sm font-semibold text-text"
+              : "border-b-2 border-transparent pb-2 text-sm text-text-muted hover:text-text"
+          }
+          aria-current={tab.view === view ? "page" : undefined}
+        >
+          {t(tab.labelKey, locale)}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export function ReportScreen() {
-  const { from, to } = useSearch({ from: "/app/reports/pnl" });
+  const { from, to, view } = useSearch({ from: "/app/reports/pnl" });
   const [locale] = useLocale();
 
   const { data, error, isPending } = useQuery({
@@ -33,9 +77,9 @@ export function ReportScreen() {
   }
 
   return (
-    <div className="flex flex-col">
-      <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pb-4">
-        <h1 className="text-lg font-semibold tracking-tight">{t("report.title", locale)}</h1>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("report.title", locale)}</h1>
         {/*
           The basis sits with the table, never in a footnote -- DESIGN.md §8 and
           WORKFLOW.md §5.1. It is derived from source_kind rather than chosen by
@@ -49,10 +93,36 @@ export function ReportScreen() {
 
       <StatTiles report={data} locale={locale} />
 
-      <div className="pt-5">
-        <PnlTable report={data} locale={locale} from={from} to={to} />
-      </div>
+      {/*
+        Charts used to sit stacked below the table, after the reconciliation
+        strip -- easy to miss on a screen whose defining content is a
+        twelve-column table. A tab makes both one click away instead of one
+        scroll away, and the tab itself lives in the URL, so a link into
+        either view still reopens the same view.
+      */}
+      <ViewTabs view={view} from={from} to={to} locale={locale} />
 
+      {view === "table" ? (
+        <div className="rounded-panel border border-border bg-surface-raised p-6">
+          <PnlTable report={data} locale={locale} from={from} to={to} />
+        </div>
+      ) : (
+        // WORKFLOW.md §5.3's table order: money flow, top expenses, net
+        // result, revenue vs. expenses, category trend. The headline row
+        // above (the stat tiles) is that table's first row -- a single
+        // number is not a one-bar chart.
+        <div className="flex flex-col gap-6">
+          <MoneyFlowChart report={data} locale={locale} />
+          <ExpenseCategoriesChart report={data} locale={locale} />
+          <NetResultChart report={data} locale={locale} />
+          <RevenueExpenseChart report={data} locale={locale} />
+          <CategoryTrendChart report={data} locale={locale} />
+        </div>
+      )}
+
+      {/* DESIGN.md §2: the reconciliation strip may never be removed by a
+          minimal pass. It stays outside the tab switch on purpose -- it is
+          what proves the numbers on either tab, not a property of one. */}
       <Reconciliation recon={data.reconciliation} locale={locale} />
 
       {/* The drill-down renders here, over a report that stays mounted. */}

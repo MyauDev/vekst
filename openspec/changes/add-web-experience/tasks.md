@@ -204,44 +204,44 @@ The palette is decided and validated — `docs/DESIGN.md` §13, tokens in `web/s
 Do not pick a colour here. Every rule below exists because the validator or `WORKFLOW.md`
 §5.3 says so.
 
-- [ ] 8.1 Add ECharts to `web/package.json`. It is named in `openspec/config.yaml:67` and has
+- [x] 8.1 Add ECharts to `web/package.json`. It is named in `openspec/config.yaml:67` and has
       never been installed. Roughly 1 MB — import per chart, never the barrel
-- [ ] 8.2 A chart shell: title, legend, table-view toggle, tooltip. Every chart is built from
+- [x] 8.2 A chart shell: title, legend, table-view toggle, tooltip. Every chart is built from
       it, so the rules below are satisfied once rather than six times
-- [ ] 8.3 **Every chart has a table view.** `WORKFLOW.md` §5.3 requires it. It is no longer
+- [x] 8.3 **Every chart has a table view.** `WORKFLOW.md` §5.3 requires it. It is no longer
       also load-bearing for legibility — the palette was re-stepped so every slot clears 3:1
       on its own (§13.2) — so this is a reading affordance, not a patch over a weak colour
-- [ ] 8.4 A legend whenever there are two or more series; four or fewer are also directly
+- [x] 8.4 A legend whenever there are two or more series; four or fewer are also directly
       labelled. Identity is never carried by colour alone
-- [ ] 8.5 Series colours are assigned in fixed slot order and never cycled. A ninth category
+- [x] 8.5 Series colours are assigned in fixed slot order and never cycled. A ninth category
       folds into "Other" (`--color-series-other`), never a generated hue
-- [ ] 8.6 Text — values, labels, axis ticks, legend text — wears text tokens, never a series
+- [x] 8.6 Text — values, labels, axis ticks, legend text — wears text tokens, never a series
       colour. A coloured mark beside the label carries the identity
-- [ ] 8.7 No chart carries two y-axes. `WORKFLOW.md` §5.3 and the visualization method agree,
+- [x] 8.7 No chart carries two y-axes. `WORKFLOW.md` §5.3 and the visualization method agree,
       and it is the single most common charting error
-- [ ] 8.8 **Money flow — Sankey.** Revenue sources → total in → expense categories. Top 8 plus
+- [x] 8.8 **Money flow — Sankey.** Revenue sources → total in → expense categories. Top 8 plus
       Other. This is the picture customers screenshot
-- [ ] 8.9 **Top expense categories — horizontal bar, sorted.** One hue, slot 1, every bar the
+- [x] 8.9 **Top expense categories — horizontal bar, sorted.** One hue, slot 1, every bar the
       same step. `WORKFLOW.md` §5.3 calls this "sequential, one hue"; the sharper rule is that
       bar length already encodes magnitude, so colouring bars by their value spends the
       identity channel re-encoding what length already shows
-- [ ] 8.10 **Net result by month — diverging column, centred on zero.** Blue positive, orange
+- [x] 8.10 **Net result by month — diverging column, centred on zero.** Blue positive, orange
       negative, neutral at zero. Never red: `DESIGN.md` §6 forbids red for a negative figure,
       and every loss month would be one
-- [ ] 8.11 **Revenue against expenses — two lines, one axis**, legend plus direct labels
-- [ ] 8.12 **Category trend — small multiples**, one line each, one hue plus
+- [x] 8.11 **Revenue against expenses — two lines, one axis**, legend plus direct labels
+- [x] 8.12 **Category trend — small multiples**, one line each, one hue plus
       `--color-chart-deemph` for context. Small multiples are an all-pairs form, which caps
       distinguishable series at three; one hue per facet sidesteps the cap entirely
-- [ ] 8.13 2px lines, ≥8px markers, 4px rounded data-ends anchored to the baseline, a 2px
+- [x] 8.13 2px lines, ≥8px markers, 4px rounded data-ends anchored to the baseline, a 2px
       surface gap between adjacent fills, recessive grid and axes
-- [ ] 8.14 Crosshair and tooltip on the line charts; per-mark tooltip on bar and Sankey. Hit
+- [x] 8.14 Crosshair and tooltip on the line charts; per-mark tooltip on bar and Sankey. Hit
       targets larger than the marks
-- [ ] 8.15 Charts honour `prefers-reduced-motion` and never animate a figure into place. A
+- [x] 8.15 Charts honour `prefers-reduced-motion` and never animate a figure into place. A
       chart that draws itself in is fine; a number that counts up is not
-- [ ] 8.16 Test: both palettes render every chart, and the dark steps are the documented dark
+- [x] 8.16 Test: both palettes render every chart, and the dark steps are the documented dark
       values rather than a filter or an inversion
-- [ ] 8.17 Test: a chart with nine or more categories folds the tail into "Other"
-- [ ] 8.18 Test: no component references a raw series hex — `check-web-tokens.sh` fails on one
+- [x] 8.17 Test: a chart with nine or more categories folds the tail into "Other"
+- [x] 8.18 Test: no component references a raw series hex — `check-web-tokens.sh` fails on one
       already, so this asserts the charts went through the tokens
 
 ## 9. Contract, i18n and close — B for 9.1, else A

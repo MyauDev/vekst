@@ -15,7 +15,13 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    // `@/*` exists for one reason: the vendored bklit charts under
+    // `src/components/charts` import `@/lib/utils`, and a shadcn-registry
+    // component is copied in verbatim rather than edited. Our own code keeps
+    // using relative imports -- see docs/ARCHITECTURE.md.
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src", "vite.config.ts"]
 }

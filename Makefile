@@ -21,7 +21,7 @@ INGRESS_PORT ?= 8081
 # ConfigMap, which Tilt reads automatically.
 REGISTRY_PORT ?= 5555
 
-.PHONY: help gen build lint test ci dev down migrate-up migrate-down
+.PHONY: help gen build lint test ci dev down migrate-up migrate-down sonar sonar-quick
 
 # vekst_migrator only -- the role migrations run as. core itself never sees
 # this credential; it connects as vekst_app. Local default matches the local
@@ -114,3 +114,35 @@ test: ## Run every test suite
 	cd web && npx vitest run
 
 ci: lint test ## What CI runs
+
+# --- static analysis ---------------------------------------------------------
+# Run before every push. The SonarCloud gate blocks the pull request on
+# *new-code* conditions -- duplication and coverage are both measured against
+# the change alone, so a green `make ci` and a healthy project-wide number say
+# nothing about whether the gate will pass.
+#
+# Two targets on purpose. Both need SONAR_TOKEN -- the scanner authenticates
+# before it analyses anything, so there is no useful offline mode, duplication
+# included (verified: it exits "Not authorized or project not found").
+# `sonar-quick` skips coverage generation, which is what makes the full run
+# slow and what drags a database in; duplication and the issue set do not
+# depend on it. Use it before a push, and `sonar` when the coverage condition
+# is what you need to see.
+sonar-quick: ## Scan without generating coverage -- no database, ~1 min
+	@command -v sonar-scanner >/dev/null || { echo "sonar-scanner not installed: brew install sonar-scanner"; exit 1; }
+	@test -n "$$SONAR_TOKEN" || { echo "SONAR_TOKEN is unset -- create a token at https://sonarcloud.io/account/security"; exit 1; }
+	@# Coverage paths are left pointing at whatever is on disk; a stale or
+	@# missing report only affects the coverage metric, which this target is
+	@# explicitly not measuring.
+	sonar-scanner -Dsonar.host.url=https://sonarcloud.io
+
+sonar: ## Full SonarCloud analysis (needs SONAR_TOKEN, and a database for Go coverage)
+	@command -v sonar-scanner >/dev/null || { echo "sonar-scanner not installed: brew install sonar-scanner"; exit 1; }
+	@test -n "$$SONAR_TOKEN" || { echo "SONAR_TOKEN is unset -- create a token at https://sonarcloud.io/account/security"; exit 1; }
+	cd web && npx vitest run --coverage
+	cd classifier && uv run pytest -q --cov=vekst_classifier --cov-report=xml:coverage.xml
+	@# Matches ci.yaml: internal/migrate runs separately against its own cluster,
+	@# so it is left out here rather than failing the whole run locally.
+	go test -p 1 $$(go list ./core/... | grep -v internal/migrate) \
+	  -coverprofile=coverage.out -covermode=atomic
+	sonar-scanner -Dsonar.host.url=https://sonarcloud.io

@@ -30,10 +30,18 @@ fi
 
 # Generated clients are not ours. The mock is scheduled for deletion with 5.2
 # and holds its own isolated token layer on purpose (web/src/mock/README.md).
+# src/components/** is vendored third-party source: bklit charts, copied in by
+# the shadcn registry CLI rather than written here. The token rule is about
+# what *we* write -- a vendored file cannot be edited to satisfy it without
+# making the next `shadcn add` a merge conflict. Vekst's own chart code lives
+# in src/app/charts and is checked like everything else; it is what passes the
+# palette in, so the tokens still govern what actually renders.
 sources() {
   find "$SRC" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \) \
     -not -path "$SRC/gen/*" \
     -not -path "$SRC/mock/*" \
+    -not -path "$SRC/components/*" \
+    -not -path "$SRC/lib/*" \
     -not -path "$TOKENS" \
     | sort
 }
@@ -67,17 +75,19 @@ if hits=$(grep -nEH '#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|oklch|oklab|color-mix)\(
   status=1
 fi
 
-# 4. Spacing above 32px inside Register B.
+# 4. Spacing above 64px inside Register B.
 #
-#    DESIGN.md §5 fixes the app's scale at 2, 4, 6, 8, 12, 16, 24, 32. With
-#    --spacing: 0.25rem those are 0.5 1 1.5 2 3 4 6 8, so any step above 8 is
-#    over budget. Tailwind v4 generates spacing utilities dynamically -- `p-96`
+#    DESIGN.md §5 fixed the app's scale at 2, 4, 6, 8, 12, 16, 24, 32 and this
+#    check capped it at step 8. §5 was amended 2026-09-16: the application moved
+#    to a card-and-whitespace idiom and the ceiling moved with it, to 64px
+#    (step 16). Tailwind v4 generates spacing utilities dynamically -- `p-96`
 #    compiles -- so this cannot be enforced by the token layer and has to live
 #    here.
 #
-#    §1.1 is the reason: a minimal design that buys white space with padding
-#    lowers the rows per screen, "and an accountant who compares twelve periods
-#    then scrolls to compare."
+#    A ceiling still exists because the reason for one still does: §1.1's
+#    rows-per-screen argument was relaxed, not withdrawn, and an accountant
+#    comparing twelve periods still pays for every step above what the layout
+#    actually needs. 64px is the new budget, not the absence of one.
 GAPS='p|px|py|pt|pr|pb|pl|ps|pe|m|mx|my|mt|mr|mb|ml|ms|me|gap|gap-x|gap-y|space-x|space-y'
 register_b=$(printf '%s\n' $files | grep -v "^$SRC/site/" || true)
 
@@ -86,10 +96,10 @@ if [ -n "$register_b" ]; then
     | awk -F: '{
         cls = $NF
         n = cls; sub(/^-/, "", n); sub(/^[a-z-]+-/, "", n)
-        if (n + 0 > 8) print $1 ":" $2 ": " cls
+        if (n + 0 > 16) print $1 ":" $2 ": " cls
       }' || true)
   if [ -n "$over" ]; then
-    echo "::error::spacing above 32px in the application -- DESIGN.md §5 caps the app scale at 32 (step 8):"
+    echo "::error::spacing above 64px in the application -- DESIGN.md §5 caps the app scale at 64 (step 16):"
     echo "$over"
     status=1
   fi

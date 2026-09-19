@@ -31,8 +31,8 @@ export function ImportsScreen() {
   });
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-lg font-semibold tracking-tight">{t("imports.title", locale)}</h1>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold tracking-tight">{t("imports.title", locale)}</h1>
 
       <Upload locale={locale} onUploaded={() => void qc.invalidateQueries({ queryKey: ["batches"] })} />
 
@@ -46,54 +46,58 @@ export function ImportsScreen() {
       ) : null}
 
       {data && data.length > 0 ? (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="h-8">
-              {(["file", "source", "state", "period", "uploaded"] as const).map((c) => (
-                <th
-                  key={c}
-                  scope="col"
-                  className="border-b border-border-strong px-3 text-left text-2xs font-medium uppercase tracking-widest text-text-subtle first:pl-0"
-                >
-                  {t(`imports.col.${c}`, locale)}
-                </th>
-              ))}
-              <th className="border-b border-border-strong px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle">
-                {t("imports.counts.imported", locale)}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((b) => (
-              <tr key={b.id} className="h-8 border-b border-border">
-                <td className="px-3 pl-0">
-                  <Link
-                    to="/app/imports/$batchId"
-                    params={{ batchId: b.id }}
-                    className="underline-offset-2 hover:underline"
+        // The card is the wrapper rather than the table itself: `border-collapse`
+        // and `border-radius` do not coexist -- the corners get clipped away.
+        <div className="rounded-panel border border-border bg-surface-raised p-6">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="h-10">
+                {(["file", "source", "state", "period", "uploaded"] as const).map((c) => (
+                  <th
+                    key={c}
+                    scope="col"
+                    className="border-b border-border-strong px-3 text-left text-2xs font-medium uppercase tracking-widest text-text-subtle first:pl-0"
                   >
-                    {b.fileName}
-                  </Link>
-                </td>
-                <td className="px-3 text-2xs uppercase tracking-wider text-text-muted">
-                  {t(`imports.source.${b.sourceKind}`, locale)}
-                </td>
-                <td className="px-3">
-                  <BatchStateChip state={b.state} locale={locale} />
-                </td>
-                <td className="px-3">
-                  <Period batch={b} locale={locale} />
-                </td>
-                <td className="tabular px-3 text-xs text-text-muted">
-                  {b.uploadedAt.slice(0, 10)}
-                </td>
-                <td className="tabular px-3 text-right">
-                  {b.counts ? b.counts.rowsImported : <span className="text-text-subtle">—</span>}
-                </td>
+                    {t(`imports.col.${c}`, locale)}
+                  </th>
+                ))}
+                <th className="border-b border-border-strong px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle">
+                  {t("imports.counts.imported", locale)}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.map((b) => (
+                <tr key={b.id} className="h-10 border-b border-border">
+                  <td className="px-3 pl-0">
+                    <Link
+                      to="/app/imports/$batchId"
+                      params={{ batchId: b.id }}
+                      className="underline-offset-2 hover:underline active:text-text-muted"
+                    >
+                      {b.fileName}
+                    </Link>
+                  </td>
+                  <td className="px-3 text-2xs uppercase tracking-wider text-text-muted">
+                    {t(`imports.source.${b.sourceKind}`, locale)}
+                  </td>
+                  <td className="px-3">
+                    <BatchStateChip state={b.state} locale={locale} />
+                  </td>
+                  <td className="px-3">
+                    <Period batch={b} locale={locale} />
+                  </td>
+                  <td className="tabular px-3 text-xs text-text-muted">
+                    {b.uploadedAt.slice(0, 10)}
+                  </td>
+                  <td className="tabular px-3 text-right">
+                    {b.counts ? b.counts.rowsImported : <span className="text-text-subtle">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </div>
   );

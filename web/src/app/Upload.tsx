@@ -34,12 +34,12 @@ export function Upload({ locale, onUploaded }: Readonly<{ locale: Locale; onUplo
   }
 
   return (
-    <section className="border-b border-border pb-5">
-      <h2 className="text-2xs font-semibold uppercase tracking-widest text-text">
+    <section className="rounded-panel border border-border bg-surface-raised p-6">
+      <h2 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
         {t("imports.chooseSource", locale)}
       </h2>
 
-      <div className="mt-3 flex flex-wrap items-center gap-5">
+      <div className="mt-4 flex flex-wrap items-center gap-6">
         {(["bank", "ledger"] as const).map((k) => (
           <button
             key={k}
@@ -48,8 +48,8 @@ export function Upload({ locale, onUploaded }: Readonly<{ locale: Locale; onUplo
             aria-pressed={sourceKind === k}
             className={
               sourceKind === k
-                ? "border-b-2 border-text pb-0.5 text-sm font-semibold text-text"
-                : "border-b-2 border-transparent pb-0.5 text-sm text-text-muted"
+                ? "border-b-2 border-text pb-0.5 text-sm font-semibold text-text active:text-text-muted"
+                : "border-b-2 border-transparent pb-0.5 text-sm text-text-muted hover:border-border-strong hover:text-text active:text-text-subtle"
             }
           >
             {t(`imports.source.${k}`, locale)}
@@ -59,7 +59,7 @@ export function Upload({ locale, onUploaded }: Readonly<{ locale: Locale; onUplo
         {/* The file input only exists once a source is chosen. Disabled would
             invite the click and then explain nothing. */}
         {sourceKind ? (
-          <label className="cursor-pointer border-b-2 border-text pb-0.5 text-sm font-semibold uppercase tracking-widest text-text">
+          <label className="cursor-pointer rounded-control bg-accent px-4 py-2 text-sm font-semibold text-accent-text hover:bg-accent-hover active:opacity-80">
             {busy ? "…" : t("imports.upload", locale)}
             <input
               ref={fileRef}
@@ -72,7 +72,7 @@ export function Upload({ locale, onUploaded }: Readonly<{ locale: Locale; onUplo
         ) : null}
       </div>
 
-      <p className="mt-3 max-w-prose text-xs text-text-muted">{t("imports.sourceNote", locale)}</p>
+      <p className="mt-4 max-w-prose text-xs text-text-muted">{t("imports.sourceNote", locale)}</p>
     </section>
   );
 }

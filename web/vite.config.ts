@@ -1,9 +1,12 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Mirrors tsconfig's `paths`. Only the vendored bklit charts use it.
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {
     host: true,
     port: 5173,

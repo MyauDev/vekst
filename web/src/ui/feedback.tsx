@@ -7,9 +7,10 @@
  * first morning, not as placeholders describing unbuilt work, so they survive
  * into the finished screens rather than being thrown away.
  *
- * Shape follows `docs/DESIGN.md` §14: no card, no centred illustration, no
- * oversized icon. A rule, a line of type that says what is missing, and an
- * action only where one is actually wired.
+ * Shape follows `docs/DESIGN.md` §14 as amended 2026-09-16: a card, since the
+ * application now groups with surfaces rather than hairlines. What the
+ * amendment did not change is the rest of the rule -- no centred illustration,
+ * no oversized icon, and an action only where one is actually wired.
  */
 import type { ReactNode } from "react";
 
@@ -31,10 +32,10 @@ export function EmptyState({
   action?: ReactNode;
 }>) {
   return (
-    <div className="border-t border-border py-8">
+    <div className="rounded-panel border border-border bg-surface-raised p-6">
       <p className="text-base font-medium text-text">{title}</p>
-      <p className="mt-1 max-w-prose text-sm text-text-muted">{detail}</p>
-      {action ? <div className="mt-4">{action}</div> : null}
+      <p className="mt-2 max-w-prose text-sm text-text-muted">{detail}</p>
+      {action ? <div className="mt-6">{action}</div> : null}
     </div>
   );
 }
@@ -69,7 +70,7 @@ export function Skeleton({ rows = 3, className = "" }: Readonly<{ rows?: number;
 /** Announces a wait to a screen reader, which sees no skeleton. */
 export function Loading({ label, rows }: Readonly<{ label: string; rows?: number }>) {
   return (
-    <div role="status" aria-live="polite" className="border-t border-border py-6">
+    <div role="status" aria-live="polite" className="rounded-panel border border-border bg-surface-raised p-6">
       <span className="sr-only">{label}</span>
       <Skeleton rows={rows} />
     </div>
@@ -93,13 +94,13 @@ export function ErrorState({
   retryLabel?: string;
 }>) {
   return (
-    <div role="alert" className="border-t border-danger py-6">
+    <div role="alert" className="rounded-panel border border-border border-l-2 border-l-danger bg-surface-raised p-6">
       <p className="text-sm font-medium text-danger">{message}</p>
       {retry && retryLabel ? (
         <button
           type="button"
           onClick={retry}
-          className="mt-3 border-b border-text pb-0.5 text-2xs font-semibold uppercase tracking-widest text-text"
+          className="mt-3 border-b border-text pb-0.5 text-2xs font-semibold uppercase tracking-widest text-text hover:border-text-muted hover:text-text-muted active:text-text-subtle"
         >
           {retryLabel}
         </button>

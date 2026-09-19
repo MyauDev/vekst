@@ -74,6 +74,17 @@ export function exponentOf(code: string): number | undefined {
 
 const BCP47: Record<Locale, string> = { en: "en-GB", ru: "ru-RU" };
 
+/**
+ * The BCP-47 tag for a locale.
+ *
+ * Exported because a chart axis groups numbers outside the money path and §4
+ * still applies to it -- `ru` groups with a space, and an axis that hard-codes
+ * a comma is wrong in half the product. One mapping, one place.
+ */
+export function localeTag(locale: Locale): string {
+  return BCP47[locale];
+}
+
 /** The locale's decimal separator, read from Intl rather than assumed. */
 function decimalSeparator(locale: Locale): string {
   const part = new Intl.NumberFormat(BCP47[locale])

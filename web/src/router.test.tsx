@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
  *  testing what it claims to. */
 const repo = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", ...p);
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
@@ -47,7 +47,7 @@ describe("the public surface", () => {
 describe("the gate on Register B", () => {
   // add-web-experience §2.16. Asserted across the subtree rather than one
   // route: a screen added under /app must be protected by having been added.
-  const guarded = ["/app", "/app/imports", "/app/review", "/app/reports/pnl"];
+  const guarded = ["/app", "/app/home", "/app/imports", "/app/review", "/app/reports/pnl"];
 
   for (const path of guarded) {
     it(`sends an unauthenticated visitor to sign in from ${path}`, async () => {
@@ -63,18 +63,22 @@ describe("the gate on Register B", () => {
     expect(screen.getByText(signedInUser.email)).toBeDefined();
   });
 
-  it("carries the three rail items in pipeline order", async () => {
+  it("carries Home, then the three rail items in pipeline order", async () => {
     renderAt("/app/reports/pnl", { user: signedInUser });
     await screen.findByText(t("report.title"));
 
-    // In, corrected, read. The rail is a map, not a ranking. Asserted on the
-    // destinations rather than the text, because Review carries a count and the
-    // text is therefore "Review2" -- which is the badge working, not a defect.
-    const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(links).toEqual(["/app/imports", "/app/review", "/app/reports/pnl"]);
+    // Home first, then in, corrected, read. The rail is a map, not a
+    // ranking. Asserted on the destinations rather than the text, because
+    // Review carries a count and the text is therefore "Review2" -- which
+    // is the badge working, not a defect. Scoped to the rail's own nav: the
+    // page also carries a skip-to-content link ahead of it, which is not
+    // one of the rail's own items.
+    const rail = screen.getByRole("navigation");
+    const links = within(rail).getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(links).toEqual(["/app/home", "/app/imports", "/app/review", "/app/reports/pnl"]);
 
     // The count is the only badge in the interface, and it belongs to Review.
-    const review = screen.getAllByRole("link")[1]!;
+    const review = within(rail).getAllByRole("link")[2]!;
     expect(review.textContent).toMatch(new RegExp(`^${t("nav.review")}\\d+$`));
   });
 
@@ -90,10 +94,12 @@ describe("the gate on Register B", () => {
 });
 
 describe("destinations rather than screens", () => {
-  it("sends /app to the Management P&L, which is the whole MVP", async () => {
+  it("sends /app to Home", async () => {
     const router = renderAt("/app", { user: signedInUser });
-    await screen.findByText(t("report.title"));
-    expect(router.state.location.pathname).toBe("/app/reports/pnl");
+    // Not findByText: the rail's own "Home" link renders the identical
+    // string, and a screen's <h1> is the one occurrence with a heading role.
+    await screen.findByRole("heading", { name: t("home.title") });
+    expect(router.state.location.pathname).toBe("/app/home");
   });
 
   it("keeps the reports segment although one report exists", async () => {

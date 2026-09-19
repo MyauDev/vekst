@@ -47,15 +47,19 @@ describe("the public surface stays separable", () => {
 });
 
 describe("register discipline", () => {
-  it("keeps Register A type sizes out of the application", () => {
-    // add-web-experience §5.9. DESIGN.md §1 caps the app at 24px. The three
-    // sizes above it belong to the landing, and behind sign-in they cost rows
-    // per screen -- §1.1, the failure mode this whole design guards against.
+  it("keeps the landing's display size out of the application", () => {
+    // add-web-experience §5.9, amended 2026-09-16. DESIGN.md §1 used to cap the
+    // app at 24px and this test forbade all three sizes above it. §1 now lets
+    // the application reach 36px for a screen heading, so 2xl and 3xl are
+    // legal behind sign-in.
+    //
+    // 4xl is not, and the guard survives for that: 48px is Register A's
+    // display size, sized for one promise on an otherwise empty page. On a
+    // screen whose job is many ordered figures there is nothing it can be
+    // the right size for.
     const app = filesUnder(src("app"));
     expect(app.length).toBeGreaterThan(5);
-    const offenders = app.filter((f) =>
-      /\btext-(2xl|3xl|4xl)\b/.test(readFileSync(f, "utf8")),
-    );
+    const offenders = app.filter((f) => /\btext-4xl\b/.test(readFileSync(f, "utf8")));
     expect(offenders).toEqual([]);
   });
 });
