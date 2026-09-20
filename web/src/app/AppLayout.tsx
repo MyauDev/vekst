@@ -14,11 +14,12 @@ import { Code, ConnectError, createClient, type Transport } from "@connectrpc/co
 import { IdentityService } from "../gen/vekst/v1/identity_pb";
 import { signOut } from "../data/auth";
 import { reviewSummary } from "../data/review";
+import { setSession } from "../data/session";
 import { t } from "../i18n";
-import { NO_DATA } from "../money";
 import { defaultRange } from "../ui/period";
 import { useLocale, useTheme } from "../ui/preferences";
 import { ErrorState, Loading } from "../ui/feedback";
+import { FirstRunScreen } from "./FirstRunScreen";
 import { Rail } from "./Rail";
 import { TopBar } from "./TopBar";
 
@@ -64,6 +65,30 @@ export function AppLayout({
   }
   if (!data.user) return unauthenticated;
 
+  // Empty is the first-run signal, and a fact rather than an error: a person
+  // who has just signed in for the first time has not failed at anything.
+  // Rendered in place of the shell's children -- not a route, because a route
+  // would be reachable by a person who already has an organisation -- and no
+  // tenant-scoped data call happens: the session is never set, so any screen
+  // that tried would throw from requireSession() rather than send an empty
+  // organization_id.
+  if (data.organisations.length === 0) {
+    return <FirstRunScreen locale={locale} />;
+  }
+
+  // v1 gives a person exactly one organisation (add-web-experience
+  // design.md:147; already_a_member refuses a second), so the first is the
+  // only one. Set once per render, synchronously, before any screen below
+  // renders -- not in an effect, whose ordering (children run before
+  // parents) would let a child's own query fire first.
+  const organisation = data.organisations[0]!;
+  const entity = organisation.entities[0];
+  setSession({
+    orgId: organisation.id,
+    entityId: entity?.id ?? "",
+    baseCurrency: organisation.baseCurrency,
+  });
+
   const range = defaultRange();
 
   return (
@@ -99,13 +124,8 @@ export function AppLayout({
 
       <div className="flex min-w-0 grow flex-col">
         <TopBar
-          // NO_DATA, not a guessed name. The `User` message carries no
-          // organisation until §9.1 extends it, and this product's own
-          // convention is that a dash means "nothing was loaded" while a zero
-          // means "nothing happened". Inventing a label here would be the one
-          // kind of wrong this interface must never be.
-          organisation={NO_DATA}
-          entity={NO_DATA}
+          organisation={organisation.name}
+          entity={entity?.name ?? ""}
           from={range.from}
           to={range.to}
           locale={locale}

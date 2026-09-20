@@ -19,7 +19,7 @@ import { Line } from "@/components/charts/line";
 import { Grid } from "@/components/charts/grid";
 import { ChartTooltip } from "@/components/charts/tooltip";
 
-import { exponentOf, formatMinorUnits, sumMinorUnits } from "../../money";
+import { exponentOf, formatMinorUnits } from "../../money";
 import { t } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { formatPeriodShort } from "../../ui/period";
@@ -35,20 +35,15 @@ export function RevenueExpenseChart({
   locale,
 }: Readonly<{ report: Report; locale: Locale }>) {
   const exp = exponentOf(report.currencyCode);
-
-  const revenue = report.sections.find((s) => s.id === "revenue")!;
-  const expenseSections = report.sections.filter((s) => s.id !== "revenue");
+  const revenueLine = report.lines.find((l) => l.categoryId === "01");
 
   const rows = useMemo(
     () =>
       report.periods.map((period, i) => {
-        const revenueMinor = revenue.subtotals[i]!.minorUnits;
-        // Cost of sales and operating expenses combined, as a positive
-        // magnitude -- this chart compares two magnitudes, and expenses are
-        // stored negative.
-        const expenseMinor = sumMinorUnits(
-          expenseSections.map((s) => s.subtotals[i]!.minorUnits),
-        ).replace(/^-/, "");
+        const revenueMinor = revenueLine?.values[i]?.minorUnits ?? "0";
+        // As a positive magnitude -- this chart compares two magnitudes, and
+        // expensesByPeriod is signed the way every cost in this product is.
+        const expenseMinor = report.expensesByPeriod[i]!.minorUnits.replace(/^-/, "");
         return {
           period,
           revenue: exp === undefined ? 0 : Number(BigInt(revenueMinor)) / 10 ** exp,
@@ -57,7 +52,7 @@ export function RevenueExpenseChart({
           expensesText: exp === undefined ? "" : formatMinorUnits(expenseMinor, exp, locale),
         };
       }),
-    [report, revenue, expenseSections, exp, locale],
+    [report, revenueLine, exp, locale],
   );
 
   const hasData = rows.some((r) => r.revenue !== 0 || r.expenses !== 0);

@@ -70,17 +70,19 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     const totalInLabel = t("chart.moneyflow.totalIn", locale);
     const netLabel = t("chart.netresult.series", locale);
 
-    const revenue = report.sections.find((s) => s.id === "revenue")!;
-    const revenueLines = revenue.lines.filter((l) => l.total !== null);
-    if (revenueLines.length === 0) return null;
+    // The real backend has one revenue line (NET SALES, "01"), not several --
+    // `core/internal/report/pnl.go`'s `Order` computes no per-source revenue
+    // breakdown, so this Sankey's revenue side is a single node now rather
+    // than the fixture's several.
+    const revenue = report.lines.find((l) => l.categoryId === "01");
+    if (!revenue) return null;
+    const revenueLines = [revenue];
 
-    const expenseLines: Sliced<null>[] = report.sections
-      .filter((s) => s.id !== "revenue")
-      .flatMap((s) => s.lines)
-      .filter((l) => l.total !== null)
+    const expenseLines: Sliced<null>[] = report.lines
+      .filter((l) => !l.computed && l.categoryId !== "01")
       .map((l) => ({
         label: l.label,
-        value: Math.abs(Number(BigInt(l.total!.minorUnits)) / 10 ** exp),
+        value: Math.abs(Number(BigInt(l.total.minorUnits)) / 10 ** exp),
         item: null,
       }));
 
@@ -106,7 +108,7 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
       ...revenueLines.map((l) => ({
         source: l.label,
         target: totalInLabel,
-        value: Number(BigInt(l.total!.minorUnits)) / 10 ** exp,
+        value: Number(BigInt(l.total.minorUnits)) / 10 ** exp,
       })),
       ...expenseNodes.map((e) => ({ source: totalInLabel, target: e.label, value: e.value })),
       ...(remainder > 0 ? [{ source: totalInLabel, target: netLabel, value: remainder }] : []),
@@ -120,10 +122,7 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
 
   const rows = useMemo(() => {
     if (exp === undefined) return [];
-    return report.sections
-      .flatMap((s) => s.lines)
-      .filter((l) => l.total !== null)
-      .map((l) => ({ label: l.label, text: formatMinorUnits(l.total!.minorUnits, exp, locale) }));
+    return report.lines.map((l) => ({ label: l.label, text: formatMinorUnits(l.total.minorUnits, exp, locale) }));
   }, [report, exp, locale]);
 
   const option = useMemo(() => {

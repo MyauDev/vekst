@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -272,6 +273,81 @@ func (s *Service) Queue(ctx context.Context, userID, orgID, entityID uuid.UUID, 
 		return nil
 	})
 	return groups, totals, err
+}
+
+// Category is one leaf a human may classify a transaction into, for the
+// review queue's picker.
+type Category struct {
+	ID    uuid.UUID
+	Code  string
+	Name  string
+	Path  string // "OPEX > Administration > Finance"
+	IsPnl bool
+}
+
+// Categories lists what a human may choose in the review queue's picker:
+// leaves only, never a computed line and never a section --
+// ClassifiableCategories already enforces that, the same query change 3.2
+// sends to the classifier. Any member may call it, the same as the queue
+// itself.
+func (s *Service) Categories(ctx context.Context, userID, orgID uuid.UUID) ([]Category, error) {
+	org, _, err := s.bind(ctx, userID, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []Category
+	err = s.db.InTx(ctx, org, func(ctx context.Context, tx pgx.Tx) error {
+		q := gendb.New(tx)
+
+		// The whole tree, for path-building only -- ClassifiableCategories
+		// below is still what decides which rows are offered.
+		all, err := q.EffectiveTaxonomy(ctx, s.versions.Taxonomy)
+		if err != nil {
+			return fmt.Errorf("review: listing taxonomy: %w", err)
+		}
+		byID := make(map[uuid.UUID]gendb.EffectiveTaxonomyRow, len(all))
+		for _, c := range all {
+			byID[uuid.UUID(c.ID.Bytes)] = c
+		}
+		pathOf := func(c gendb.EffectiveTaxonomyRow) string {
+			names := []string{c.Name}
+			for cur := c; cur.ParentID.Valid; {
+				parent, ok := byID[uuid.UUID(cur.ParentID.Bytes)]
+				if !ok {
+					break
+				}
+				names = append([]string{parent.Name}, names...)
+				cur = parent
+			}
+			return strings.Join(names, " > ")
+		}
+
+		leaves, err := q.ClassifiableCategories(ctx, s.versions.Taxonomy)
+		if err != nil {
+			return fmt.Errorf("review: listing classifiable categories: %w", err)
+		}
+		out = make([]Category, 0, len(leaves))
+		for _, l := range leaves {
+			id := uuid.UUID(l.ID.Bytes)
+			row, ok := byID[id]
+			if !ok {
+				// Unreachable: every classifiable row is also in the effective
+				// set this same transaction just read, for the same taxonomy
+				// version.
+				continue
+			}
+			out = append(out, Category{
+				ID:    id,
+				Code:  l.Code,
+				Name:  l.Name,
+				Path:  pathOf(row),
+				IsPnl: l.IsPnl,
+			})
+		}
+		return nil
+	})
+	return out, err
 }
 
 // GroupRows returns the transactions behind one group.

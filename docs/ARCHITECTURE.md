@@ -710,6 +710,64 @@ Unchanged from v1, and now enforced across a language boundary:
   either fails the build. `SECURITY DEFINER` alone would not have worked — a definer function
   runs as its owner, and under `FORCE` the owner is subject to the policy too.
 
+### 7.1 Onboarding: how an organisation comes to exist
+
+Change 5.3 (`connect-app-end-to-end`). `OrgService.CreateOrganization` is the one RPC in the
+whole browser contract a caller with a session but no membership may call — every other
+handler resolves an organisation from a membership the caller already holds, which is exactly
+what a first-time caller does not have yet. It is authenticated and deliberately not
+authorised against a membership; a caller who already has one is refused with
+`already_a_member` rather than admitted, because v1 gives a person exactly one organisation.
+
+`db.CreateOrganization` does three inserts and one adoption in one transaction, under the new
+organisation's own policy — the identifier is minted first (`OrgIDForNewOrg`, the third of the
+three sanctioned `OrgID` constructors), so `WITH CHECK (id = app_current_org())` passes because
+the row being inserted and the tenant context naming it are the same value:
+
+1. `organizations`, then `entities` (the one entity v1 gives every organisation).
+2. **The industry template adopted**, before the owner's own membership is inserted — an
+   organisation a person can reach but that cannot yet be reported against is a smaller
+   mistake than the reverse, and failing here rolls back everything above it too.
+3. `memberships`, the creator as `owner`.
+
+**Adoption copies `category_templates` into the new organisation's own `categories` rows,
+scope `'org'`.** `categories`' `scope` column has exactly two values — `'global'` (shared by
+every organisation) and `'org'` (owned by one) — and neither fits "a starting point every new
+organisation gets its own copy of", so that starting point is a separate table instead of a
+third scope. `category_templates` and its sibling `currencies` (below) belong to nobody: no
+`org_id`, no RLS, exempted in `deploy/db/rls-exempt-tables.txt` on the same reasoning as the
+four identity tables — a table every organisation reads and none owns is not a gap in the RLS
+coverage test, it is one the test cannot classify any other way.
+
+Adoption runs by ascending `level`, because a level-5 leaf's parent is a level-4 row the same
+loop already inserted. A row's parent resolves to this organisation's own copy first, and only
+then to a shared `categories` row with the same code — `030101` hangs under the shared `0301`,
+but `0401010101` hangs under this organisation's own adopted `04010101`, which has no shared
+counterpart at all. A row whose parent resolves to neither fails the whole transaction.
+
+It lives in `core/internal/db`, not in `core/internal/tenancy` where a first draft of the
+design put it: `CreateOrganization` has to call it inside its own transaction or none of it,
+and `core/internal/tenancy` already has to import `core/internal/db` for `OrgID`, so `db`
+importing `tenancy` back would be a cycle. `core/internal/tenancy` still owns organisation
+creation as a product action — validating the request, the `already_a_member` refusal, calling
+`db.CreateOrganization` — this one piece of mechanics has to live beside the transaction it
+runs in.
+
+**`currencies` is the second global, RLS-exempt reference table this change adds**, closing a
+gap `add-transaction-ledger` (change 2.5) left open: `organizations.base_currency` and
+`transactions.currency` validate a currency's three-letter shape only (`CHECK (... ~
+'^[A-Z]{3}$')`), never whether it names a currency this product actually knows the minor-unit
+exponent for. Seeded from `core/internal/money`'s exponent map by a small Go generator
+(`core/internal/money/cmd/gen-currency-seed`) rather than `eval/emit.py`, whose domain is the
+taxonomy and has no reason to know about money. Neither existing column gained a foreign key —
+that upgrade, if it happens, is a separate, later change.
+
+`GetCurrentUser` carries the caller's organisations and entities as of this change
+(`GetCurrentUserResponse.organisations`), each with the caller's own role. An empty list is the
+first-run signal a signed-in person with no organisation gets, and it is a fact rather than an
+error — `AppLayout` renders a first-run screen for it rather than any tenant-scoped data call,
+which there is no session yet to make.
+
 ---
 
 ## 7.5 Authentication and sessions

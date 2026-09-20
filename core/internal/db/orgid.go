@@ -132,6 +132,56 @@ func (d *DB) OrgIDForSession(ctx context.Context, userID, requested uuid.UUID) (
 	return OrgID{v: requested}, role, nil
 }
 
+// OrgMembership is one row of a caller's membership: which organisation, and
+// their role in it. Returned by MembershipsForUser, which is the same
+// question orgs_for_user() answers for OrgIDForSession, without filtering to
+// one requested organisation -- GetCurrentUser and the already_a_member
+// refusal both need every membership a caller holds, not one verified
+// against a guess.
+type OrgMembership struct {
+	Org  OrgID
+	Role Role
+}
+
+// MembershipsForUser lists every organisation a caller belongs to, with
+// their role in each.
+//
+// Like OrgIDForSession, it runs before any organisation is known -- memberships
+// has a policy, and app_current_org() would raise inside a tenant transaction
+// that does not exist yet -- so it opens InSystemTx and calls orgs_for_user,
+// the single SECURITY DEFINER function that reaches memberships through a
+// policy scoped to a NOLOGIN role vekst_app cannot assume (design D3).
+//
+// Every OrgID this returns came from that same verified read, the same way
+// OrgIDForSession's single result does: this is not a fourth constructor, it
+// is the same door, answering "which ones" instead of "is it this one".
+func (d *DB) MembershipsForUser(ctx context.Context, userID uuid.UUID) ([]OrgMembership, error) {
+	var memberships []OrgMembership
+	err := d.InSystemTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		rows, err := tx.Query(ctx,
+			`SELECT org_id, role FROM orgs_for_user($1)`,
+			pgtype.UUID{Bytes: userID, Valid: true})
+		if err != nil {
+			return fmt.Errorf("db: orgs_for_user: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var org pgtype.UUID
+			var role string
+			if err := rows.Scan(&org, &role); err != nil {
+				return fmt.Errorf("db: scanning membership: %w", err)
+			}
+			memberships = append(memberships, OrgMembership{Org: OrgID{v: uuid.UUID(org.Bytes)}, Role: Role(role)})
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return memberships, nil
+}
+
 // OrgIDFromJobArgs is the worker door (design D5). River's own tables carry no
 // tenant column and no policy, so a job's arguments are the only place its
 // tenant can come from -- and they are treated as input, never as ambient

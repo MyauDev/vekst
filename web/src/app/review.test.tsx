@@ -2,20 +2,102 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { makeRouter } from "../router";
-import { stubTransport, signedInUser } from "../testTransport";
-import { t } from "../i18n";
-import { resetFixtures } from "../data/review";
+// Shared with the mock factory below via vi.hoisted -- a resolved group has
+// to disappear from subsequent listReviewGroups calls (the same behaviour
+// the deleted `decided` fixture Set gave), and a test needs to be able to
+// clear it between cases the way `resetFixtures` used to.
+const { resolvedKeys } = vi.hoisted(() => ({ resolvedKeys: new Set<string>() }));
 
-beforeEach(resetFixtures);
+// `review.ts` imports `transport` statically from "../transport", the same
+// convention `dedup.test.ts` and `imports.test.tsx` mock around.
+vi.mock("../transport", async () => {
+  const { stubTransport, signedInUser } = await import("../testTransport");
+  const { ReviewService } = await import("../gen/vekst/v1/review_pb");
+
+  const GROUPS = [
+    {
+      counterpartyKey: "vektor-logistika", displayName: "VEKTOR LOGISTIKA", rowCount: 2,
+      total: { minorUnits: "-240700", currencyCode: "EUR" },
+      firstSeen: "2026-08-04", lastSeen: "2026-08-19",
+    },
+    {
+      counterpartyKey: "kontur-service", displayName: "KONTUR SERVICE", rowCount: 1,
+      total: { minorUnits: "-24900", currencyCode: "EUR" },
+      firstSeen: "2026-08-11", lastSeen: "2026-08-11",
+    },
+  ];
+  const TRANSACTIONS: Record<
+    string,
+    { id: string; bookedOn: string; direction: string; amount: { minorUnits: string; currencyCode: string }; description: string; counterpartyRaw: string; regulatedCode: string; sourceKind: string }[]
+  > = {
+    "vektor-logistika": [
+      {
+        id: "r1", bookedOn: "2026-08-04", direction: "expense",
+        amount: { minorUnits: "-142300", currencyCode: "EUR" },
+        description: "VEKTOR LOGISTIKA OPLATA SCHET 4602",
+        counterpartyRaw: "", regulatedCode: "", sourceKind: "bank",
+      },
+      {
+        id: "r2", bookedOn: "2026-08-19", direction: "expense",
+        amount: { minorUnits: "-98400", currencyCode: "EUR" },
+        description: "VEKTOR LOGISTIKA OPLATA SCHET 4655",
+        counterpartyRaw: "", regulatedCode: "", sourceKind: "bank",
+      },
+    ],
+    "kontur-service": [
+      {
+        id: "r3", bookedOn: "2026-08-11", direction: "expense",
+        amount: { minorUnits: "-24900", currencyCode: "EUR" },
+        description: "KONTUR SERVICE PODPISKA",
+        counterpartyRaw: "", regulatedCode: "", sourceKind: "bank",
+      },
+    ],
+  };
+  const CATEGORIES = [
+    { id: "c1", code: "0402010202", name: "Logistics", path: "OPEX > Marketing and Sales > Marketing > MRK Services > Logistics", isPnl: true },
+    { id: "c2", code: "04020102", name: "Software and subscriptions", path: "OPEX > Marketing and Sales > Marketing > MRK Services", isPnl: true },
+  ];
+
+  return {
+    transport: stubTransport({
+      user: signedInUser,
+      extend: (router) => {
+        router.service(ReviewService, {
+          listReviewGroups: () => {
+            const remaining = GROUPS.filter((g) => !resolvedKeys.has(g.counterpartyKey));
+            return {
+              groups: remaining,
+              totalRowCount: remaining.reduce((n, g) => n + g.rowCount, 0),
+              totalCounterpartyCount: remaining.length,
+              totalAbsolute: { minorUnits: "0", currencyCode: "EUR" },
+            };
+          },
+          listGroupTransactions: (req) => ({ transactions: TRANSACTIONS[req.counterpartyKey] ?? [] }),
+          listCategories: () => ({ categories: CATEGORIES }),
+          resolveGroup: (req) => {
+            resolvedKeys.add(req.counterpartyKey);
+            return {
+              decisionId: "d1", coveredCount: 1,
+              coveredTotal: { minorUnits: "0", currencyCode: "EUR" },
+            };
+          },
+          undoDecision: () => ({ retractedCount: 0 }),
+        });
+      },
+    }),
+  };
+});
+
+const { makeRouter } = await import("../router");
+const { transport } = await import("../transport");
+const { t } = await import("../i18n");
+
+beforeEach(() => resolvedKeys.clear());
 
 function renderReview() {
-  const router = makeRouter(
-    stubTransport({ user: signedInUser }),
-    createMemoryHistory({ initialEntries: ["/app/review"] }),
-  );
+  const router = makeRouter(transport, createMemoryHistory({ initialEntries: ["/app/review"] }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>

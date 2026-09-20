@@ -21,10 +21,12 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// User carries no organisation and no role, deliberately. There is no
-// organisation model until change 1.1, and a field that exists before it means
-// anything is a field the front end starts trusting. 1.1 extends this message;
-// buf breaking protects the addition.
+// User carries no organisation and no role, deliberately, and still does not:
+// change 5.3 (connect-app-end-to-end) adds the caller's organisations as a
+// second field on GetCurrentUserResponse below, rather than on User itself --
+// a person's identity and which organisations they belong to are different
+// facts, and the second can change (or be empty, at first sign-in) without
+// the first meaning anything different.
 type User struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Opaque to the client.
@@ -136,16 +138,162 @@ func (*GetCurrentUserRequest) Descriptor() ([]byte, []int) {
 	return file_vekst_v1_identity_proto_rawDescGZIP(), []int{1}
 }
 
-type GetCurrentUserResponse struct {
+// One entity within an organisation. v1 gives every organisation exactly one
+// (add-web-experience design), so this is a singleton list today, but it is
+// a list because entity_id has existed since the first migration.
+type Entity struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Entity) Reset() {
+	*x = Entity{}
+	mi := &file_vekst_v1_identity_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Entity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Entity) ProtoMessage() {}
+
+func (x *Entity) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_identity_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Entity.ProtoReflect.Descriptor instead.
+func (*Entity) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_identity_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Entity) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Entity) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// One organisation the caller belongs to, with their own role in it and its
+// entities. v1 gives a person exactly one organisation
+// (add-web-experience/design.md:147), so `organisations` below is a
+// singleton list today for the same reason `entities` here is -- the field
+// is repeated because the schema already allows more, not because the
+// product does yet.
+type Organisation struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name         string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	BaseCurrency string                 `protobuf:"bytes,3,opt,name=base_currency,json=baseCurrency,proto3" json:"base_currency,omitempty"`
+	// The caller's own membership role. Returned rather than looked up again
+	// at enforcement time, because a second lookup later is how a
+	// stale-permissions bug is built (design D3 makes the same call for
+	// OrgIDForSession).
+	Role          string    `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	Entities      []*Entity `protobuf:"bytes,5,rep,name=entities,proto3" json:"entities,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Organisation) Reset() {
+	*x = Organisation{}
+	mi := &file_vekst_v1_identity_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Organisation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Organisation) ProtoMessage() {}
+
+func (x *Organisation) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_identity_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Organisation.ProtoReflect.Descriptor instead.
+func (*Organisation) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_identity_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Organisation) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Organisation) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Organisation) GetBaseCurrency() string {
+	if x != nil {
+		return x.BaseCurrency
+	}
+	return ""
+}
+
+func (x *Organisation) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *Organisation) GetEntities() []*Entity {
+	if x != nil {
+		return x.Entities
+	}
+	return nil
+}
+
+type GetCurrentUserResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	User  *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	// Every organisation the caller holds a membership in. Empty means the
+	// caller has no organisation -- that is the first-run signal, and it is a
+	// fact rather than an error: a person who has just signed in for the first
+	// time has not failed at anything.
+	Organisations []*Organisation `protobuf:"bytes,2,rep,name=organisations,proto3" json:"organisations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetCurrentUserResponse) Reset() {
 	*x = GetCurrentUserResponse{}
-	mi := &file_vekst_v1_identity_proto_msgTypes[2]
+	mi := &file_vekst_v1_identity_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -157,7 +305,7 @@ func (x *GetCurrentUserResponse) String() string {
 func (*GetCurrentUserResponse) ProtoMessage() {}
 
 func (x *GetCurrentUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vekst_v1_identity_proto_msgTypes[2]
+	mi := &file_vekst_v1_identity_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -170,12 +318,19 @@ func (x *GetCurrentUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCurrentUserResponse.ProtoReflect.Descriptor instead.
 func (*GetCurrentUserResponse) Descriptor() ([]byte, []int) {
-	return file_vekst_v1_identity_proto_rawDescGZIP(), []int{2}
+	return file_vekst_v1_identity_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetCurrentUserResponse) GetUser() *User {
 	if x != nil {
 		return x.User
+	}
+	return nil
+}
+
+func (x *GetCurrentUserResponse) GetOrganisations() []*Organisation {
+	if x != nil {
+		return x.Organisations
 	}
 	return nil
 }
@@ -190,9 +345,19 @@ const file_vekst_v1_identity_proto_rawDesc = "" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x16\n" +
 	"\x06locale\x18\x04 \x01(\tR\x06locale\"\x17\n" +
-	"\x15GetCurrentUserRequest\"<\n" +
+	"\x15GetCurrentUserRequest\",\n" +
+	"\x06Entity\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\x99\x01\n" +
+	"\fOrganisation\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12#\n" +
+	"\rbase_currency\x18\x03 \x01(\tR\fbaseCurrency\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12,\n" +
+	"\bentities\x18\x05 \x03(\v2\x10.vekst.v1.EntityR\bentities\"z\n" +
 	"\x16GetCurrentUserResponse\x12\"\n" +
-	"\x04user\x18\x01 \x01(\v2\x0e.vekst.v1.UserR\x04user2f\n" +
+	"\x04user\x18\x01 \x01(\v2\x0e.vekst.v1.UserR\x04user\x12<\n" +
+	"\rorganisations\x18\x02 \x03(\v2\x16.vekst.v1.OrganisationR\rorganisations2f\n" +
 	"\x0fIdentityService\x12S\n" +
 	"\x0eGetCurrentUser\x12\x1f.vekst.v1.GetCurrentUserRequest\x1a .vekst.v1.GetCurrentUserResponseB3Z1github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1b\x06proto3"
 
@@ -208,21 +373,25 @@ func file_vekst_v1_identity_proto_rawDescGZIP() []byte {
 	return file_vekst_v1_identity_proto_rawDescData
 }
 
-var file_vekst_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_vekst_v1_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_vekst_v1_identity_proto_goTypes = []any{
 	(*User)(nil),                   // 0: vekst.v1.User
 	(*GetCurrentUserRequest)(nil),  // 1: vekst.v1.GetCurrentUserRequest
-	(*GetCurrentUserResponse)(nil), // 2: vekst.v1.GetCurrentUserResponse
+	(*Entity)(nil),                 // 2: vekst.v1.Entity
+	(*Organisation)(nil),           // 3: vekst.v1.Organisation
+	(*GetCurrentUserResponse)(nil), // 4: vekst.v1.GetCurrentUserResponse
 }
 var file_vekst_v1_identity_proto_depIdxs = []int32{
-	0, // 0: vekst.v1.GetCurrentUserResponse.user:type_name -> vekst.v1.User
-	1, // 1: vekst.v1.IdentityService.GetCurrentUser:input_type -> vekst.v1.GetCurrentUserRequest
-	2, // 2: vekst.v1.IdentityService.GetCurrentUser:output_type -> vekst.v1.GetCurrentUserResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: vekst.v1.Organisation.entities:type_name -> vekst.v1.Entity
+	0, // 1: vekst.v1.GetCurrentUserResponse.user:type_name -> vekst.v1.User
+	3, // 2: vekst.v1.GetCurrentUserResponse.organisations:type_name -> vekst.v1.Organisation
+	1, // 3: vekst.v1.IdentityService.GetCurrentUser:input_type -> vekst.v1.GetCurrentUserRequest
+	4, // 4: vekst.v1.IdentityService.GetCurrentUser:output_type -> vekst.v1.GetCurrentUserResponse
+	4, // [4:5] is the sub-list for method output_type
+	3, // [3:4] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_vekst_v1_identity_proto_init() }
@@ -236,7 +405,7 @@ func file_vekst_v1_identity_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vekst_v1_identity_proto_rawDesc), len(file_vekst_v1_identity_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

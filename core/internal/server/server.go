@@ -21,6 +21,7 @@ import (
 	"github.com/MyauDev/vekst/core/internal/ingest"
 	"github.com/MyauDev/vekst/core/internal/report"
 	"github.com/MyauDev/vekst/core/internal/review"
+	"github.com/MyauDev/vekst/core/internal/tenancy"
 )
 
 // Server owns the HTTP listener and its lifecycle.
@@ -34,7 +35,7 @@ type Server struct {
 // New builds the router and the HTTP server. It performs no I/O. database is
 // never nil from change 0.2 onward: core always connects to Postgres.
 func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, database readinessChecker, ident *identity.Service, importSvc *ingest.Service,
-	reviewer *review.Service, reporter *report.Service) *Server {
+	reviewer *review.Service, reporter *report.Service, tenant *tenancy.Service) *Server {
 	s := &Server{
 		http: &http.Server{
 			Addr:              cfg.Addr,
@@ -87,11 +88,21 @@ func New(cfg config.Config, log *slog.Logger, classifier classify.Classifier, da
 		&healthHandler{classifier: classifier, log: log}, authOpt)
 	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
 
-	path, handler = vektv1connect.NewIdentityServiceHandler(&identityHandler{}, authOpt)
+	path, handler = vektv1connect.NewIdentityServiceHandler(&identityHandler{svc: ident}, authOpt)
 	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
 
 	path, handler = vektv1connect.NewImportServiceHandler(&importHandler{svc: importSvc}, authOpt)
 	r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
+
+	// OrgService, on the same terms as every other handler -- authenticated,
+	// nothing more. CreateOrganization is the one RPC a caller with a session
+	// and no membership may reach; a nil tenant is what the tests exercising
+	// only health and identity pass, the same shape reviewer and reporter
+	// already use below.
+	if tenant != nil {
+		path, handler = vektv1connect.NewOrgServiceHandler(&orgHandler{svc: tenant}, authOpt)
+		r.Mount("/rpc"+path, http.StripPrefix("/rpc", handler))
+	}
 
 	// The review queue. Registered only with a service, because every one of
 	// its calls opens a transaction bound to an organisation and there is

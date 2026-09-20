@@ -4,7 +4,7 @@
 import { Link, Outlet, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
-import { getReport } from "../data/report";
+import { getReport, MixedBasisError } from "../data/report";
 import { t } from "../i18n";
 import type { Locale, MessageKey } from "../i18n";
 import type { ReportView } from "../router";
@@ -66,8 +66,29 @@ export function ReportScreen() {
   });
 
   if (isPending) return <Loading label={t("report.title", locale)} rows={6} />;
+  // The one whole-report blocked state, replacing the fixture's per-line one:
+  // a report is computed from one source_kind for its whole duration, so an
+  // entity mixing bank and ledger imports with no confirmed match is refused
+  // entirely rather than guessed at line by line (design §2.5).
+  if (error instanceof MixedBasisError) {
+    return (
+      <div className="max-w-prose rounded-panel border border-border border-l-2 border-l-danger bg-surface-raised p-6 text-sm text-text">
+        <span className="text-2xs font-medium uppercase tracking-wider text-danger">
+          {t("report.blocked", locale)}
+        </span>
+        <p className="mt-2">{t("report.blocked.mixed_basis", locale)}</p>
+      </div>
+    );
+  }
   if (error) return <ErrorState message={String(error)} />;
-  if (data.sections.every((s) => s.lines.length === 0)) {
+  // Nothing happened: every line and every bucket totals zero. Lines
+  // themselves are always present -- the real backend computes all twelve
+  // regardless of data -- so "no report yet" is a fact about the totals, not
+  // about how many rows came back.
+  if (
+    data.lines.every((l) => l.total.minorUnits === "0") &&
+    data.buckets.every((b) => b.total.minorUnits === "0")
+  ) {
     return (
       <EmptyState
         title={t("empty.reports.title", locale)}

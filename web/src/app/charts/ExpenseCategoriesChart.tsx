@@ -27,14 +27,20 @@ interface Row {
   categoryId: string;
 }
 
+/**
+ * One bar per non-revenue, non-computed line -- the real `GetManagementPNL`
+ * has no category-level breakdown at all (`core/internal/report/pnl.go`'s
+ * `Order` is twelve rows: seven sections and five computed results, never
+ * one row per leaf category), so this chart's bars are section totals
+ * (CS, OCS, OPEX, OIE, FR, CIT) rather than the individual expense
+ * categories the fixture invented. Coarser than before, and real.
+ */
 function rows(report: Report, locale: Locale) {
   const exp = exponentOf(report.currencyCode);
-  const sliced: Sliced<Row>[] = report.sections
-    .filter((s) => s.id !== "revenue")
-    .flatMap((s) => s.lines)
-    .filter((line) => line.total !== null)
+  const sliced: Sliced<Row>[] = report.lines
+    .filter((line) => !line.computed && line.categoryId !== "01")
     .map((line) => {
-      const minor = BigInt(line.total!.minorUnits);
+      const minor = BigInt(line.total.minorUnits);
       const magnitude = minor < 0n ? -minor : minor;
       return {
         label: line.label,

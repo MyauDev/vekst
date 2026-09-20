@@ -5,20 +5,188 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { afterEach, describe, expect, it } from "vitest";
-
-import { makeRouter } from "../router";
-import { stubTransport, signedInUser } from "../testTransport";
-import { t } from "../i18n";
-import { defaultRange } from "../ui/period";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const web = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", ...p);
 
+// Shared with the mock factory below via vi.hoisted, the same shape
+// `router.test.tsx`'s own restructure uses: which source kinds the
+// entity's batches carry, so one dedicated test can trigger the
+// mixed-basis refusal without every other test in this file inheriting it.
+const state = vi.hoisted(() => ({ batchSourceKinds: ["bank"] as ("bank" | "ledger")[] }));
+
+vi.mock("../transport", async () => {
+  const { stubTransport, signedInUser } = await import("../testTransport");
+  const { ImportService, ImportStatus, SourceKind } = await import("../gen/vekst/v1/import_pb");
+  const { ReviewService } = await import("../gen/vekst/v1/review_pb");
+  const {
+    ReportService, ReportBasis, ReportBucketKind, ReportAnswerKind,
+  } = await import("../gen/vekst/v1/report_pb");
+  const { timestampFromDate } = await import("@bufbuild/protobuf/wkt");
+
+  // Eight periods, 2026-01..2026-08. Raw section values, and the computed
+  // chain derived from them the same way core/internal/report/pnl.go's own
+  // Chain does -- GM = NET SALES - CS, NM = GM - OCS, CM = NM - OPEX - OIE,
+  // IBT = CM - FR, NI = IBT - CIT -- so a test asserting the lines add up
+  // is asserting something this mock cannot fail to satisfy by accident.
+  const PERIODS = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"];
+  const RAW: Record<string, number[]> = {
+    "01": PERIODS.map(() => 800000), // NET SALES
+    "02": PERIODS.map(() => -260000), // CS
+    "03": PERIODS.map(() => -40000), // OCS
+    "04": PERIODS.map(() => -300000), // OPEX
+    "05": PERIODS.map(() => -10000), // OIE
+    "06": PERIODS.map(() => 0), // FR
+    "07": PERIODS.map(() => 0), // CIT
+  };
+  const sum = (...vs: number[]) => vs.reduce((a, b) => a + b, 0);
+  const gm = PERIODS.map((_, i) => sum(RAW["01"]![i]!, RAW["02"]![i]!));
+  const nm = PERIODS.map((_, i) => sum(gm[i]!, RAW["03"]![i]!));
+  const cm = PERIODS.map((_, i) => sum(nm[i]!, RAW["04"]![i]!, RAW["05"]![i]!));
+  const ibt = PERIODS.map((_, i) => sum(cm[i]!, RAW["06"]![i]!));
+  const ni = PERIODS.map((_, i) => sum(ibt[i]!, RAW["07"]![i]!));
+
+  const m = (minor: number) => ({ minorUnits: String(minor), currencyCode: "EUR" });
+  const figure = (minor: number, percentOfRevenue?: number) => ({
+    amount: m(minor), percentOfRevenue,
+  });
+
+  function reportLine(code: string, label: string, formula: string, computed: boolean, values: number[]) {
+    const total = values.reduce((a, b) => a + b, 0);
+    const revenueTotal = RAW["01"]!.reduce((a, b) => a + b, 0);
+    return {
+      code, label, formula, computed,
+      byPeriod: values.map((v) => figure(v, revenueTotal !== 0 ? v / revenueTotal : undefined)),
+      total: figure(total, revenueTotal !== 0 ? total / revenueTotal : undefined),
+    };
+  }
+
+  const LINES = [
+    reportLine("01", "NET SALES", "", false, RAW["01"]!),
+    reportLine("02", "Cost of sales", "", false, RAW["02"]!),
+    reportLine("91", "GM", "NET SALES - CS", true, gm),
+    reportLine("03", "Other cost of sales", "", false, RAW["03"]!),
+    reportLine("92", "NM", "GM - OCS", true, nm),
+    reportLine("04", "Operating expenses", "", false, RAW["04"]!),
+    reportLine("05", "Other expenses", "", false, RAW["05"]!),
+    reportLine("93", "CM", "NM - OPEX - OIE", true, cm),
+    reportLine("06", "Financial result", "", false, RAW["06"]!),
+    reportLine("94", "IBT", "CM - FR", true, ibt),
+    reportLine("07", "Tax", "", false, RAW["07"]!),
+    reportLine("95", "NI", "IBT - CIT", true, ni),
+  ];
+
+  const BUCKETS = [
+    { kind: ReportBucketKind.UNCLASSIFIED, byPeriod: PERIODS.map(() => m(5000)), total: m(5000 * PERIODS.length) },
+    { kind: ReportBucketKind.NON_PNL, byPeriod: PERIODS.map(() => m(0)), total: m(0) },
+    { kind: ReportBucketKind.UNALLOCATED, byPeriod: PERIODS.map(() => m(0)), total: m(0) },
+    { kind: ReportBucketKind.OTHER_BASIS, byPeriod: PERIODS.map(() => m(0)), total: m(0) },
+  ];
+
+  const RECONCILIATION = PERIODS.map((period, i) => ({
+    period,
+    opening: m(i === 0 ? 1000000 : 1000000 + i * 50000),
+    in: m(800000),
+    out: m(760000),
+    transfers: m(0),
+    transferRowCount: 0,
+    closing: m(1000000 + (i + 1) * 50000),
+    balances: true,
+    derived: true,
+  }));
+
+  interface StubTransaction {
+    id: string; bookedOn: string; batchId: string; lineNo: number; postingNo: number;
+    documentRef: string; amount: { minorUnits: string; currencyCode: string };
+    counterpartyRaw: string; description: string; regulatedCode: string; sourceKind: string;
+    categoryCode: string; categoryName: string; engineLayer: string; evidence: string;
+    confidence: number; decidedBy: string;
+  }
+  const TRANSACTIONS_BY_LINE: Record<string, StubTransaction[]> = {
+    "04|2026-03": [
+      {
+        id: "t2", bookedOn: "2026-03-09", batchId: "b1", lineNo: 12, postingNo: 0, documentRef: "",
+        amount: m(-96240),
+        counterpartyRaw: "DHL EXPRESS", description: "DHL EXPRESS INVOICE 88214",
+        regulatedCode: "", sourceKind: "bank",
+        categoryCode: "04", categoryName: "Operating expenses",
+        engineLayer: "L0", evidence: "ledger doc 88214, ±0 days",
+        confidence: 1, decidedBy: "",
+      },
+    ],
+  };
+
+  return {
+    transport: stubTransport({
+      user: signedInUser,
+      extend: (router) => {
+        router.service(ImportService, {
+          listImportBatches: () => ({
+            batches: state.batchSourceKinds.map((kind, i) => ({
+              id: `b${i}`, entityId: "e1",
+              sourceKind: kind === "bank" ? SourceKind.BANK : SourceKind.LEDGER,
+              status: ImportStatus.IMPORTED, fileName: `statement-${i}.csv`,
+              byteLength: 1024n, failureCode: "",
+              createdAt: timestampFromDate(new Date("2026-08-01T00:00:00Z")),
+            })),
+          }),
+        });
+        router.service(ReviewService, {
+          listReviewGroups: () => ({
+            groups: [], totalRowCount: 0, totalCounterpartyCount: 0,
+            totalAbsolute: { minorUnits: "0", currencyCode: "EUR" },
+          }),
+        });
+        router.service(ReportService, {
+          getManagementPNL: (req) => ({
+            basis: req.basis === ReportBasis.LEDGER ? ReportBasis.LEDGER : ReportBasis.BANK,
+            granularity: req.granularity,
+            from: req.from, to: req.to,
+            baseCurrency: "EUR",
+            periods: PERIODS,
+            lines: LINES,
+            buckets: BUCKETS,
+            versions: { taxonomy: ["v3"], ruleset: ["v11"], engine: ["0.4.2"], normalize: ["v1"] },
+            reconciliation: RECONCILIATION,
+          }),
+          listLineTransactions: (req) => {
+            if (req.line === "91") {
+              // A computed line: no transactions of its own, only operands.
+              return {
+                kind: ReportAnswerKind.OPERANDS,
+                transactions: [],
+                operands: [
+                  { code: "01", label: "NET SALES", subtracted: false },
+                  { code: "02", label: "Cost of sales", subtracted: true },
+                ],
+                rowCount: 0, total: m(gm[PERIODS.indexOf(req.period)] ?? 0), nextCursor: "",
+              };
+            }
+            const rows = TRANSACTIONS_BY_LINE[`${req.line}|${req.period}`] ?? [];
+            const lineIndex = LINES.findIndex((l) => l.code === req.line);
+            const total = lineIndex >= 0 ? LINES[lineIndex]!.byPeriod[PERIODS.indexOf(req.period)]!.amount : m(0);
+            return {
+              kind: ReportAnswerKind.TRANSACTIONS,
+              transactions: rows,
+              operands: [],
+              rowCount: rows.length,
+              total,
+              nextCursor: "",
+            };
+          },
+        });
+      },
+    }),
+  };
+});
+
+const { makeRouter } = await import("../router");
+const { transport } = await import("../transport");
+const { t } = await import("../i18n");
+const { defaultRange } = await import("../ui/period");
+
 function renderAt(path: string) {
-  const router = makeRouter(
-    stubTransport({ user: signedInUser }),
-    createMemoryHistory({ initialEntries: [path] }),
-  );
+  const router = makeRouter(transport, createMemoryHistory({ initialEntries: [path] }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -28,7 +196,10 @@ function renderAt(path: string) {
   return router;
 }
 
-afterEach(() => document.documentElement.removeAttribute("data-theme"));
+afterEach(() => {
+  document.documentElement.removeAttribute("data-theme");
+  state.batchSourceKinds = ["bank"];
+});
 
 describe("the report", () => {
   it("names its basis with the table, not in a footnote", async () => {
@@ -38,15 +209,14 @@ describe("the report", () => {
     expect(screen.getByText(t("report.basis.note"))).toBeDefined();
   });
 
-  it("blocks a line and names the reason in the same view", async () => {
+  it("refuses the whole report when the entity mixes bank and ledger imports", async () => {
+    // The per-line "blocked" state is gone: a report is computed from one
+    // source_kind for its whole duration, so the refusal is now of the
+    // whole report, not of one line (design §2.5).
+    state.batchSourceKinds = ["bank", "ledger"];
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
-
-    // "Blocked" without the missing input named is a dead end -- DESIGN.md §2.
-    expect(screen.getByText(t("report.blocked"))).toBeDefined();
-    expect(
-      screen.getByText(t("report.blocked.mixed_sources_no_match")),
-    ).toBeDefined();
+    expect(await screen.findByText(t("report.blocked"))).toBeDefined();
+    expect(screen.getByText(t("report.blocked.mixed_basis"))).toBeDefined();
   });
 
   it("shows the reconciliation strip, which is what proves nothing was dropped", async () => {
@@ -56,6 +226,16 @@ describe("the report", () => {
     for (const k of ["recon.opening", "recon.in", "recon.out", "recon.transfers", "recon.closing"] as const) {
       expect(screen.getByText(t(k)), k).toBeDefined();
     }
+  });
+
+  it("shows the four exclusion buckets below the table", async () => {
+    // CLAUDE.md's own invariant: below the table, in order, unclassified,
+    // excluded non-P&L, unallocated, other basis. Never rendered by the
+    // fixture, which never had this data.
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await screen.findByRole("heading", { name: t("report.title") });
+    expect(screen.getByText(t("report.bucket.unclassified"))).toBeDefined();
+    expect(screen.getByText(t("report.bucket.non_pnl"))).toBeDefined();
   });
 
   it("carries the currency once, in the header, not in every cell", async () => {
@@ -117,12 +297,12 @@ describe("the report", () => {
 
 describe("the drill-down is a route, not a state flag", () => {
   it("opens over a report that stays mounted", async () => {
-    renderAt("/app/reports/pnl/cell/logistics/2026-03?from=2026-01&to=2026-08");
+    renderAt("/app/reports/pnl/cell/04/2026-03?from=2026-01&to=2026-08");
 
     expect(await screen.findByText(t("drilldown.close"))).toBeDefined();
     // The panel says which figure it is: a shared link arrives with no memory
     // of the click.
-    expect(await screen.findByRole("heading", { name: "Logistics" })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Operating expenses" })).toBeDefined();
     // And the report is still there underneath.
     expect(screen.getByRole("heading", { name: t("report.title") })).toBeDefined();
   });
@@ -134,7 +314,7 @@ describe("the drill-down is a route, not a state flag", () => {
 
     await router.navigate({
       to: "/app/reports/pnl/cell/$categoryId/$period",
-      params: { categoryId: "logistics", period: "2026-03" },
+      params: { categoryId: "04", period: "2026-03" },
       search: { from: "2026-01", to: "2026-08", view: "table" },
     });
     await screen.findByText(t("drilldown.close"));
@@ -144,15 +324,33 @@ describe("the drill-down is a route, not a state flag", () => {
     expect(screen.getByRole("heading", { name: t("report.title") })).toBeDefined();
   });
 
-  it("admits when a figure's transactions are absent rather than inventing them", async () => {
-    renderAt("/app/reports/pnl/cell/payroll/2026-05?from=2026-01&to=2026-08");
-    expect(await screen.findByText(t("drilldown.unavailable"))).toBeDefined();
+  it("admits when a cell has no transactions rather than inventing them", async () => {
+    // "05" (Other expenses) at 2026-05 has no entry in TRANSACTIONS_BY_LINE,
+    // so the mock answers with zero rows -- a real, honest empty, not the
+    // fixture's "not in the sample data".
+    renderAt("/app/reports/pnl/cell/05/2026-05?from=2026-01&to=2026-08");
+    expect(await screen.findByText(t("drilldown.empty"))).toBeDefined();
+  });
+
+  it("opens a computed line onto its operands, not transactions", async () => {
+    // GM has none of its own: it is NET SALES minus CS, and both of those
+    // have transactions (report.proto's own words for
+    // REPORT_ANSWER_KIND_OPERANDS).
+    renderAt("/app/reports/pnl/cell/91/2026-03?from=2026-01&to=2026-08");
+    await screen.findByText(t("drilldown.close"));
+
+    expect(await screen.findByText(t("drilldown.operands"))).toBeDefined();
+    // The report table stays mounted underneath the panel (design D8), so
+    // each operand's label legitimately appears twice -- once in the table
+    // row, once in the operand link -- hence getAllByText, not getByText.
+    expect(screen.getAllByText("NET SALES").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cost of sales").length).toBeGreaterThan(0);
   });
 
   it("lists the transactions with the layer and confidence that make them auditable", async () => {
     // Never asserted until now: the list was windowed, and a virtual list renders
     // nothing without a measured viewport -- so this passed by never looking.
-    renderAt("/app/reports/pnl/cell/logistics/2026-03?from=2026-01&to=2026-08");
+    renderAt("/app/reports/pnl/cell/04/2026-03?from=2026-01&to=2026-08");
     await screen.findByText(t("drilldown.close"));
 
     expect(await screen.findByText(/DHL EXPRESS INVOICE 88214/)).toBeDefined();
@@ -161,7 +359,7 @@ describe("the drill-down is a route, not a state flag", () => {
   });
 
   it("shows the provenance triple that makes the figure reproducible", async () => {
-    renderAt("/app/reports/pnl/cell/logistics/2026-03?from=2026-01&to=2026-08");
+    renderAt("/app/reports/pnl/cell/04/2026-03?from=2026-01&to=2026-08");
     await screen.findByText(t("drilldown.close"));
     expect(await screen.findByText(/taxonomy v3.*ruleset v11.*engine 0\.4\.2/i)).toBeDefined();
   });

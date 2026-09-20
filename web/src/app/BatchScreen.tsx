@@ -120,7 +120,6 @@ export function BatchScreen() {
               ["imports.counts.imported", data.counts.rowsImported],
               ["imports.counts.duplicates", data.counts.duplicatesSkipped],
               ["imports.counts.transfers", data.counts.internalTransfersFound],
-              ["imports.counts.matches", data.counts.matchesProposed],
             ] as const
           ).map(([key, value]) => (
             <div key={key} className="flex flex-col gap-0.5">

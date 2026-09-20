@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { decideGroup, listCategories, listReviewGroups } from "../data/review";
+import { decideGroup, listCategories, listGroupTransactions, listReviewGroups } from "../data/review";
 import type { ReviewDecision } from "../data/review";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
 import { t } from "../i18n";
@@ -78,6 +78,15 @@ export function ReviewScreen() {
   const list = groups.data ?? [];
   const group = list[Math.min(index, Math.max(list.length - 1, 0))];
 
+  // A group's rows are a separate call (`ListGroupTransactions`), not part of
+  // `ListReviewGroups` -- fetched for whichever group is open, not for all of
+  // them eagerly.
+  const transactions = useQuery({
+    queryKey: ["reviewGroupTransactions", group?.counterpartyKey],
+    queryFn: () => listGroupTransactions(group!.counterpartyKey),
+    enabled: !!group,
+  });
+
   const decide = useCallback(
     async (decision: ReviewDecision) => {
       if (!group) return;
@@ -102,14 +111,14 @@ export function ReviewScreen() {
       if (/^[1-9]$/.test(e.key)) {
         const cat = cats[Number(e.key) - 1];
         if (cat) {
-          setSelected(cat.id);
+          setSelected(cat.code);
           e.preventDefault();
         }
         return;
       }
       switch (e.key) {
         case "Enter":
-          if (selected) void decide({ kind: "classify", categoryId: selected });
+          if (selected) void decide({ kind: "classify", categoryCode: selected });
           e.preventDefault();
           break;
         case "t":
@@ -140,7 +149,7 @@ export function ReviewScreen() {
     return () => document.removeEventListener("keydown", onKey);
   }, [categories.data, selected, decide, list.length]);
 
-  const rows = group?.transactions ?? [];
+  const rows = transactions.data ?? [];
   const virtual = useVirtualRows({ count: rows.length, parentRef, rowHeight: ROW });
 
   if (groups.isPending) return <Loading label={t("review.title", locale)} rows={5} />;
@@ -166,14 +175,6 @@ export function ReviewScreen() {
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 rounded-panel border border-border bg-surface-raised p-6">
         <h2 className="text-lg font-semibold tracking-tight">{group.counterpartyLabel}</h2>
         <span className="tabular text-lg text-figure">{fmt(group.total, locale)}</span>
-        {group.suggestedCategoryId ? (
-          <span className="text-2xs uppercase tracking-widest text-text-subtle">
-            {t("review.suggested", locale)} · {group.suggestedCategoryId}
-            {group.suggestedConfidence
-              ? ` · ${Math.round(group.suggestedConfidence * 100)}%`
-              : ""}
-          </span>
-        ) : null}
       </div>
 
       <ol className="flex flex-wrap gap-x-6 gap-y-3 rounded-panel border border-border bg-surface-raised p-6">
@@ -182,7 +183,7 @@ export function ReviewScreen() {
             <Kbd>{i + 1}</Kbd>
             <span
               className={
-                selected === c.id
+                selected === c.code
                   ? "border-b border-text pb-px text-sm font-medium text-text"
                   : "text-sm text-text-muted"
               }

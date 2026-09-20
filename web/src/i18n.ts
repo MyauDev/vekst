@@ -25,11 +25,6 @@ const messages = {
 
     "signedIn.greeting": "Signed in",
     "signedIn.signOut": "Sign out",
-    // Change 1.1 adds organisations and memberships. Until it lands a signed-in
-    // person deliberately belongs to nothing, and saying so is what keeps the
-    // empty screen from reading as a bug.
-    "signedIn.noOrganisation":
-      "You do not belong to an organisation yet. Organisations arrive in a later change; there is nothing to show here until then.",
 
     "error.auth_not_configured": "Sign-in is not configured on this server.",
     "error.invalid_flow": "That sign-in link has expired or was already used. Please try again.",
@@ -38,6 +33,26 @@ const messages = {
     "error.email_taken": "That email address already belongs to another account.",
     "error.internal_error": "Something went wrong. Please try again.",
     "error.unknown": "Sign-in failed. Please try again.",
+
+    "error.org_name_required": "Enter a name for the organisation.",
+    "error.org_entity_name_required": "Enter a name for the entity.",
+    "error.org_unsupported_country": "That country is not supported yet.",
+    "error.org_unsupported_currency": "That currency is not supported yet.",
+    "error.org_already_a_member": "You already belong to an organisation.",
+
+    // The first-run screen: a signed-in person with no organisation.
+    // AppLayout renders it in place of the application shell.
+    "firstRun.heading": "Set up your organisation",
+    "firstRun.blurb":
+      "One organisation, one entity, to start. You can invite others and add more later.",
+    "firstRun.name": "Organisation name",
+    "firstRun.entityName": "Entity name",
+    "firstRun.market": "Country and currency",
+    "firstRun.market.by": "Belarus — BYN",
+    "firstRun.market.kz": "Kazakhstan — KZT",
+    "firstRun.market.pl": "Poland — PLN",
+    "firstRun.submit": "Create organisation",
+    "firstRun.submitting": "Creating…",
 
     // The state vocabulary, docs/DESIGN.md §7. Three axes, nine states, one
     // word each. Keys are axis-prefixed because "blocked" is not one word in
@@ -223,8 +238,12 @@ const messages = {
     "report.basis.accrual": "Accrual",
     "report.basis.note": "derived from the source of the data, not chosen",
     "report.blocked": "Blocked",
-    "report.blocked.mixed_sources_no_match":
-      "Drawn from both ledger and bank data with no confirmed match. Computing it would count an invoice and its payment twice.",
+    "report.blocked.mixed_basis":
+      "This entity has both bank and ledger imports, with no confirmed match between them. Computing a report would count an invoice and its payment twice, so none is shown until they are reconciled.",
+    "report.bucket.unclassified": "Unclassified",
+    "report.bucket.non_pnl": "Excluded, non-P&L",
+    "report.bucket.unallocated": "Unallocated",
+    "report.bucket.other_basis": "Other basis",
     "recon.title": "Reconciliation",
     "recon.opening": "Opening",
     "recon.in": "In",
@@ -243,8 +262,8 @@ const messages = {
     "drilldown.layer": "Layer",
     "drilldown.confidence": "Confidence",
     "drilldown.evidence": "Match",
-    "drilldown.unavailable":
-      "Transactions for this figure are not in the sample data. The figure itself is real.",
+    "drilldown.operands": "Made up of",
+    "drilldown.empty": "No transactions in this cell for this period.",
     "drilldown.provenance": "Taxonomy {taxonomy} · ruleset {ruleset} · engine {engine}",
   },
   ru: {
@@ -262,8 +281,6 @@ const messages = {
 
     "signedIn.greeting": "Вы вошли",
     "signedIn.signOut": "Выйти",
-    "signedIn.noOrganisation":
-      "Вы пока не состоите ни в одной организации. Организации появятся в следующем изменении; до этого здесь нечего показать.",
 
     "error.auth_not_configured": "Вход не настроен на этом сервере.",
     "error.invalid_flow": "Ссылка для входа устарела или уже использована. Попробуйте ещё раз.",
@@ -272,6 +289,24 @@ const messages = {
     "error.email_taken": "Этот адрес электронной почты уже принадлежит другому аккаунту.",
     "error.internal_error": "Что-то пошло не так. Попробуйте ещё раз.",
     "error.unknown": "Не удалось войти. Попробуйте ещё раз.",
+
+    "error.org_name_required": "Введите название организации.",
+    "error.org_entity_name_required": "Введите название юридического лица.",
+    "error.org_unsupported_country": "Эта страна пока не поддерживается.",
+    "error.org_unsupported_currency": "Эта валюта пока не поддерживается.",
+    "error.org_already_a_member": "Вы уже состоите в организации.",
+
+    "firstRun.heading": "Настройте организацию",
+    "firstRun.blurb":
+      "Одна организация, одно юридическое лицо — для начала. Позже можно пригласить других и добавить больше.",
+    "firstRun.name": "Название организации",
+    "firstRun.entityName": "Название юридического лица",
+    "firstRun.market": "Страна и валюта",
+    "firstRun.market.by": "Беларусь — BYN",
+    "firstRun.market.kz": "Казахстан — KZT",
+    "firstRun.market.pl": "Польша — PLN",
+    "firstRun.submit": "Создать организацию",
+    "firstRun.submitting": "Создание…",
 
     // Draft, by a non-native writer. docs/DESIGN.md §12 Q1 -- confirm before
     // the catalogue is frozen.
@@ -448,8 +483,12 @@ const messages = {
     "report.basis.accrual": "Метод начисления",
     "report.basis.note": "определяется источником данных, а не выбором",
     "report.blocked": "Заблокировано",
-    "report.blocked.mixed_sources_no_match":
-      "Строка собрана из учётных и банковских данных без подтверждённого сопоставления. Расчёт учёл бы счёт и его оплату дважды.",
+    "report.blocked.mixed_basis":
+      "У этого юридического лица есть и банковские, и учётные импорты без подтверждённого сопоставления между ними. Расчёт отчёта задвоил бы счёт и его оплату, поэтому отчёт не показывается, пока они не будут сверены.",
+    "report.bucket.unclassified": "Не классифицировано",
+    "report.bucket.non_pnl": "Исключено, вне P&L",
+    "report.bucket.unallocated": "Не распределено",
+    "report.bucket.other_basis": "Другой базис",
     "recon.title": "Сверка",
     "recon.opening": "Входящий остаток",
     "recon.in": "Поступления",
@@ -468,8 +507,8 @@ const messages = {
     "drilldown.layer": "Слой",
     "drilldown.confidence": "Уверенность",
     "drilldown.evidence": "Сопоставление",
-    "drilldown.unavailable":
-      "Операции по этой сумме отсутствуют в демонстрационных данных. Сама сумма реальна.",
+    "drilldown.operands": "Складывается из",
+    "drilldown.empty": "В этой ячейке нет операций за этот период.",
     "drilldown.provenance": "Таксономия {taxonomy} · правила {ruleset} · движок {engine}",
   },
 } as const;

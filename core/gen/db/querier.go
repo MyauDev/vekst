@@ -206,8 +206,23 @@ type Querier interface {
 	// and the policy supplies the org_id half, the same shape as ingest.sql's
 	// GetImportBatch.
 	GetValidationForBatch(ctx context.Context, batchID pgtype.UUID) (ImportValidation, error)
+	// Every category_templates row for one taxonomy version, in adoption order:
+	// level ascending, then code. AdoptIndustryTemplate relies on the order -- a
+	// level-5 leaf's parent is a level-4 row this same loop already inserted, so
+	// the parent must exist before the child is reached. category_templates
+	// carries no org_id and no policy (deploy/db/rls-exempt-tables.txt); it
+	// belongs to nobody, so unlike every other query in this file there is no
+	// tenant context to rely on and none to set.
+	IndustryTemplate(ctx context.Context, taxonomyVersion string) ([]CategoryTemplate, error)
 	InsertAccount(ctx context.Context, arg InsertAccountParams) (Account, error)
 	InsertAuthFlow(ctx context.Context, arg InsertAuthFlowParams) (pgtype.UUID, error)
+	// An organisation's own category row -- adopted from the industry template,
+	// or any other org-scoped category a later change writes. parent_id is
+	// resolved by the caller (tenancy.AdoptIndustryTemplate): it may point at a
+	// shared row or at this same organisation's own, and this query does not
+	// know which -- categories_parent_is_visible is the trigger that refuses a
+	// wrong answer, at the database's own insistence rather than this query's.
+	InsertCategory(ctx context.Context, arg InsertCategoryParams) (pgtype.UUID, error)
 	// A correction is an insert plus a pointer, never an update: this is the
 	// insert half.
 	InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error)

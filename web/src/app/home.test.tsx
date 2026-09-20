@@ -1,20 +1,83 @@
 import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { makeRouter } from "../router";
-import { stubTransport, signedInUser } from "../testTransport";
-import { t } from "../i18n";
-import { resetFixtures } from "../data/imports";
+// `imports.ts` imports `transport` statically from "../transport" and builds
+// its Connect client from it at module scope -- the same convention
+// `dedup.test.ts` mocks around, and `imports.test.tsx` mirrors for the same
+// reason: a transport passed only to `makeRouter` never reaches a data
+// module's own static import, so the two have to be the same mocked
+// instance.
+vi.mock("../transport", async () => {
+  const { stubTransport, signedInUser } = await import("../testTransport");
+  const { ImportService, ImportStatus, SourceKind } = await import("../gen/vekst/v1/import_pb");
+  const { ReviewService } = await import("../gen/vekst/v1/review_pb");
+  const { ReportService, ReportBasis } = await import("../gen/vekst/v1/report_pb");
+  const { timestampFromDate } = await import("@bufbuild/protobuf/wkt");
 
-beforeEach(resetFixtures);
+  // Three batches, newest first -- HomeScreen reads data[0] as the latest.
+  const batch = (id: string, fileName: string, createdAt: Date) => ({
+    id, entityId: "e1", sourceKind: SourceKind.BANK, status: ImportStatus.IMPORTED,
+    fileName, byteLength: 1024n, failureCode: "", createdAt: timestampFromDate(createdAt),
+  });
+
+  return {
+    transport: stubTransport({
+      user: signedInUser,
+      extend: (router) => {
+        router.service(ImportService, {
+          listImportBatches: () => ({
+            batches: [
+              batch("b1", "nordea-2026-08.csv", new Date("2026-09-02T09:14:00Z")),
+              batch("b2", "nordea-2026-07.csv", new Date("2026-08-03T08:41:00Z")),
+              batch("b3", "ledger-h1-2026.xlsx", new Date("2026-08-28T16:02:00Z")),
+            ],
+          }),
+        });
+        // Two groups -- the same number the rail's own badge shows, because
+        // both read ["reviewSummary"].
+        router.service(ReviewService, {
+          listReviewGroups: () => ({
+            groups: [],
+            totalRowCount: 3,
+            totalCounterpartyCount: 2,
+            totalAbsolute: { minorUnits: "0", currencyCode: "EUR" },
+          }),
+        });
+        // A fixed net result regardless of the requested range -- the same
+        // "ignores its range" shape the fixture always had for this card.
+        router.service(ReportService, {
+          getManagementPNL: (req) => ({
+            basis: ReportBasis.BANK,
+            granularity: req.granularity,
+            from: req.from, to: req.to,
+            baseCurrency: "EUR",
+            periods: [],
+            lines: [
+              {
+                code: "95", label: "NI", formula: "IBT - CIT", computed: true,
+                byPeriod: [],
+                total: { amount: { minorUnits: "8926125", currencyCode: "EUR" } },
+              },
+            ],
+            buckets: [],
+            versions: undefined,
+            reconciliation: [],
+          }),
+        });
+      },
+    }),
+  };
+});
+
+const { makeRouter } = await import("../router");
+const { transport } = await import("../transport");
+const { signedInUser } = await import("../testTransport");
+const { t } = await import("../i18n");
 
 function renderAt(path: string) {
-  const router = makeRouter(
-    stubTransport({ user: signedInUser }),
-    createMemoryHistory({ initialEntries: [path] }),
-  );
+  const router = makeRouter(transport, createMemoryHistory({ initialEntries: [path] }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -33,9 +96,8 @@ describe("Home", () => {
 
   it("shows the real batch count and the latest batch, not a placeholder", async () => {
     renderAt("/app/home");
-    // The fixture carries three batches (add-web-experience's imports fixture);
-    // asserting the exact figure is what keeps this test from passing whether
-    // or not the card is reading real data.
+    // Three batches in the stub; asserting the exact figure is what keeps
+    // this test from passing whether or not the card is reading real data.
     expect(await screen.findByText("3")).toBeDefined();
     expect(screen.getByText("nordea-2026-08.csv")).toBeDefined();
   });
@@ -43,8 +105,6 @@ describe("Home", () => {
   it("shows the real awaiting-review count, the same one the rail badges", async () => {
     renderAt("/app/home");
     await screen.findByRole("heading", { name: t("home.title") });
-    // Two groups in the fixture -- the same number the rail's own badge
-    // shows, because both read ["reviewSummary"].
     expect(await screen.findByText(t("home.review.awaiting"))).toBeDefined();
     const card = screen.getByText(t("home.review.awaiting")).closest("a");
     expect(card?.textContent).toContain("2");
@@ -52,8 +112,9 @@ describe("Home", () => {
 
   it("shows the real net result, computed the same way the report itself computes it", async () => {
     renderAt("/app/home");
-    // getReport() ignores its range and always returns the same fixture, so
-    // this figure is deterministic regardless of the current date.
+    // The stub's getManagementPNL ignores the requested range and always
+    // returns the same NI total, so this figure is deterministic regardless
+    // of the current date.
     expect(await screen.findByText("89,261.25")).toBeDefined();
   });
 

@@ -45,6 +45,9 @@ const (
 	// ReviewServiceUndoDecisionProcedure is the fully-qualified name of the ReviewService's
 	// UndoDecision RPC.
 	ReviewServiceUndoDecisionProcedure = "/vekst.v1.ReviewService/UndoDecision"
+	// ReviewServiceListCategoriesProcedure is the fully-qualified name of the ReviewService's
+	// ListCategories RPC.
+	ReviewServiceListCategoriesProcedure = "/vekst.v1.ReviewService/ListCategories"
 )
 
 // ReviewServiceClient is a client for the vekst.v1.ReviewService service.
@@ -60,6 +63,11 @@ type ReviewServiceClient interface {
 	// Reverse a decision. The rows return to the queue; the decision itself is
 	// stamped rather than deleted. Requires owner, admin or approver.
 	UndoDecision(context.Context, *connect.Request[v1.UndoDecisionRequest]) (*connect.Response[v1.UndoDecisionResponse], error)
+	// The categories a human may choose in the review queue's picker. Backed
+	// by the existing ClassifiableCategories query: computed lines and
+	// non-leaf nodes are not choices, and a picker offering them produces a
+	// classification the report cannot place.
+	ListCategories(context.Context, *connect.Request[v1.ListCategoriesRequest]) (*connect.Response[v1.ListCategoriesResponse], error)
 }
 
 // NewReviewServiceClient constructs a client for the vekst.v1.ReviewService service. By default, it
@@ -97,6 +105,12 @@ func NewReviewServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(reviewServiceMethods.ByName("UndoDecision")),
 			connect.WithClientOptions(opts...),
 		),
+		listCategories: connect.NewClient[v1.ListCategoriesRequest, v1.ListCategoriesResponse](
+			httpClient,
+			baseURL+ReviewServiceListCategoriesProcedure,
+			connect.WithSchema(reviewServiceMethods.ByName("ListCategories")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -106,6 +120,7 @@ type reviewServiceClient struct {
 	listGroupTransactions *connect.Client[v1.ListGroupTransactionsRequest, v1.ListGroupTransactionsResponse]
 	resolveGroup          *connect.Client[v1.ResolveGroupRequest, v1.ResolveGroupResponse]
 	undoDecision          *connect.Client[v1.UndoDecisionRequest, v1.UndoDecisionResponse]
+	listCategories        *connect.Client[v1.ListCategoriesRequest, v1.ListCategoriesResponse]
 }
 
 // ListReviewGroups calls vekst.v1.ReviewService.ListReviewGroups.
@@ -128,6 +143,11 @@ func (c *reviewServiceClient) UndoDecision(ctx context.Context, req *connect.Req
 	return c.undoDecision.CallUnary(ctx, req)
 }
 
+// ListCategories calls vekst.v1.ReviewService.ListCategories.
+func (c *reviewServiceClient) ListCategories(ctx context.Context, req *connect.Request[v1.ListCategoriesRequest]) (*connect.Response[v1.ListCategoriesResponse], error) {
+	return c.listCategories.CallUnary(ctx, req)
+}
+
 // ReviewServiceHandler is an implementation of the vekst.v1.ReviewService service.
 type ReviewServiceHandler interface {
 	// The queue: counterparties with unclassified transactions, largest amount
@@ -141,6 +161,11 @@ type ReviewServiceHandler interface {
 	// Reverse a decision. The rows return to the queue; the decision itself is
 	// stamped rather than deleted. Requires owner, admin or approver.
 	UndoDecision(context.Context, *connect.Request[v1.UndoDecisionRequest]) (*connect.Response[v1.UndoDecisionResponse], error)
+	// The categories a human may choose in the review queue's picker. Backed
+	// by the existing ClassifiableCategories query: computed lines and
+	// non-leaf nodes are not choices, and a picker offering them produces a
+	// classification the report cannot place.
+	ListCategories(context.Context, *connect.Request[v1.ListCategoriesRequest]) (*connect.Response[v1.ListCategoriesResponse], error)
 }
 
 // NewReviewServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -174,6 +199,12 @@ func NewReviewServiceHandler(svc ReviewServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(reviewServiceMethods.ByName("UndoDecision")),
 		connect.WithHandlerOptions(opts...),
 	)
+	reviewServiceListCategoriesHandler := connect.NewUnaryHandler(
+		ReviewServiceListCategoriesProcedure,
+		svc.ListCategories,
+		connect.WithSchema(reviewServiceMethods.ByName("ListCategories")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/vekst.v1.ReviewService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ReviewServiceListReviewGroupsProcedure:
@@ -184,6 +215,8 @@ func NewReviewServiceHandler(svc ReviewServiceHandler, opts ...connect.HandlerOp
 			reviewServiceResolveGroupHandler.ServeHTTP(w, r)
 		case ReviewServiceUndoDecisionProcedure:
 			reviewServiceUndoDecisionHandler.ServeHTTP(w, r)
+		case ReviewServiceListCategoriesProcedure:
+			reviewServiceListCategoriesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -207,4 +240,8 @@ func (UnimplementedReviewServiceHandler) ResolveGroup(context.Context, *connect.
 
 func (UnimplementedReviewServiceHandler) UndoDecision(context.Context, *connect.Request[v1.UndoDecisionRequest]) (*connect.Response[v1.UndoDecisionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("vekst.v1.ReviewService.UndoDecision is not implemented"))
+}
+
+func (UnimplementedReviewServiceHandler) ListCategories(context.Context, *connect.Request[v1.ListCategoriesRequest]) (*connect.Response[v1.ListCategoriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("vekst.v1.ReviewService.ListCategories is not implemented"))
 }

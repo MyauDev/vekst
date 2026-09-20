@@ -10,17 +10,69 @@ const repo = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "
 import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { makeRouter } from "./router";
-import { stubTransport, signedInUser } from "./testTransport";
-import { t } from "./i18n";
+// `AppLayout` reads `reviewSummary` from `../data/review`, which -- like
+// every real data module -- imports `transport` statically from
+// `../transport`. A transport built only for `makeRouter` never reaches it
+// (`imports.test.tsx`'s own finding), so this file needs `vi.mock` too, not
+// just a constructed `stubTransport` instance passed to the router.
+//
+// Unlike `imports.test.tsx`, this file renders many different sessions
+// (signed out, signed in, first-run) from one mock factory that only runs
+// once -- so the mocked router reads its answers from `state`, shared with
+// the test file via `vi.hoisted`, and `renderAt` sets `state` before each
+// render rather than passing options straight to a transport constructor.
+const state = vi.hoisted(() => ({
+  user: null as { id: string; email: string; name: string; locale: string } | null,
+  organisations: [] as { id: string; name: string; baseCurrency: string; role: string; entities: { id: string; name: string }[] }[],
+}));
 
-function renderAt(path: string, opts: Parameters<typeof stubTransport>[0] = {}) {
-  const router = makeRouter(
-    stubTransport(opts),
-    createMemoryHistory({ initialEntries: [path] }),
-  );
+vi.mock("./transport", async () => {
+  const { Code, ConnectError, createRouterTransport } = await import("@connectrpc/connect");
+  const { HealthService } = await import("./gen/vekst/v1/health_pb");
+  const { IdentityService } = await import("./gen/vekst/v1/identity_pb");
+  const { ReviewService } = await import("./gen/vekst/v1/review_pb");
+
+  return {
+    transport: createRouterTransport(({ service }) => {
+      service(HealthService, {
+        check: () => ({ status: 1, version: "abc1234", builtAt: "2026-08-23T12:00:00Z", classifierVersion: "engine-1" }),
+      });
+      service(IdentityService, {
+        getCurrentUser: () => {
+          if (!state.user) throw new ConnectError("unauthenticated", Code.Unauthenticated);
+          return { user: state.user, organisations: state.organisations };
+        },
+      });
+      // Two groups, so the rail's badge reads "Review2" wherever a test
+      // asserts on it -- the same figure the fixture always used.
+      service(ReviewService, {
+        listReviewGroups: () => ({
+          groups: [], totalRowCount: 3, totalCounterpartyCount: 2,
+          totalAbsolute: { minorUnits: "0", currencyCode: "EUR" },
+        }),
+      });
+    }),
+  };
+});
+
+const { makeRouter } = await import("./router");
+const { transport } = await import("./transport");
+const { signedInUser, signedInOrganisation } = await import("./testTransport");
+const { t } = await import("./i18n");
+
+function renderAt(
+  path: string,
+  opts: {
+    user?: typeof signedInUser | null;
+    organisations?: typeof state.organisations;
+  } = {},
+) {
+  state.user = opts.user ?? null;
+  state.organisations = opts.organisations ?? (state.user ? [signedInOrganisation] : []);
+
+  const router = makeRouter(transport, createMemoryHistory({ initialEntries: [path] }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -82,14 +134,28 @@ describe("the gate on Register B", () => {
     expect(review.textContent).toMatch(new RegExp(`^${t("nav.review")}\\d+$`));
   });
 
-  it("shows the entity slot with a dash rather than an invented name", async () => {
+  it("shows the entity slot with the caller's real organisation and entity", async () => {
     renderAt("/app/reports/pnl", { user: signedInUser });
     await screen.findByText(t("report.title"));
 
-    // DESIGN.md §8 ships the slot early; §9.1 fills it. A dash means "nothing
-    // was loaded", which is exactly what is true.
+    // DESIGN.md §8 ships the slot early; change 5.3 fills it from
+    // GetCurrentUser -- a name read off the session, never a guess and never
+    // a dash once one is available.
     expect(screen.getByText(t("topbar.entity"))).toBeDefined();
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getByText(signedInOrganisation.name)).toBeDefined();
+    expect(screen.getByText(signedInOrganisation.entities[0]!.name)).toBeDefined();
+  });
+
+  // Task 7.14 (connect-app-end-to-end): the negative scenario for the
+  // first-run gate. An empty organisations list renders the first-run screen
+  // and makes no tenant-scoped data call at all -- there is no session to
+  // make one with.
+  it("renders first-run for a signed-in visitor with no organisation, and calls no tenant-scoped RPC", async () => {
+    renderAt("/app/reports/pnl", { user: signedInUser, organisations: [] });
+
+    expect(await screen.findByText(t("firstRun.heading"))).toBeDefined();
+    expect(screen.queryByText(t("report.title"))).toBeNull();
+    expect(screen.queryByText(t("topbar.entity"))).toBeNull();
   });
 });
 
@@ -128,7 +194,7 @@ describe("where core sends the browser after sign-in", () => {
 
   it("lands a completed sign-in on a route that resolves the session", () => {
     const target = goConst("postSignInPath");
-    const router = makeRouter(stubTransport());
+    const router = makeRouter(transport);
     const paths = Object.keys(router.routesById);
 
     expect(paths).toContain(target);
@@ -139,7 +205,7 @@ describe("where core sends the browser after sign-in", () => {
 
   it("lands a failed sign-in on the one screen that renders the code", () => {
     const target = goConst("signInPath");
-    const router = makeRouter(stubTransport());
+    const router = makeRouter(transport);
     expect(Object.keys(router.routesById)).toContain(target);
   });
 
@@ -167,7 +233,7 @@ describe("prefixes that belong to core", () => {
     expect(corePrefixes).toContain("/rpc");
     expect(corePrefixes).toContain("/auth");
 
-    const router = makeRouter(stubTransport());
+    const router = makeRouter(transport);
     const clientPaths = Object.keys(router.routesById);
 
     for (const prefix of corePrefixes) {

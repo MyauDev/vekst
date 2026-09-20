@@ -40,19 +40,17 @@ interface Facet {
 
 function facets(report: Report, locale: Locale): Facet[] {
   const exp = exponentOf(report.currencyCode);
-  return report.sections
-    .flatMap((s) => s.lines)
-    .filter((l) => l.total !== null)
+  return report.lines
     .map((l) => ({
       categoryId: l.categoryId,
       label: l.label,
-      totalAbs: exp === undefined || !l.total ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
+      totalAbs: exp === undefined ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
       rows: report.periods.map((period, i) => {
         const m = l.values[i];
         const value = m && exp !== undefined ? Math.abs(Number(BigInt(m.minorUnits)) / 10 ** exp) : 0;
         return { period, value };
       }),
-      texts: l.values.map((v) => (v && exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
+      texts: l.values.map((v) => (exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
     }))
     .sort((a, b) => b.totalAbs - a.totalAbs)
     .slice(0, MAX_FACETS);
