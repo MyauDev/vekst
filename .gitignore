@@ -47,3 +47,6 @@ hoco/
 
 # sonar-scanner working directory (local runs; see `make sonar`).
 .scannerwork/
+
+РБ/
+*.xlsx
