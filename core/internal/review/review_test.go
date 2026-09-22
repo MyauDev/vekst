@@ -354,6 +354,32 @@ func TestOneDecisionCoversTheWholeGroup(t *testing.T) {
 	assertCounts(t, f, 1, 1, rows)
 }
 
+// payrollCode and otherCode are both shared (org_id NULL) rows, which is not
+// representative: most of an organisation's real taxonomy is its own,
+// adopted from the industry template at creation (db.adoptIndustryTemplate).
+// CategoryByCode used to hardcode a NULL org_id, so every one of those
+// org-scoped leaves failed to resolve with CodeUnknownCategory while the
+// handful of shared codes kept working -- a gap this suite never caught
+// because every other test here resolves against payrollCode or otherCode.
+func TestResolvingAnOrgScopedCategorySucceeds(t *testing.T) {
+	f := newFixture(t)
+	f.insert(t, txn{key: "tax:1", name: "A", amount: 100})
+
+	// "Acc. matters" under OPEX > Administration > Finance > FI Services, an
+	// org-owned leaf from the industry template every organisation adopts.
+	const orgScopedCode = "0401010202"
+
+	decision, err := f.svc.Resolve(context.Background(), f.owner, f.orgID,
+		f.entity,
+		"tax:1", review.OutcomeCategorised, orgScopedCode)
+	if err != nil {
+		t.Fatalf("Resolve with an org-scoped category: %v", err)
+	}
+	if decision.CategoryCode != orgScopedCode {
+		t.Errorf("category = %q, want %q", decision.CategoryCode, orgScopedCode)
+	}
+}
+
 func TestAViewerCannotResolve(t *testing.T) {
 	f := newFixture(t)
 	f.insert(t, txn{key: "tax:1", name: "A", amount: 100})

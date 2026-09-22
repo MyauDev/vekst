@@ -19,11 +19,12 @@ import { Line } from "@/components/charts/line";
 import { Grid } from "@/components/charts/grid";
 import { ChartTooltip } from "@/components/charts/tooltip";
 
-import { exponentOf, formatMinorUnits, sumMinorUnits } from "../../money";
+import { exponentOf, formatMinorUnits } from "../../money";
 import { t } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { formatPeriodShort } from "../../ui/period";
 import type { Report } from "../../data/report";
+import { ChartLegend } from "./ChartLegend";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
 import { chartsAnimate } from "./support";
@@ -35,20 +36,15 @@ export function RevenueExpenseChart({
   locale,
 }: Readonly<{ report: Report; locale: Locale }>) {
   const exp = exponentOf(report.currencyCode);
-
-  const revenue = report.sections.find((s) => s.id === "revenue")!;
-  const expenseSections = report.sections.filter((s) => s.id !== "revenue");
+  const revenueLine = report.lines.find((l) => l.categoryId === "01");
 
   const rows = useMemo(
     () =>
       report.periods.map((period, i) => {
-        const revenueMinor = revenue.subtotals[i]!.minorUnits;
-        // Cost of sales and operating expenses combined, as a positive
-        // magnitude -- this chart compares two magnitudes, and expenses are
-        // stored negative.
-        const expenseMinor = sumMinorUnits(
-          expenseSections.map((s) => s.subtotals[i]!.minorUnits),
-        ).replace(/^-/, "");
+        const revenueMinor = revenueLine?.values[i]?.minorUnits ?? "0";
+        // As a positive magnitude -- this chart compares two magnitudes, and
+        // expensesByPeriod is signed the way every cost in this product is.
+        const expenseMinor = report.expensesByPeriod[i]!.minorUnits.replace(/^-/, "");
         return {
           period,
           revenue: exp === undefined ? 0 : Number(BigInt(revenueMinor)) / 10 ** exp,
@@ -57,7 +53,7 @@ export function RevenueExpenseChart({
           expensesText: exp === undefined ? "" : formatMinorUnits(expenseMinor, exp, locale),
         };
       }),
-    [report, revenue, expenseSections, exp, locale],
+    [report, revenueLine, exp, locale],
   );
 
   const hasData = rows.some((r) => r.revenue !== 0 || r.expenses !== 0);
@@ -67,6 +63,7 @@ export function RevenueExpenseChart({
   return (
     <ChartShell
       titleKey="chart.revenueExpense.title"
+      noteKey="chart.revenueExpense.note"
       locale={locale}
       hasData={hasData}
       table={
@@ -81,28 +78,13 @@ export function RevenueExpenseChart({
       }
       chart={
         <div>
-          {/* The legend §13.5 requires for two or more series. Marked with
-              data-chart-legend so charts.test.tsx can assert its presence
-              here and its absence on the single-series charts, without
-              parsing JSX to find it. */}
-          <div data-chart-legend className="mb-3 flex items-center gap-5 text-2xs text-text-muted">
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--chart-1)" }}
-              />
-              {revenueLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--chart-2)" }}
-              />
-              {expensesLabel}
-            </span>
-          </div>
+          {/* The legend §13.5 requires for two or more series. */}
+          <ChartLegend
+            items={[
+              { color: "var(--chart-1)", label: revenueLabel },
+              { color: "var(--chart-2)", label: expensesLabel },
+            ]}
+          />
 
           <LineChart data={rows} xDataKey="period" margin={MARGIN} aspectRatio="2.6 / 1">
             <Grid horizontal vertical={false} />

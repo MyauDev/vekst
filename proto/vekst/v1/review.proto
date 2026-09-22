@@ -32,6 +32,12 @@ service ReviewService {
   // Reverse a decision. The rows return to the queue; the decision itself is
   // stamped rather than deleted. Requires owner, admin or approver.
   rpc UndoDecision(UndoDecisionRequest) returns (UndoDecisionResponse);
+
+  // The categories a human may choose in the review queue's picker. Backed
+  // by the existing ClassifiableCategories query: computed lines and
+  // non-leaf nodes are not choices, and a picker offering them produces a
+  // classification the report cannot place.
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
 }
 
 // What a person decided about a counterparty.
@@ -177,4 +183,23 @@ message UndoDecisionResponse {
   // How many classifications were retracted, which is how many rows returned
   // to the queue.
   int32 retracted_count = 1;
+}
+
+message ListCategoriesRequest {
+  string organization_id = 1;
+}
+
+message Category {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+
+  // "OPEX > Administration > Finance", for a searchable picker.
+  string path = 4;
+
+  bool is_pnl = 5;
+}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
 }

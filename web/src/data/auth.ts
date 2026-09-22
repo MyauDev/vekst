@@ -1,3 +1,5 @@
+import { clearSession } from "./session";
+
 /**
  * Sign-out. The one write in this directory that is not a Connect RPC.
  *
@@ -7,6 +9,7 @@
  * `/auth/logout` are the one non-Connect browser surface).
  */
 export async function signOut() {
+  clearSession();
   await fetch("/auth/logout", { method: "POST" });
   window.location.assign("/");
 }

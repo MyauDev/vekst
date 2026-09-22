@@ -26,6 +26,7 @@ import (
 	"github.com/MyauDev/vekst/core/internal/report"
 	"github.com/MyauDev/vekst/core/internal/review"
 	"github.com/MyauDev/vekst/core/internal/server"
+	"github.com/MyauDev/vekst/core/internal/tenancy"
 )
 
 func main() {
@@ -141,12 +142,13 @@ func run() error {
 	var store blob.ObjectStore
 	if cfg.ObjectStoreConfigured() {
 		store = blob.New(blob.Config{
-			Endpoint:    cfg.ObjectStoreEndpoint,
-			Bucket:      cfg.ObjectStoreBucket,
-			Region:      cfg.ObjectStoreRegion,
-			AccessKeyID: cfg.ObjectStoreAccessKeyID,
-			SecretKey:   cfg.ObjectStoreSecretKey,
-			PathStyle:   cfg.ObjectStorePathStyle,
+			Endpoint:        cfg.ObjectStoreEndpoint,
+			PresignEndpoint: cfg.ObjectStorePresignEndpoint,
+			Bucket:          cfg.ObjectStoreBucket,
+			Region:          cfg.ObjectStoreRegion,
+			AccessKeyID:     cfg.ObjectStoreAccessKeyID,
+			SecretKey:       cfg.ObjectStoreSecretKey,
+			PathStyle:       cfg.ObjectStorePathStyle,
 		})
 		log.Info("object store configured", "endpoint", cfg.ObjectStoreEndpoint, "bucket", cfg.ObjectStoreBucket)
 	} else {
@@ -192,7 +194,7 @@ func run() error {
 
 	return server.New(cfg, log, classifier, database, ident, importSvc,
 		review.New(database, review.HumanVersions(taxonomyVersion, rulesetVersion)),
-		report.New(database)).Run(ctx)
+		report.New(database), tenancy.NewService(database)).Run(ctx)
 }
 
 func level(s string) slog.Level {
@@ -214,5 +216,11 @@ func level(s string) slog.Level {
 // line that has to change.
 const (
 	taxonomyVersion = "v1"
-	rulesetVersion  = "v1"
+
+	// v2 since migration 00019: v1's 71 template rules carried forward plus
+	// three Belarusian revenue rules. v1 is left in place and still means what
+	// it meant -- every classification written before the bump pins it, and a
+	// report spanning the bump reports both, which is what ReportVersions
+	// being a repeated field is for.
+	rulesetVersion = "v2"
 )

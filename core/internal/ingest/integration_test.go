@@ -129,6 +129,21 @@ type testEnv struct {
 
 func newTestEnvWithConfig(t *testing.T, cfg Config) *testEnv {
 	t.Helper()
+	// classify.Unavailable is the classifier here: these tests are about
+	// ingest and none of them waits for a classification to finish -- it
+	// cannot, in fact: Unavailable's error is not a rejection
+	// (classify.IsRejected), so classifyWorker treats it as retryable and the
+	// run never leaves "running". The job is enqueued, and whether it then
+	// finds an engine is core/internal/classifyrun's business.
+	return newTestEnvWithClassifier(t, cfg, classify.Unavailable{})
+}
+
+// newTestEnvWithClassifier is newTestEnvWithConfig with the classifier
+// exposed, for the one test (TestEndToEndOrganisationToReport) that needs
+// classification to actually reach a terminal status rather than retry
+// forever.
+func newTestEnvWithClassifier(t *testing.T, cfg Config, classifier classify.Classifier) *testEnv {
+	t.Helper()
 	d := testDB(t)
 	store := testStore(t)
 
@@ -143,12 +158,8 @@ func newTestEnvWithConfig(t *testing.T, cfg Config) *testEnv {
 	// tests that never mention classification, each reporting only that a batch
 	// did not reach `imported`. TestPersistEnqueuesClassification below is what
 	// says so in one line instead.
-	//
-	// classify.Unavailable is the classifier here: these tests are about ingest
-	// and none of them waits for a classification. The job is enqueued, and
-	// whether it then finds an engine is core/internal/classifyrun's business.
 	workers := NewWorkers(d, store, cfg)
-	classifiers := classifyrun.NewWorkers(d, classify.Unavailable{},
+	classifiers := classifyrun.NewWorkers(d, classifier,
 		classifyrun.Versions{Taxonomy: "v1", Ruleset: "v1"})
 
 	jobsClient, err := jobs.New(d, workers, classifiers)

@@ -9,16 +9,22 @@
  * control that teaches the reader it does nothing.
  *
  * Neither is read from the URL. Tenant context comes from the session
- * (`add-web-experience` design D7); the period does live in the URL, because it
- * is the thing a shared link is about.
+ * (`add-web-experience` design D7). The period used to say here that it lived
+ * in the URL and nowhere else -- true of the Report screen's own copy, which
+ * this replaces, but this bar renders on every screen, most of which have no
+ * URL of their own carrying a range at all. `AppLayout` is what reconciles
+ * the two: on the Report screen this mirrors its live search params, off it
+ * this shows what was last chosen (`ui/periodPreference.ts`), and either way
+ * a change here writes through the same `onPeriodChange`.
  *
  * §14: no segmented controls and no pills. A field is a small-caps label and a
  * value; a choice is an underline.
  */
 import { t } from "../i18n";
 import type { Locale } from "../i18n";
-import { formatPeriodRange } from "../ui/period";
+import type { PeriodRange } from "../ui/periodPreference";
 import { setLocale, setTheme, type ThemeChoice } from "../ui/preferences";
+import { PeriodPicker } from "./PeriodPicker";
 
 function Field({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
@@ -71,6 +77,7 @@ export function TopBar({
   entity,
   from,
   to,
+  onPeriodChange,
   locale,
   theme,
 }: Readonly<{
@@ -78,6 +85,7 @@ export function TopBar({
   entity: string;
   from: string;
   to: string;
+  onPeriodChange: (range: PeriodRange) => void;
   locale: Locale;
   theme: ThemeChoice;
 }>) {
@@ -87,7 +95,7 @@ export function TopBar({
       <Divider />
       <Field label={t("topbar.entity", locale)} value={entity} />
       <Divider />
-      <Field label={t("topbar.period", locale)} value={formatPeriodRange(from, to, locale)} />
+      <PeriodPicker from={from} to={to} locale={locale} onChange={onPeriodChange} />
 
       <div className="ml-auto flex items-center gap-5">
         <Choice

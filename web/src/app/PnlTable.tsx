@@ -19,21 +19,51 @@
  * The frozen column and header paint `surface-raised` rather than `surface`
  * because the table now sits inside a raised card. A frozen cell has to match
  * the surface it slides over or the freeze becomes visible as a colour seam.
+ *
+ * `report.lines` is flat and printed in order -- no section grouping, no
+ * subtotal row of its own: `core/internal/report/pnl.go`'s `Order` is
+ * exactly the twelve rows in this table, sections and the five computed
+ * results (GM, NM, CM, IBT, NI) already interleaved (design D3), so a
+ * computed line's own emphasis (bold, a heavier top border) is what used to
+ * be `SubtotalRow`'s job. Below the table, `report.buckets` -- what the
+ * table could not include, in the fixed order CLAUDE.md names: unclassified,
+ * non-P&L, unallocated, other basis.
+ *
+ * There is no footer row. There was one, labelled "Net result", printing
+ * `report.netByPeriod` -- which is NI (95), which is already the last line of
+ * `Order` and was therefore already the row directly above it. Two rows, the
+ * same figures, different names, and a reader checking one against the other
+ * finds they agree and learns nothing. Removed 2026-09-22; the bottom line is
+ * the NI row, and it is set in semibold to say so.
  */
 import { Link } from "@tanstack/react-router";
 
-import { NO_DATA, formatMinorUnits, exponentOf } from "../money";
+import { NO_DATA, formatMinorUnits, exponentOf, localeTag } from "../money";
 import { t } from "../i18n";
-import type { Locale, MessageKey } from "../i18n";
+import type { Locale } from "../i18n";
 import { formatPeriodShort } from "../ui/period";
 import type { Money } from "../data/types";
-import type { Report, ReportLine, ReportSection } from "../data/report";
+import type { Report, ReportLine, ReportBucket } from "../data/report";
+import { BUCKET_KEY, lineAbbreviation, lineName } from "./lineName";
 
-function fmt(m: Money | null, locale: Locale): string {
-  if (!m) return NO_DATA;
+/** `core/internal/report/pnl.go`'s `NI` -- the last line of its `Order`. */
+const NET_INCOME = "95";
+
+function fmt(m: Money, locale: Locale): string {
   const exp = exponentOf(m.currencyCode);
   if (exp === undefined) return NO_DATA;
   return formatMinorUnits(m.minorUnits, exp, locale);
+}
+
+/** A ratio, not money (design §2.4's own money callout draws this line): a
+ *  JS `number` is correct here, the same call the wire's own field makes. */
+function fmtPercent(ratio: number | undefined, locale: Locale): string {
+  if (ratio === undefined) return "";
+  return new Intl.NumberFormat(localeTag(locale), {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(ratio);
 }
 
 /** Every figure cell: right-aligned, tabular, and a link to its own transactions. */
@@ -46,7 +76,7 @@ function Figure({
   to,
   linked,
 }: Readonly<{
-  value: Money | null;
+  value: Money;
   categoryId: string;
   period: string;
   locale: Locale;
@@ -55,9 +85,6 @@ function Figure({
   linked: boolean;
 }>) {
   const text = fmt(value, locale);
-  if (!value) {
-    return <td className="tabular px-3 text-right text-figure-blocked">{text}</td>;
-  }
   // The landing renders this same table to show the real product rather than a
   // picture of it, but its figures lead nowhere: a marketing page that drops
   // the reader into a sign-in wall mid-scroll has spent their attention badly.
@@ -100,37 +127,35 @@ function Row({
   to: string;
   linked: boolean;
 }>) {
-  // A blocked line names its reason where the line is, and spans the columns it
-  // cannot fill. DESIGN.md §2: "blocked" without the missing input named is a
-  // dead end.
-  if (line.blockedReason) {
-    return (
-      <tr className="h-10 border-b border-border">
-        <th
-          scope="row"
-          className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left font-normal text-text-muted"
-        >
-          {line.label}
-        </th>
-        <td colSpan={report.periods.length + 2} className="px-3">
-          <span className="text-2xs font-medium uppercase tracking-wider text-danger">
-            {t("report.blocked", locale)}
-          </span>
-          <span className="ml-2 text-xs text-text-muted">
-            {t(`report.blocked.${line.blockedReason}` as MessageKey, locale)}
-          </span>
-        </td>
-      </tr>
-    );
-  }
-
+  const abbreviation = lineAbbreviation(line.categoryId, line.label, locale);
   return (
-    <tr className="h-10 border-b border-border">
+    <tr
+      className={
+        // NI is the bottom line and the last row of `Order`, so it carries
+        // the weight the removed footer used to (see the file header).
+        line.categoryId === NET_INCOME
+          ? "h-11 border-b-2 border-border-strong font-semibold"
+          : line.computed
+            ? "h-10 border-b-2 border-border-strong font-medium"
+            : "h-10 border-b border-border"
+      }
+    >
       <th
         scope="row"
         className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left font-normal"
       >
-        {line.label}
+        {/* The name an owner reads, then the abbreviation the accounting
+            structure is written in. Both, because they serve different
+            readers and neither can be dropped: "OIE" alone is unreadable to
+            the person the product is for, and dropping it loses the anchor an
+            accountant reads down the column for -- and the string the backend
+            actually keys the line by (`app/lineName.ts`). */}
+        {lineName(line.categoryId, line.label, locale)}
+        {abbreviation ? (
+          <span className="ml-2 text-2xs uppercase tracking-wider text-text-subtle">
+            {abbreviation}
+          </span>
+        ) : null}
       </th>
       {line.values.map((v, i) => (
         <Figure
@@ -145,31 +170,51 @@ function Row({
         />
       ))}
       <td className="tabular px-3 text-right font-medium">{fmt(line.total, locale)}</td>
-      <td className="tabular px-3 text-right text-text-muted">{line.percentOfRevenue ?? ""}</td>
+      <td className="tabular px-3 text-right text-text-muted">
+        {fmtPercent(line.percentOfRevenue, locale)}
+      </td>
     </tr>
   );
 }
 
-function SubtotalRow({
-  section,
+function BucketRow({
+  bucket,
+  report,
   locale,
-  periods,
+  from,
+  to,
+  linked,
 }: Readonly<{
-  section: ReportSection;
+  bucket: ReportBucket;
+  report: Report;
   locale: Locale;
-  periods: readonly string[];
+  from: string;
+  to: string;
+  linked: boolean;
 }>) {
   return (
-    <tr className="h-10 border-b-2 border-border-strong font-medium">
-      <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left">
-        {section.label}
+    <tr className="h-10 border-b border-border">
+      <th
+        scope="row"
+        className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left text-2xs font-medium uppercase tracking-wider text-text-muted"
+      >
+        {t(BUCKET_KEY[bucket.kind], locale)}
       </th>
-      {section.subtotals.map((m, i) => (
-        <td key={periods[i]} className="tabular px-3 text-right">
-          {fmt(m, locale)}
-        </td>
+      {bucket.values.map((v, i) => (
+        <Figure
+          key={report.periods[i]}
+          value={v}
+          categoryId={bucket.kind}
+          period={report.periods[i]!}
+          locale={locale}
+          from={from}
+          to={to}
+          linked={linked}
+        />
       ))}
-      <td className="tabular px-3 text-right">{fmt(section.total, locale)}</td>
+      <td className="tabular px-3 text-right font-medium text-text-muted">{fmt(bucket.total, locale)}</td>
+      {/* Buckets carry no percentage of revenue -- nothing is computed from
+          them (pnl.go's own comment on BucketOrder). */}
       <td />
     </tr>
   );
@@ -234,12 +279,26 @@ export function PnlTable({
           </tr>
         </thead>
 
-        {report.sections.map((section) => (
-          <tbody key={section.id}>
-            {section.lines.map((line) => (
-              <Row
-                key={line.categoryId}
-                line={line}
+        <tbody>
+          {report.lines.map((line) => (
+            <Row
+              key={line.categoryId}
+              line={line}
+              report={report}
+              locale={locale}
+              from={from}
+              to={to}
+              linked={linked}
+            />
+          ))}
+        </tbody>
+
+        {report.buckets.length > 0 ? (
+          <tbody>
+            {report.buckets.map((bucket) => (
+              <BucketRow
+                key={bucket.kind}
+                bucket={bucket}
                 report={report}
                 locale={locale}
                 from={from}
@@ -247,24 +306,8 @@ export function PnlTable({
                 linked={linked}
               />
             ))}
-            <SubtotalRow section={section} locale={locale} periods={report.periods} />
           </tbody>
-        ))}
-
-        <tfoot>
-          <tr className="h-11 font-semibold">
-            <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left">
-              {t("report.net", locale)}
-            </th>
-            {report.netByPeriod.map((m, i) => (
-              <td key={report.periods[i]} className="tabular px-3 text-right">
-                {fmt(m, locale)}
-              </td>
-            ))}
-            <td className="tabular px-3 text-right">{fmt(report.netTotal, locale)}</td>
-            <td />
-          </tr>
-        </tfoot>
+        ) : null}
       </table>
     </div>
   );

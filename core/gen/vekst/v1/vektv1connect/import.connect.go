@@ -45,6 +45,9 @@ const (
 	// ImportServiceListImportBatchesProcedure is the fully-qualified name of the ImportService's
 	// ListImportBatches RPC.
 	ImportServiceListImportBatchesProcedure = "/vekst.v1.ImportService/ListImportBatches"
+	// ImportServiceListBatchTransactionsProcedure is the fully-qualified name of the ImportService's
+	// ListBatchTransactions RPC.
+	ImportServiceListBatchTransactionsProcedure = "/vekst.v1.ImportService/ListBatchTransactions"
 	// ImportServiceGetValidationReportProcedure is the fully-qualified name of the ImportService's
 	// GetValidationReport RPC.
 	ImportServiceGetValidationReportProcedure = "/vekst.v1.ImportService/GetValidationReport"
@@ -92,6 +95,14 @@ type ImportServiceClient interface {
 	ConfirmImportUpload(context.Context, *connect.Request[v1.ConfirmImportUploadRequest]) (*connect.Response[v1.ConfirmImportUploadResponse], error)
 	GetImportBatch(context.Context, *connect.Request[v1.GetImportBatchRequest]) (*connect.Response[v1.GetImportBatchResponse], error)
 	ListImportBatches(context.Context, *connect.Request[v1.ListImportBatchesRequest]) (*connect.Response[v1.ListImportBatchesResponse], error)
+	// The rows this batch actually persisted, in file order, each with its live
+	// classification -- empty on a row the review queue has not reached yet,
+	// which is the fact that put it there, not a missing value. A person
+	// opening a batch to check what happened to it needs both at once: reading
+	// its rows off the report's own drill-down would mean guessing a category
+	// and a period first, which is exactly backwards from "I have a file open,
+	// what did this product do with it".
+	ListBatchTransactions(context.Context, *connect.Request[v1.ListBatchTransactionsRequest]) (*connect.Response[v1.ListBatchTransactionsResponse], error)
 	// add-ingest-validation (change 2.3).
 	GetValidationReport(context.Context, *connect.Request[v1.GetValidationReportRequest]) (*connect.Response[v1.GetValidationReportResponse], error)
 	// A completeness warning may be overridden; a correctness error may not
@@ -150,6 +161,12 @@ func NewImportServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+ImportServiceListImportBatchesProcedure,
 			connect.WithSchema(importServiceMethods.ByName("ListImportBatches")),
+			connect.WithClientOptions(opts...),
+		),
+		listBatchTransactions: connect.NewClient[v1.ListBatchTransactionsRequest, v1.ListBatchTransactionsResponse](
+			httpClient,
+			baseURL+ImportServiceListBatchTransactionsProcedure,
+			connect.WithSchema(importServiceMethods.ByName("ListBatchTransactions")),
 			connect.WithClientOptions(opts...),
 		),
 		getValidationReport: connect.NewClient[v1.GetValidationReportRequest, v1.GetValidationReportResponse](
@@ -227,6 +244,7 @@ type importServiceClient struct {
 	confirmImportUpload     *connect.Client[v1.ConfirmImportUploadRequest, v1.ConfirmImportUploadResponse]
 	getImportBatch          *connect.Client[v1.GetImportBatchRequest, v1.GetImportBatchResponse]
 	listImportBatches       *connect.Client[v1.ListImportBatchesRequest, v1.ListImportBatchesResponse]
+	listBatchTransactions   *connect.Client[v1.ListBatchTransactionsRequest, v1.ListBatchTransactionsResponse]
 	getValidationReport     *connect.Client[v1.GetValidationReportRequest, v1.GetValidationReportResponse]
 	overrideValidation      *connect.Client[v1.OverrideValidationRequest, v1.OverrideValidationResponse]
 	createImportProfile     *connect.Client[v1.CreateImportProfileRequest, v1.CreateImportProfileResponse]
@@ -258,6 +276,11 @@ func (c *importServiceClient) GetImportBatch(ctx context.Context, req *connect.R
 // ListImportBatches calls vekst.v1.ImportService.ListImportBatches.
 func (c *importServiceClient) ListImportBatches(ctx context.Context, req *connect.Request[v1.ListImportBatchesRequest]) (*connect.Response[v1.ListImportBatchesResponse], error) {
 	return c.listImportBatches.CallUnary(ctx, req)
+}
+
+// ListBatchTransactions calls vekst.v1.ImportService.ListBatchTransactions.
+func (c *importServiceClient) ListBatchTransactions(ctx context.Context, req *connect.Request[v1.ListBatchTransactionsRequest]) (*connect.Response[v1.ListBatchTransactionsResponse], error) {
+	return c.listBatchTransactions.CallUnary(ctx, req)
 }
 
 // GetValidationReport calls vekst.v1.ImportService.GetValidationReport.
@@ -327,6 +350,14 @@ type ImportServiceHandler interface {
 	ConfirmImportUpload(context.Context, *connect.Request[v1.ConfirmImportUploadRequest]) (*connect.Response[v1.ConfirmImportUploadResponse], error)
 	GetImportBatch(context.Context, *connect.Request[v1.GetImportBatchRequest]) (*connect.Response[v1.GetImportBatchResponse], error)
 	ListImportBatches(context.Context, *connect.Request[v1.ListImportBatchesRequest]) (*connect.Response[v1.ListImportBatchesResponse], error)
+	// The rows this batch actually persisted, in file order, each with its live
+	// classification -- empty on a row the review queue has not reached yet,
+	// which is the fact that put it there, not a missing value. A person
+	// opening a batch to check what happened to it needs both at once: reading
+	// its rows off the report's own drill-down would mean guessing a category
+	// and a period first, which is exactly backwards from "I have a file open,
+	// what did this product do with it".
+	ListBatchTransactions(context.Context, *connect.Request[v1.ListBatchTransactionsRequest]) (*connect.Response[v1.ListBatchTransactionsResponse], error)
 	// add-ingest-validation (change 2.3).
 	GetValidationReport(context.Context, *connect.Request[v1.GetValidationReportRequest]) (*connect.Response[v1.GetValidationReportResponse], error)
 	// A completeness warning may be overridden; a correctness error may not
@@ -381,6 +412,12 @@ func NewImportServiceHandler(svc ImportServiceHandler, opts ...connect.HandlerOp
 		ImportServiceListImportBatchesProcedure,
 		svc.ListImportBatches,
 		connect.WithSchema(importServiceMethods.ByName("ListImportBatches")),
+		connect.WithHandlerOptions(opts...),
+	)
+	importServiceListBatchTransactionsHandler := connect.NewUnaryHandler(
+		ImportServiceListBatchTransactionsProcedure,
+		svc.ListBatchTransactions,
+		connect.WithSchema(importServiceMethods.ByName("ListBatchTransactions")),
 		connect.WithHandlerOptions(opts...),
 	)
 	importServiceGetValidationReportHandler := connect.NewUnaryHandler(
@@ -459,6 +496,8 @@ func NewImportServiceHandler(svc ImportServiceHandler, opts ...connect.HandlerOp
 			importServiceGetImportBatchHandler.ServeHTTP(w, r)
 		case ImportServiceListImportBatchesProcedure:
 			importServiceListImportBatchesHandler.ServeHTTP(w, r)
+		case ImportServiceListBatchTransactionsProcedure:
+			importServiceListBatchTransactionsHandler.ServeHTTP(w, r)
 		case ImportServiceGetValidationReportProcedure:
 			importServiceGetValidationReportHandler.ServeHTTP(w, r)
 		case ImportServiceOverrideValidationProcedure:
@@ -504,6 +543,10 @@ func (UnimplementedImportServiceHandler) GetImportBatch(context.Context, *connec
 
 func (UnimplementedImportServiceHandler) ListImportBatches(context.Context, *connect.Request[v1.ListImportBatchesRequest]) (*connect.Response[v1.ListImportBatchesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("vekst.v1.ImportService.ListImportBatches is not implemented"))
+}
+
+func (UnimplementedImportServiceHandler) ListBatchTransactions(context.Context, *connect.Request[v1.ListBatchTransactionsRequest]) (*connect.Response[v1.ListBatchTransactionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("vekst.v1.ImportService.ListBatchTransactions is not implemented"))
 }
 
 func (UnimplementedImportServiceHandler) GetValidationReport(context.Context, *connect.Request[v1.GetValidationReportRequest]) (*connect.Response[v1.GetValidationReportResponse], error) {

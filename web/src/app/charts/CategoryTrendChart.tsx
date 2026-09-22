@@ -16,6 +16,19 @@
  * 8-line spaghetti chart" (§5.3) is a shape-recognition job, not a
  * read-the-exact-value one — that is what the table view and each facet's
  * own tooltip are for.
+ *
+ * Facets are non-revenue, non-computed lines only -- the same set
+ * `ExpenseCategoriesChart` charts, and for the same two reasons. Computed
+ * lines (GM, NM, CM, IBT, NI) are each derived from sections already on
+ * screen elsewhere (`NetResultChart` has NI, `RevenueExpenseChart` has
+ * revenue), so admitting them here would rank a subtotal against the parts
+ * that made it and could crowd a real category out of the top eight.
+ * Values are plotted signed, not `Math.abs()`-ed: `pnl.go`'s `present()`
+ * prints a cost section positive but a section that nets to a *credit* for a
+ * given month negative, on purpose -- a currency gain booked under Financial
+ * result did not cost anything that month, and flattening its sign would
+ * draw a gain month and a loss month as two equally-tall upward spikes with
+ * nothing to tell them apart.
  */
 import { useMemo } from "react";
 import { LineChart } from "@/components/charts/line-chart";
@@ -25,6 +38,7 @@ import { ChartTooltip } from "@/components/charts/tooltip";
 import { exponentOf, formatMinorUnits } from "../../money";
 import type { Locale } from "../../i18n";
 import type { Report } from "../../data/report";
+import { lineName } from "../lineName";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
 import { chartsAnimate } from "./support";
@@ -38,22 +52,30 @@ interface Facet {
   texts: readonly string[];
 }
 
-function facets(report: Report, locale: Locale): Facet[] {
+export function facets(report: Report, locale: Locale): Facet[] {
   const exp = exponentOf(report.currencyCode);
-  return report.sections
-    .flatMap((s) => s.lines)
-    .filter((l) => l.total !== null)
+  return report.lines
+    .filter((l) => !l.computed && l.categoryId !== "01")
     .map((l) => ({
       categoryId: l.categoryId,
-      label: l.label,
-      totalAbs: exp === undefined || !l.total ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
+      label: lineName(l.categoryId, l.label, locale),
+      // Ranked by size, but plotted below with its real sign -- see the file
+      // header on why the two must not be the same number.
+      totalAbs: exp === undefined ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
       rows: report.periods.map((period, i) => {
         const m = l.values[i];
-        const value = m && exp !== undefined ? Math.abs(Number(BigInt(m.minorUnits)) / 10 ** exp) : 0;
+        const value = m && exp !== undefined ? Number(BigInt(m.minorUnits)) / 10 ** exp : 0;
         return { period, value };
       }),
-      texts: l.values.map((v) => (v && exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
+      texts: l.values.map((v) => (exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
     }))
+    // A section with nothing in it over the whole range has no shape to
+     // recognise, which is this chart's entire job. Against a real statement
+     // three of the six facets were flat lines at zero, and because a
+     // degenerate domain puts that line at the bottom of its own cell rather
+     // than the middle, they also read as a broken second row -- a heading
+     // with its chart somewhere far below it.
+    .filter((f) => f.rows.some((r) => r.value !== 0))
     .sort((a, b) => b.totalAbs - a.totalAbs)
     .slice(0, MAX_FACETS);
 }
@@ -64,7 +86,13 @@ function Facet({ facet }: Readonly<{ facet: Facet }>) {
 
   return (
     <div>
-      <p className="text-2xs font-semibold text-text-subtle">{facet.label}</p>
+      {/* A facet's heading is its only identity -- every line in this chart
+          is the same hue (§13.4) -- so it is read at the body size rather
+          than the micro one, and `title` carries a name too long for the
+          column since these became real names rather than abbreviations. */}
+      <p className="truncate text-xs font-medium text-text" title={facet.label}>
+        {facet.label}
+      </p>
       <LineChart data={rowsWithAvg} xDataKey="period" margin={{ top: 8, right: 4, bottom: 4, left: 4 }} aspectRatio="2.4 / 1">
         <Line dataKey="value" stroke="var(--chart-1)" strokeWidth={2} animate={chartsAnimate()} showMarkers={false} />
         <Line dataKey="avg" stroke="var(--vk-chart-deemph)" strokeWidth={1} animate={false} showMarkers={false} showHighlight={false} />
@@ -92,6 +120,7 @@ export function CategoryTrendChart({
   return (
     <ChartShell
       titleKey="chart.trend.title"
+      noteKey="chart.trend.note"
       locale={locale}
       hasData={data.length > 0}
       table={

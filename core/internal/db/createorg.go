@@ -11,6 +11,11 @@ import (
 	gendb "github.com/MyauDev/vekst/core/gen/db"
 )
 
+// TaxonomyVersion is the one version this change seeds and adopts. Not
+// configurable yet -- a second version is a later change's problem, the same
+// way migration 005 hardcodes 'v1' for the shared rows.
+const TaxonomyVersion = "v1"
+
 // NewOrganization is what a caller supplies to create a tenant. The identifier
 // is not among these fields: it is minted by OrgIDForNewOrg inside
 // CreateOrganization, because the identifier and the tenant context have to be
@@ -65,6 +70,14 @@ func (d *DB) CreateOrganization(ctx context.Context, in NewOrganization) (OrgID,
 			Name:  in.EntityName,
 		}); err != nil {
 			return fmt.Errorf("db: inserting entity: %w", err)
+		}
+
+		// Before the membership, not after: an organisation a person can reach
+		// but that cannot yet be reported against is a smaller mistake than the
+		// reverse, but still one this transaction does not need to allow, since
+		// failing here rolls back everything above it too.
+		if err := adoptIndustryTemplate(ctx, tx, org, TaxonomyVersion); err != nil {
+			return fmt.Errorf("db: adopting industry template: %w", err)
 		}
 
 		if _, err := q.InsertMembership(ctx, gendb.InsertMembershipParams{

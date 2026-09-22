@@ -19,7 +19,7 @@ import { BatchScreen } from "./app/BatchScreen";
 import { ReviewScreen } from "./app/ReviewScreen";
 import { ReportScreen } from "./app/ReportScreen";
 import { DrilldownPanel } from "./app/DrilldownPanel";
-import { defaultRange } from "./ui/period";
+import { getPeriodRange } from "./ui/periodPreference";
 
 /** What every route can reach. */
 interface RouterContext {
@@ -130,9 +130,10 @@ const reportsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "reports",
   beforeLoad: () => {
-    // The range is required on the target, so a redirect has to carry one.
-    // Year-to-date: an accountant's year is the unit that matters.
-    throw redirect({ to: "/app/reports/pnl", search: { ...defaultRange(), view: "table" } });
+    // The range is required on the target, so a redirect has to carry one --
+    // the last one chosen anywhere in the app, falling back to year-to-date
+    // only the first time this browser has ever opened a report.
+    throw redirect({ to: "/app/reports/pnl", search: { ...getPeriodRange(), view: "table" } });
   },
 });
 
@@ -144,8 +145,11 @@ const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
  * tenant identifier the caller supplies is a tenant identifier the caller chose
  * (design D7).
  *
- * An unparseable range falls back to the default rather than erroring. A link
- * that someone truncated should still open the report.
+ * An unparseable range falls back to the last one chosen anywhere in the app
+ * (`ui/periodPreference.ts`) rather than erroring or resetting to year-to-date
+ * every time. A link that someone truncated should still open a report, and
+ * the range it opens to should be the one a person was just looking at, not
+ * a fixed default that discards it.
  */
 /**
  * "table" is the default and the fallback for anything unrecognised: the
@@ -162,7 +166,7 @@ const pnlRoute = createRoute({
   validateSearch: (
     search: Record<string, unknown>,
   ): { from: string; to: string; view: ReportView } => {
-    const fallback = defaultRange();
+    const fallback = getPeriodRange();
     const pick = (v: unknown, d: string) =>
       typeof v === "string" && PERIOD.test(v) ? v : d;
     const view = VIEWS.includes(search["view"] as ReportView)

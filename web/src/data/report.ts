@@ -1,44 +1,159 @@
 /**
  * The Management P&L and the transactions behind any figure in it.
  *
- * Every total, subtotal, column total and percentage below is **computed from
- * the rows the table renders**. Nothing is typed in. A fixture with a
- * hand-written total is a fixture that can disagree with itself, and the one
- * defect this product cannot ship is a report whose parts do not add up.
+ * Real from here on: `GetManagementPNL` and `ListLineTransactions`.
  *
- * The real backend computes these server-side, so the shapes returned here are
- * the shapes the RPC will return -- the component never learns which it got.
+ * The fixture's `sections: ReportSection[]` (three fixed groups: revenue,
+ * cost_of_sales, operating_expenses) has no backend equivalent and could not
+ * be faked honestly: the real taxonomy has seven top-level sections plus five
+ * computed lines, printed flat and interleaved (design D3 -- "01 · 02 · GM ·
+ * 03 · NM · 04 · 05 · CM · 06 · IBT · 07 · NI"), never grouped into three.
+ * `lines: ReportLine[]` replaces it, in that same flat print order --
+ * `core/internal/report/pnl.go`'s own `Order` is exactly twelve entries, not
+ * one row per leaf category, so this is a smaller change than it first
+ * looks. `buckets` is new: what the table could not include (unclassified,
+ * non-P&L, unallocated, other basis) is a real, required part of the
+ * response and CLAUDE.md's own invariant ("below the table, in order:
+ * unclassified, excluded non-P&L, unallocated, other basis"), which the
+ * fixture never rendered because it never had that data to render.
+ *
+ * `revenueTotal`, `expensesTotal`, `netTotal`, `netByPeriod`,
+ * `unreviewedAmount` and `reconciliation` keep their old shape and meaning,
+ * derived from `lines`/`buckets` rather than typed in: `revenueTotal` is
+ * NET SALES (01); `netTotal`/`netByPeriod` is NI (95), the bottom line;
+ * `expensesTotal` is `revenueTotal - CM` (93), since CM = NET SALES - CS -
+ * OCS - OPEX - OIE and there is no single "total expenses" line to read;
+ * `unreviewedAmount` is the unclassified bucket. `StatTiles` and
+ * `Reconciliation` therefore need no changes at all.
+ *
+ * Every figure is in the organisation's base currency, converted at the rate
+ * stored on each row -- never re-derived at read time (design's own words for
+ * `versions`, which applies here too).
+ *
+ * `blockedReason` (per-line, "mixed sources, no confirmed match") is gone:
+ * the real backend has no such field on `ReportLine`, because a report is
+ * computed from one `source_kind` for its whole duration, chosen before any
+ * line is computed -- CLAUDE.md's invariant is enforced by refusing the
+ * report's basis, not by blocking individual lines. `getReport` derives that
+ * basis from the entity's own imported batches (design §2.5) and throws
+ * `MixedBasisError` when they are not uniform, which `ReportScreen` renders
+ * as the one whole-report blocked state that replaces the old per-line one.
  */
-import { sumMinorUnits, percentOf } from "../money";
-import type { Basis, EngineLayer, Money, Period, Provenance, SourceKind } from "./types";
+import { createClient } from "@connectrpc/connect";
+
+import { transport } from "../transport";
+import { requireSession } from "./session";
+import { listBatches } from "./imports";
+import {
+  ReportService,
+  ReportBasis as ProtoReportBasis,
+  ReportGranularity,
+  ReportBucketKind,
+  ReportAnswerKind,
+} from "../gen/vekst/v1/report_pb";
+import type {
+  ReportLine as ProtoReportLine,
+  ReportFigure as ProtoReportFigure,
+  ReportBucketLine as ProtoReportBucketLine,
+  ReconciliationLine as ProtoReconciliationLine,
+  ReportVersions as ProtoReportVersions,
+  DrillTransaction as ProtoDrillTransaction,
+  ReportOperand as ProtoReportOperand,
+} from "../gen/vekst/v1/report_pb";
+import type { Money as ProtoMoney } from "../gen/vekst/type/v1/money_pb";
+import type { Basis, EngineLayer, Money, Period, Provenance } from "./types";
+
+const client = createClient(ReportService, transport);
+
+function money(m: ProtoMoney | undefined): Money {
+  return m ? { minorUnits: m.minorUnits, currencyCode: m.currencyCode } : { minorUnits: "0", currencyCode: "" };
+}
+
+/** BigInt subtraction over minor-unit strings. Never a float, the same
+ *  discipline `sumMinorUnits` already keeps for addition. */
+function subMinorUnits(a: string, b: string): string {
+  return (BigInt(a) - BigInt(b)).toString();
+}
+
+export class MixedBasisError extends Error {
+  constructor() {
+    super("report: this entity's imports mix bank and ledger data; no basis can be chosen automatically");
+    this.name = "MixedBasisError";
+  }
+}
+
+/**
+ * The basis this report is computed from, derived from the entity's own
+ * imported batches (design §2.5) rather than chosen by a human -- a report
+ * drawing on both without a confirmed D4 match would count an invoice and
+ * its payment twice.
+ */
+async function deriveBasis(): Promise<ProtoReportBasis> {
+  const batches = await listBatches();
+  const kinds = new Set(batches.filter((b) => b.state === "imported").map((b) => b.sourceKind));
+  if (kinds.size > 1) throw new MixedBasisError();
+  return kinds.has("ledger") ? ProtoReportBasis.LEDGER : ProtoReportBasis.BANK;
+}
+
+function basisFromProto(b: ProtoReportBasis): Basis {
+  return b === ProtoReportBasis.LEDGER ? "accrual" : "cash";
+}
 
 export type SectionId = "revenue" | "cost_of_sales" | "operating_expenses";
 
 export interface ReportLine {
-  /** Stable across taxonomy versions: it addresses the drill-down URL, and
-   *  those URLs are read by people and pasted into messages. */
+  /** The taxonomy code -- '01' for NET SALES, '91' for GM -- stable in a way
+   *  a name is not. Addresses the drill-down URL. */
   categoryId: string;
   label: string;
-  section: SectionId;
-  /** One entry per period. `null` is no data for that period, which is not a
-   *  zero -- a zero means nothing happened. */
-  values: readonly (Money | null)[];
-  total: Money | null;
-  /** Percent of total revenue, already formatted. Absent when revenue is zero. */
-  percentOfRevenue?: string;
-  /** Set when the line is refused rather than computed. A blocked line carries
-   *  no values: `DESIGN.md` §2 requires the reason to be shown wherever the
-   *  line is, and the reason is the content. */
-  blockedReason?: string;
+  /** True for GM, NM, CM, IBT, NI: a computed line has operands, not
+   *  transactions of its own -- `getDrilldown` opens the two differently. */
+  computed: boolean;
+  /** One entry per period. Always present: the real backend computes a
+   *  figure for every period, even a zero one -- unlike the fixture, there
+   *  is no "no data" state at this grain to distinguish from a true zero. */
+  values: readonly Money[];
+  total: Money;
+  /** A ratio, not money -- a JS `number` is correct here, the same call the
+   *  wire's own `percent_of_revenue` makes. Absent when revenue is zero. */
+  percentOfRevenue?: number;
 }
 
-export interface ReportSection {
-  id: SectionId;
-  label: string;
-  lines: readonly ReportLine[];
-  /** Per-period subtotals, then the section total. */
-  subtotals: readonly Money[];
+function figureMoney(f: ProtoReportFigure | undefined): Money {
+  return money(f?.amount);
+}
+
+function lineFromProto(l: ProtoReportLine): ReportLine {
+  return {
+    categoryId: l.code,
+    label: l.label,
+    computed: l.computed,
+    values: l.byPeriod.map(figureMoney),
+    total: figureMoney(l.total),
+    percentOfRevenue: l.total?.percentOfRevenue,
+  };
+}
+
+export type BucketKind = "unclassified" | "non_pnl" | "unallocated" | "other_basis";
+
+const BUCKET_KIND: Record<ReportBucketKind, BucketKind | undefined> = {
+  [ReportBucketKind.UNSPECIFIED]: undefined,
+  [ReportBucketKind.UNCLASSIFIED]: "unclassified",
+  [ReportBucketKind.NON_PNL]: "non_pnl",
+  [ReportBucketKind.UNALLOCATED]: "unallocated",
+  [ReportBucketKind.OTHER_BASIS]: "other_basis",
+};
+
+export interface ReportBucket {
+  kind: BucketKind;
+  values: readonly Money[];
   total: Money;
+}
+
+function bucketFromProto(b: ProtoReportBucketLine): ReportBucket | undefined {
+  const kind = BUCKET_KIND[b.kind];
+  if (!kind) return undefined;
+  return { kind, values: b.byPeriod.map(money), total: money(b.total) };
 }
 
 /** Opening + in + out + transfers = closing. What proves nothing was dropped. */
@@ -50,182 +165,213 @@ export interface Reconciliation {
   closing: Money;
 }
 
+const ZERO: Money = { minorUnits: "0", currencyCode: "" };
+
+/**
+ * One strip for the whole range, aggregated from the wire's one-per-period
+ * array: opening is the first period's, in/out/transfers are summed across
+ * every period, and closing is derived from those four -- never read off any
+ * period's own `closing` field, even at the aggregate. The wire's `in` and
+ * `out` are positive magnitudes ("that is how they read on a page"); this
+ * negates `out` and `transfers` for display, matching the sign convention
+ * every other outflow in this product already uses.
+ */
+function aggregateReconciliation(lines: readonly ProtoReconciliationLine[]): Reconciliation {
+  if (lines.length === 0) return { opening: ZERO, moneyIn: ZERO, moneyOut: ZERO, transfers: ZERO, closing: ZERO };
+
+  const currency = lines[0]!.opening?.currencyCode ?? "";
+  const sum = (pick: (l: ProtoReconciliationLine) => ProtoMoney | undefined): bigint =>
+    lines.reduce((acc, l) => acc + BigInt(pick(l)?.minorUnits ?? "0"), 0n);
+
+  const opening = BigInt(lines[0]!.opening?.minorUnits ?? "0");
+  const moneyIn = sum((l) => l.in);
+  const moneyOut = sum((l) => l.out);
+  const transfers = sum((l) => l.transfers);
+  const closing = opening + moneyIn - moneyOut - transfers;
+
+  const m = (v: bigint): Money => ({ minorUnits: v.toString(), currencyCode: currency });
+  return {
+    opening: m(opening),
+    moneyIn: m(moneyIn),
+    moneyOut: m(-moneyOut),
+    transfers: m(-transfers),
+    closing: m(closing),
+  };
+}
+
+/**
+ * One month's actual money movement: what came in, what went out, and the
+ * difference.
+ *
+ * `aggregateReconciliation` above collapses the same wire field to a single
+ * strip for the whole range, which is what proves nothing was dropped -- and
+ * which answers "did it balance", not "when did the money move". They are
+ * different questions and the second one needs the months kept.
+ *
+ * This is not the P&L's revenue and expenses, and the difference is the point
+ * of having both on one screen. `expensesByPeriod` is `NET SALES - CM`: the
+ * cost lines of the profit and loss, which exclude CAPEX, exclude everything
+ * classified out of the P&L, and (on an accrual basis) are dated to when a
+ * cost was incurred rather than when it was paid. This is the bank: every
+ * franc that actually left, whatever it was for. A business can be profitable
+ * on the first and out of money on the second, and that is precisely the month
+ * an owner needs to see.
+ *
+ * Transfers are deliberately absent. The wire counts them apart from in and
+ * out because an organisation moving its own money between its own accounts is
+ * neither -- counting it would show a business trading with itself. The
+ * reconciliation strip is where they are accounted for, and it stays on screen
+ * under both tabs.
+ */
+export interface CashPeriod {
+  period: Period;
+  /** Positive: money in. */
+  moneyIn: Money;
+  /** Negative, the sign convention every outflow in this product uses. */
+  moneyOut: Money;
+  /** `moneyIn + moneyOut`, so a month that took in less than it spent is
+   *  negative -- derived, never read off the wire. */
+  net: Money;
+}
+
+function cashByPeriod(
+  periods: readonly string[],
+  lines: readonly ProtoReconciliationLine[],
+  currency: string,
+): CashPeriod[] {
+  const byPeriod = new Map(lines.map((l) => [l.period, l]));
+  return periods.map((period) => {
+    const line = byPeriod.get(period);
+    // The wire's `in` and `out` are both positive magnitudes ("that is how
+    // they read on a page"); `out` is negated here for the same reason the
+    // aggregate strip negates it.
+    const moneyIn = BigInt(line?.in?.minorUnits ?? "0");
+    const moneyOut = -BigInt(line?.out?.minorUnits ?? "0");
+    const m = (v: bigint): Money => ({ minorUnits: v.toString(), currencyCode: currency });
+    return { period, moneyIn: m(moneyIn), moneyOut: m(moneyOut), net: m(moneyIn + moneyOut) };
+  });
+}
+
+function provenanceFromProto(v: ProtoReportVersions | undefined): Provenance {
+  const join = (xs: readonly string[]) => xs.join(", ");
+  return {
+    taxonomyVersion: join(v?.taxonomy ?? []),
+    rulesetVersion: join(v?.ruleset ?? []),
+    engineVersion: join(v?.engine ?? []),
+  };
+}
+
 export interface Report {
   currencyCode: string;
   periods: readonly Period[];
   basis: Basis;
-  /** What the basis was derived from. A mixed set is why a line can be blocked. */
-  sourceKinds: readonly SourceKind[];
-  sections: readonly ReportSection[];
-  /** Per-period net result, then the net total. */
+  /** The table, flat and in print order -- sections and computed lines
+   *  interleaved, never grouped. */
+  lines: readonly ReportLine[];
+  /** What the table could not include, in the order CLAUDE.md fixes:
+   *  unclassified, non-P&L, unallocated, other basis. */
+  buckets: readonly ReportBucket[];
+  /** Per-period net result, then the net total. NI (95), the bottom line. */
   netByPeriod: readonly Money[];
   netTotal: Money;
+  /** NET SALES (01). */
   revenueTotal: Money;
+  /** Derived: revenueTotal - CM (93). CS + OCS + OPEX + OIE, the cost lines
+   *  between NET SALES and CM, summed the only way that does not require a
+   *  line the backend does not compute. */
   expensesTotal: Money;
+  /** The same derivation, per period -- `RevenueExpenseChart`'s own need,
+   *  kept here rather than duplicated as BigInt arithmetic inside a chart. */
+  expensesByPeriod: readonly Money[];
+  /** What actually moved through the accounts each month -- see `CashPeriod`
+   *  on why this is not `expensesByPeriod` with a different sign. */
+  cash: readonly CashPeriod[];
   reconciliation: Reconciliation;
   provenance: Provenance;
-  /** Amount awaiting review. A headline figure because an unreviewed row is a
-   *  wrong number in this very report -- `WORKFLOW.md` §5.3. */
+  /** The unclassified bucket's total. A headline figure because an
+   *  unreviewed row is a wrong number in this very report. */
   unreviewedAmount: Money;
 }
 
-/* --------------------------------------------------------------------------
- * Fixtures. Raw lines only -- every aggregate below is derived.
- * ----------------------------------------------------------------------- */
+const NET_SALES = "01";
+const CM = "93";
+const NI = "95";
 
-const CURRENCY = "EUR";
-const PERIODS: readonly Period[] = [
-  "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08",
-];
+function reportFromProto(
+  basis: Basis,
+  periods: readonly string[],
+  protoLines: readonly ProtoReportLine[],
+  protoBuckets: readonly ProtoReportBucketLine[],
+  protoReconciliation: readonly ProtoReconciliationLine[],
+  versions: ProtoReportVersions | undefined,
+): Report {
+  const lines = protoLines.map(lineFromProto);
+  const buckets = protoBuckets.map(bucketFromProto).filter((b): b is ReportBucket => b !== undefined);
+  const byCode = new Map(lines.map((l) => [l.categoryId, l]));
 
-const SECTION_LABEL: Record<SectionId, string> = {
-  revenue: "Revenue",
-  cost_of_sales: "Cost of sales",
-  operating_expenses: "Operating expenses",
-};
+  const revenue = byCode.get(NET_SALES);
+  const cm = byCode.get(CM);
+  const ni = byCode.get(NI);
+  const unclassified = buckets.find((b) => b.kind === "unclassified");
 
-interface RawLine {
-  categoryId: string;
-  label: string;
-  section: SectionId;
-  units?: readonly string[];
-  blockedReason?: string;
-}
-
-const RAW: readonly RawLine[] = [
-  { categoryId: "product-sales", label: "Product sales", section: "revenue",
-    units: ["5240000","5120000","5590000","5460000","5150000","5780000","5540000","5840000"] },
-  { categoryId: "services", label: "Services", section: "revenue",
-    units: ["1410000","1520000","1470000","1640000","1560000","1510000","1680000","1740000"] },
-  // Blocked on purpose. A line drawing on ledger and bank data with no confirmed
-  // D4 match counts an invoice and its payment twice, so it is refused rather
-  // than computed -- and the screen has to say why.
-  { categoryId: "consulting-income", label: "Consulting income", section: "revenue",
-    blockedReason: "mixed_sources_no_match" },
-  { categoryId: "materials", label: "Materials", section: "cost_of_sales",
-    units: ["-2270000","-2210000","-2440000","-2340000","-2240000","-2550000","-2390000","-2560000"] },
-  { categoryId: "inbound-freight", label: "Inbound freight", section: "cost_of_sales",
-    units: ["-303000","-292000","-336000","-325000","-299000","-347000","-329000","-355000"] },
-  { categoryId: "payroll", label: "Payroll", section: "operating_expenses",
-    units: ["-1920000","-1920000","-1920000","-2010000","-2010000","-2010000","-2010000","-2070000"] },
-  { categoryId: "logistics", label: "Logistics", section: "operating_expenses",
-    units: ["-664020","-603075","-681240","-631860","-624025","-710580","-665535","-726090"] },
-  { categoryId: "rent-and-utilities", label: "Rent and utilities", section: "operating_expenses",
-    units: ["-350000","-350000","-350000","-350000","-350000","-350000","-350000","-350000"] },
-  { categoryId: "software", label: "Software and subscriptions", section: "operating_expenses",
-    units: ["-156600","-156600","-162150","-162150","-162150","-166600","-166600","-166600"] },
-  // A real expense pattern: quarterly, so half the cells are a true zero rather
-  // than no data. The table must render those differently.
-  { categoryId: "professional-fees", label: "Professional fees", section: "operating_expenses",
-    units: ["-78000","0","-125500","0","-66500","0","-192000","0"] },
-];
-
-const money = (minorUnits: string): Money => ({ minorUnits, currencyCode: CURRENCY });
-
-/** Sums one index across many lines, skipping blocked ones. */
-function columnSum(lines: readonly RawLine[], index: number): string {
-  return sumMinorUnits(lines.flatMap((l) => (l.units ? [l.units[index]!] : [])));
-}
-
-function buildSection(id: SectionId): ReportSection {
-  const raw = RAW.filter((l) => l.section === id);
-  const subtotals = PERIODS.map((_, i) => money(columnSum(raw, i)));
-  const total = money(sumMinorUnits(subtotals.map((m) => m.minorUnits)));
-
-  const lines: ReportLine[] = raw.map((l) => {
-    if (!l.units) {
-      return {
-        categoryId: l.categoryId,
-        label: l.label,
-        section: id,
-        values: PERIODS.map(() => null),
-        total: null,
-        blockedReason: l.blockedReason,
-      };
-    }
-    return {
-      categoryId: l.categoryId,
-      label: l.label,
-      section: id,
-      values: l.units.map((u) => money(u)),
-      total: money(sumMinorUnits(l.units)),
-    };
-  });
-
-  return { id, label: SECTION_LABEL[id], lines, subtotals, total };
-}
-
-/**
- * The report for a period range.
- *
- * `async` although nothing awaits: the signature is the one the RPC will have,
- * so swapping the body does not ripple into every caller's control flow.
- */
-export async function getReport(_params: { from: Period; to: Period }): Promise<Report> {
-  const sections = (["revenue", "cost_of_sales", "operating_expenses"] as const).map(buildSection);
-
-  const revenue = sections.find((s) => s.id === "revenue")!;
-  const expenseSections = sections.filter((s) => s.id !== "revenue");
-
-  const netByPeriod = PERIODS.map((_, i) =>
-    money(sumMinorUnits(sections.map((s) => s.subtotals[i]!.minorUnits))),
-  );
-  const netTotal = money(sumMinorUnits(netByPeriod.map((m) => m.minorUnits)));
-  const expensesTotal = money(
-    sumMinorUnits(expenseSections.map((s) => s.total.minorUnits)),
-  );
-
-  // Percent of revenue, computed from the revenue total this same call derived.
-  for (const section of sections) {
-    for (const line of section.lines) {
-      if (line.total) {
-        const pct = percentOf(line.total.minorUnits, revenue.total.minorUnits, "en");
-        if (pct !== undefined) (line as ReportLine).percentOfRevenue = pct;
-      }
-    }
-  }
-
-  const opening = "15230000";
-  const moneyIn = sumMinorUnits(
-    RAW.flatMap((l) => (l.units ?? []).filter((u) => !u.startsWith("-"))),
-  );
-  const moneyOut = sumMinorUnits(
-    RAW.flatMap((l) => (l.units ?? []).filter((u) => u.startsWith("-"))),
-  );
-  const transfers = "-418000";
-  // Closing is derived, never stated. The strip proves nothing was dropped, and
-  // a strip whose closing figure was typed in proves nothing at all.
-  const closing = sumMinorUnits([opening, moneyIn, moneyOut, transfers]);
+  const revenueTotal = revenue?.total ?? ZERO;
+  const currency = revenueTotal.currencyCode || lines[0]?.total.currencyCode || "";
 
   return {
-    currencyCode: CURRENCY,
-    periods: PERIODS,
-    // Every fixture row is bank-sourced, so the whole report is cash-basis.
-    basis: "cash",
-    sourceKinds: ["bank"],
-    sections,
-    netByPeriod,
-    netTotal,
-    revenueTotal: revenue.total,
-    expensesTotal,
-    reconciliation: {
-      opening: money(opening),
-      moneyIn: money(moneyIn),
-      moneyOut: money(moneyOut),
-      transfers: money(transfers),
-      closing: money(closing),
+    currencyCode: currency,
+    periods,
+    basis,
+    lines,
+    buckets,
+    netByPeriod: ni?.values ?? periods.map(() => ({ minorUnits: "0", currencyCode: currency })),
+    netTotal: ni?.total ?? { minorUnits: "0", currencyCode: currency },
+    revenueTotal,
+    expensesTotal: {
+      minorUnits: subMinorUnits(revenueTotal.minorUnits, (cm?.total ?? ZERO).minorUnits),
+      currencyCode: currency,
     },
-    provenance: {
-      taxonomyVersion: "v3",
-      rulesetVersion: "v11",
-      engineVersion: "0.4.2",
-    },
-    unreviewedAmount: money("184220"),
+    expensesByPeriod: periods.map((_, i) => ({
+      minorUnits: subMinorUnits(
+        (revenue?.values[i] ?? ZERO).minorUnits,
+        (cm?.values[i] ?? ZERO).minorUnits,
+      ),
+      currencyCode: currency,
+    })),
+    cash: cashByPeriod(periods, protoReconciliation, currency),
+    reconciliation: aggregateReconciliation(protoReconciliation),
+    provenance: provenanceFromProto(versions),
+    unreviewedAmount: unclassified?.total ?? { minorUnits: "0", currencyCode: currency },
   };
 }
 
+/**
+ * The report for a period range. Basis is derived, never chosen (design
+ * §2.5); granularity is fixed at monthly, the only one any screen offers.
+ */
+export async function getReport(params: { from: Period; to: Period }): Promise<Report> {
+  const { orgId, entityId } = requireSession();
+  const basis = await deriveBasis();
+  const res = await client.getManagementPNL({
+    organizationId: orgId,
+    entityId,
+    from: params.from,
+    to: params.to,
+    granularity: ReportGranularity.MONTH,
+    basis,
+  });
+  return reportFromProto(
+    basisFromProto(res.basis),
+    res.periods,
+    res.lines,
+    res.buckets,
+    res.reconciliation,
+    res.versions,
+  );
+}
+
 /* --------------------------------------------------------------------------
- * Drill-down: the transactions behind one figure.
+ * Drill-down: the transactions -- or, for a computed line, the operands --
+ * behind one figure.
  * ----------------------------------------------------------------------- */
 
 export interface DrilldownRow {
@@ -235,10 +381,35 @@ export interface DrilldownRow {
   amount: Money;
   categoryLabel: string;
   layer: EngineLayer;
-  /** 0..1. Below the threshold a row goes to the review queue instead. */
-  confidence: number;
+  /** Absent on an unclassified row -- the bucket drill-downs reach this,
+   *  same as any line's. */
+  confidence?: number;
   /** D4 match evidence, where a bank row was matched to a ledger document. */
   evidence?: string;
+}
+
+function rowFromProto(t: ProtoDrillTransaction): DrilldownRow {
+  return {
+    id: t.id,
+    bookedOn: t.bookedOn,
+    description: t.description,
+    amount: money(t.amount),
+    categoryLabel: t.categoryName,
+    layer: (t.engineLayer || "L0") as EngineLayer,
+    confidence: t.confidence,
+    evidence: t.evidence || undefined,
+  };
+}
+
+/** One line a computed line is made of -- itself openable, in turn. */
+export interface DrilldownOperand {
+  categoryId: string;
+  label: string;
+  subtracted: boolean;
+}
+
+function operandFromProto(o: ProtoReportOperand): DrilldownOperand {
+  return { categoryId: o.code, label: o.label, subtracted: o.subtracted };
 }
 
 export interface Drilldown {
@@ -246,50 +417,63 @@ export interface Drilldown {
   categoryLabel: string;
   period: Period;
   amount: Money;
+  /** "transactions" for a section or a bucket; "operands" for a computed
+   *  line, which has none of its own -- GM is NET SALES minus CS, and both
+   *  of those have transactions. */
+  kind: "transactions" | "operands";
   rows: readonly DrilldownRow[];
+  operands: readonly DrilldownOperand[];
   provenance: Provenance;
-  /** True when this figure's transactions are not in the fixture set. */
-  rowsUnavailable?: boolean;
 }
 
-const DRILLDOWN_ROWS: readonly DrilldownRow[] = [
-  { id: "t1", bookedOn: "2026-03-04", description: "VEKTOR LOGISTIKA OPLATA SCHET 4471",
-    amount: money("-184500"), categoryLabel: "Logistics", layer: "L1", confidence: 0.98 },
-  { id: "t2", bookedOn: "2026-03-09", description: "DHL EXPRESS INVOICE 88214",
-    amount: money("-96240"), categoryLabel: "Logistics", layer: "L0", confidence: 1,
-    evidence: "ledger doc 88214, ±0 days" },
-  { id: "t3", bookedOn: "2026-03-14", description: "TRANSPORT NORD AS",
-    amount: money("-212300"), categoryLabel: "Logistics", layer: "L1", confidence: 0.94 },
-  { id: "t4", bookedOn: "2026-03-21", description: "PALLET HIRE Q1",
-    amount: money("-68900"), categoryLabel: "Logistics", layer: "L2", confidence: 0.71 },
-  { id: "t5", bookedOn: "2026-03-28", description: "VEKTOR LOGISTIKA OPLATA SCHET 4519",
-    amount: money("-119300"), categoryLabel: "Logistics", layer: "L1", confidence: 0.97 },
-];
-
 /**
- * One cell carries a transaction list: Logistics × March. Populating every cell
- * would mean inventing several hundred transactions, and the plan bans a demo
- * on invented data. Every other cell opens with its real figure and says so.
+ * Opens one cell: `categoryId` is a line's code ('01', '91') or a bucket's
+ * name ('unclassified', 'non_pnl', 'unallocated', 'other_basis') -- the same
+ * two closed, disjoint vocabularies `ListLineTransactionsRequest.line` takes.
+ * `basis`/`granularity`/`from`/`to` have to match the report this figure came
+ * from, or the rows returned are not the rows the figure was summed from.
+ *
+ * The label is resolved by reading the report this cell is part of, the same
+ * way the fixture always did (`getReport` was already called a second time
+ * here, before this change) -- a bucket's label is not looked up this way
+ * (it comes from `i18n` in the component: a bucket has no human name on the
+ * wire, only a kind), but a line's does, so the panel reads "NET SALES", not
+ * "01".
  */
 export async function getDrilldown(params: {
   categoryId: string;
   period: Period;
+  from: Period;
+  to: Period;
 }): Promise<Drilldown> {
-  const report = await getReport({ from: params.period, to: params.period });
-  const line = report.sections
-    .flatMap((s) => s.lines)
-    .find((l) => l.categoryId === params.categoryId);
-  const index = report.periods.indexOf(params.period);
-  const amount = line?.values[index] ?? money("0");
+  const { orgId, entityId } = requireSession();
+  const [basis, report] = await Promise.all([
+    deriveBasis(),
+    getReport({ from: params.from, to: params.to }),
+  ]);
+  const line = report.lines.find((l) => l.categoryId === params.categoryId);
 
-  const populated = params.categoryId === "logistics" && params.period === "2026-03";
+  const res = await client.listLineTransactions({
+    organizationId: orgId,
+    entityId,
+    basis,
+    granularity: ReportGranularity.MONTH,
+    from: params.from,
+    to: params.to,
+    period: params.period,
+    line: params.categoryId,
+    cursor: "",
+    limit: 500,
+  });
+
   return {
     categoryId: params.categoryId,
     categoryLabel: line?.label ?? params.categoryId,
     period: params.period,
-    amount,
-    rows: populated ? DRILLDOWN_ROWS : [],
-    rowsUnavailable: !populated,
+    amount: money(res.total),
+    kind: res.kind === ReportAnswerKind.OPERANDS ? "operands" : "transactions",
+    rows: res.transactions.map(rowFromProto),
+    operands: res.operands.map(operandFromProto),
     provenance: report.provenance,
   };
 }

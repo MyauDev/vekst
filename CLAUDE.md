@@ -54,9 +54,11 @@ or leaks one customer's finances to another.
 language. Never a JavaScript `number` on the wire — it cannot hold `int64`
 exactly. The type and its no-float guards (Go, Python, and a TypeScript test
 of the generated field type) exist in `core/internal/money` and
-`proto/vekst/type/v1/money.proto`; no table stores an amount yet. Multi-currency
-storage — the original amount, the FX rate, the rate date and the
-base-currency amount — is change 2.5.
+`proto/vekst/type/v1/money.proto`. `transactions` (change 2.5,
+`add-transaction-ledger`) stores the original amount, the FX rate, the rate
+date and the base-currency amount — multi-currency storage is done, not a
+later change's problem; what change 5.3 (`connect-app-end-to-end`) still
+found missing was a `currencies` reference table, which it added.
 
 **Every tenant table carries `org_id`, an RLS policy, and `FORCE ROW LEVEL
 SECURITY`.** Tenancy is `organizations` → `entities` → `accounts`; `entity_id`

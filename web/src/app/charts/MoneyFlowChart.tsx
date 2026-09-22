@@ -39,6 +39,7 @@ import { t } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { useTheme } from "../../ui/preferences";
 import type { Report } from "../../data/report";
+import { lineName } from "../lineName";
 import { ChartShell } from "./ChartShell";
 import { CategoryTable } from "./ChartTable";
 import { foldTopN, reducedMotion } from "./support";
@@ -61,6 +62,31 @@ function chartToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+/**
+ * The Sankey's expense side, before folding into slots and before colour: a
+ * pure function of the report and its exponent, so the sign rule it applies
+ * is checkable without a DOM.
+ *
+ * `pnl.go`'s `present()` prints a cost section positive and, on purpose, a
+ * section that nets to a *credit* for the range negative -- a currency gain
+ * booked under Financial result is not an expense that period, however
+ * large. A Sankey link cannot be negative, and flipping it back with
+ * `Math.abs()` would draw that gain as an outflow the same as a real cost;
+ * excluded here for the same reason `ExpenseCategoriesChart.rows` excludes
+ * it, which is also what keeps the diagram's own remainder calculation from
+ * being overstated and silently swallowing the "Net result" link.
+ */
+export function expenseLinesFor(report: Report, exp: number, locale: Locale): Sliced<null>[] {
+  return report.lines
+    .filter((l) => !l.computed && l.categoryId !== "01")
+    .filter((l) => BigInt(l.total.minorUnits) > 0n)
+    .map((l) => ({
+      label: lineName(l.categoryId, l.label, locale),
+      value: Number(BigInt(l.total.minorUnits)) / 10 ** exp,
+      item: null,
+    }));
+}
+
 export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; locale: Locale }>) {
   const [theme] = useTheme();
   const exp = exponentOf(report.currencyCode);
@@ -70,19 +96,26 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     const totalInLabel = t("chart.moneyflow.totalIn", locale);
     const netLabel = t("chart.netresult.series", locale);
 
-    const revenue = report.sections.find((s) => s.id === "revenue")!;
-    const revenueLines = revenue.lines.filter((l) => l.total !== null);
-    if (revenueLines.length === 0) return null;
+    // The real backend has one revenue line (NET SALES, "01"), not several --
+    // `core/internal/report/pnl.go`'s `Order` computes no per-source revenue
+    // breakdown, so this Sankey's revenue side is a single node now rather
+    // than the fixture's several.
+    const revenue = report.lines.find((l) => l.categoryId === "01");
+    if (!revenue) return null;
 
-    const expenseLines: Sliced<null>[] = report.sections
-      .filter((s) => s.id !== "revenue")
-      .flatMap((s) => s.lines)
-      .filter((l) => l.total !== null)
-      .map((l) => ({
-        label: l.label,
-        value: Math.abs(Number(BigInt(l.total!.minorUnits)) / 10 ** exp),
-        item: null,
-      }));
+    // No revenue, no diagram. A Sankey's node height is its total flow, so
+    // the picture only means "nothing was dropped" if inflow equals outflow
+    // at every node -- and with a zero revenue node there is no inflow for
+    // the expense side to come out of. Drawn anyway (as it was against a real
+    // statement whose revenue was all misclassified) it is a hairline "Total
+    // in" with a full-height expense bar hanging off it: a diagram asserting
+    // that 171,262.11 flowed out of nothing. The table view below says the
+    // same figures without claiming they balance.
+    if (BigInt(revenue.total.minorUnits) <= 0n) return null;
+
+    const revenueLines = [revenue];
+
+    const expenseLines = expenseLinesFor(report, exp, locale);
 
     const { kept, other } = foldTopN(expenseLines, MAX_EXPENSE_SLOTS, t("chart.moneyflow.other", locale));
     const expenseNodes = other ? [...kept, { label: other.label, value: other.value }] : kept;
@@ -93,7 +126,10 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
 
     const structural = chartToken("--vk-text");
     const nodes = [
-      ...revenueLines.map((l) => ({ name: l.label, itemStyle: { color: structural } })),
+      ...revenueLines.map((l) => ({
+        name: lineName(l.categoryId, l.label, locale),
+        itemStyle: { color: structural },
+      })),
       { name: totalInLabel, itemStyle: { color: structural } },
       ...expenseNodes.map((e, i) => ({
         name: e.label,
@@ -104,9 +140,9 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
 
     const links = [
       ...revenueLines.map((l) => ({
-        source: l.label,
+        source: lineName(l.categoryId, l.label, locale),
         target: totalInLabel,
-        value: Number(BigInt(l.total!.minorUnits)) / 10 ** exp,
+        value: Number(BigInt(l.total.minorUnits)) / 10 ** exp,
       })),
       ...expenseNodes.map((e) => ({ source: totalInLabel, target: e.label, value: e.value })),
       ...(remainder > 0 ? [{ source: totalInLabel, target: netLabel, value: remainder }] : []),
@@ -118,12 +154,18 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report, exp, locale, theme]);
 
+  /** The one refusal this card can explain: see `unavailableKey` below. */
+  const zeroRevenue = useMemo(() => {
+    const revenue = report.lines.find((l) => l.categoryId === "01");
+    return revenue !== undefined && BigInt(revenue.total.minorUnits) <= 0n;
+  }, [report]);
+
   const rows = useMemo(() => {
     if (exp === undefined) return [];
-    return report.sections
-      .flatMap((s) => s.lines)
-      .filter((l) => l.total !== null)
-      .map((l) => ({ label: l.label, text: formatMinorUnits(l.total!.minorUnits, exp, locale) }));
+    return report.lines.map((l) => ({
+      label: lineName(l.categoryId, l.label, locale),
+      text: formatMinorUnits(l.total.minorUnits, exp, locale),
+    }));
   }, [report, exp, locale]);
 
   const option = useMemo(() => {
@@ -218,6 +260,12 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
   return (
     <ChartShell
       titleKey="chart.moneyflow.title"
+      noteKey="chart.moneyflow.note"
+      // Only for the reason the message actually names. `option` is also null
+      // for a currency with no known exponent or a report with no revenue
+      // line at all, and telling a reader "net sales are zero" about either of
+      // those would be a confident wrong answer in place of a silent one.
+      unavailableKey={zeroRevenue ? "chart.moneyflow.unavailable" : undefined}
       locale={locale}
       hasData={option !== null}
       table={rows.length ? <CategoryTable rows={rows} locale={locale} /> : <p className="text-sm text-text-muted">{NO_DATA}</p>}

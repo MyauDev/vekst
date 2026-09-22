@@ -16,7 +16,7 @@ import (
 //
 // It is named for what it is so that reaching for it is a visible choice, and
 // its legitimate callers are few, listed, and counted. There are exactly
-// three kinds:
+// four kinds:
 //
 //   - The readiness check and migration status, which read goose_db_version.
 //     That table is infrastructure, allowlisted in
@@ -27,6 +27,10 @@ import (
 //   - OrgIDForSession, which calls orgs_for_user. This is the read that
 //     turns "which organisations may this user act for?" into an answer, so
 //     by definition it cannot already have one.
+//   - MembershipsForUser, orgs_for_user's other caller (change 5.3): the
+//     same question, unfiltered, for GetCurrentUser's organisation list and
+//     the already_a_member refusal -- both need every membership a caller
+//     holds before any one of them has been chosen as the tenant.
 //
 // scripts/check-db-entry-point.sh counts these call sites against a committed
 // number, so a fourth kind is a diff rather than a habit. The list is short

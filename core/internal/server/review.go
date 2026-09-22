@@ -164,6 +164,35 @@ func (h *reviewHandler) UndoDecision(
 	}), nil
 }
 
+func (h *reviewHandler) ListCategories(
+	ctx context.Context,
+	req *connect.Request[vektv1.ListCategoriesRequest],
+) (*connect.Response[vektv1.ListCategoriesResponse], error) {
+	user, orgID, err := caller(ctx, req.Msg.GetOrganizationId())
+	if err != nil {
+		return nil, err
+	}
+
+	cats, err := h.svc.Categories(ctx, user, orgID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+
+	out := &vektv1.ListCategoriesResponse{
+		Categories: make([]*vektv1.Category, 0, len(cats)),
+	}
+	for _, c := range cats {
+		out.Categories = append(out.Categories, &vektv1.Category{
+			Id:    c.ID.String(),
+			Code:  c.Code,
+			Name:  c.Name,
+			Path:  c.Path,
+			IsPnl: c.IsPnl,
+		})
+	}
+	return connect.NewResponse(out), nil
+}
+
 // caller is the authenticated person and the organisation they named. Proving
 // they belong to it is the service's job, done in the same step that
 // establishes their role.

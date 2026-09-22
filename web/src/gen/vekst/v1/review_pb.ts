@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file vekst/v1/review.proto.
  */
 export const file_vekst_v1_review: GenFile = /*@__PURE__*/
-  fileDesc("ChV2ZWtzdC92MS9yZXZpZXcucHJvdG8SCHZla3N0LnYxIpwBCgtSZXZpZXdHcm91cBIYChBjb3VudGVycGFydHlfa2V5GAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRIRCglyb3dfY291bnQYAyABKAUSIwoFdG90YWwYBCABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EhIKCmZpcnN0X3NlZW4YBSABKAkSEQoJbGFzdF9zZWVuGAYgASgJImQKF0xpc3RSZXZpZXdHcm91cHNSZXF1ZXN0EhcKD29yZ2FuaXphdGlvbl9pZBgBIAEoCRIRCgllbnRpdHlfaWQYAiABKAkSDQoFbGltaXQYAyABKAUSDgoGb2Zmc2V0GAQgASgFIqoBChhMaXN0UmV2aWV3R3JvdXBzUmVzcG9uc2USJQoGZ3JvdXBzGAEgAygLMhUudmVrc3QudjEuUmV2aWV3R3JvdXASFwoPdG90YWxfcm93X2NvdW50GAIgASgFEiAKGHRvdGFsX2NvdW50ZXJwYXJ0eV9jb3VudBgDIAEoBRIsCg50b3RhbF9hYnNvbHV0ZRgEIAEoCzIULnZla3N0LnR5cGUudjEuTW9uZXkiZAocTGlzdEdyb3VwVHJhbnNhY3Rpb25zUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEhgKEGNvdW50ZXJwYXJ0eV9rZXkYAyABKAki8gEKEVF1ZXVlZFRyYW5zYWN0aW9uEgoKAmlkGAEgASgJEhEKCWJvb2tlZF9vbhgCIAEoCRIRCglkaXJlY3Rpb24YAyABKAkSJAoGYW1vdW50GAQgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRIpCgtiYXNlX2Ftb3VudBgFIAEoCzIULnZla3N0LnR5cGUudjEuTW9uZXkSEwoLZGVzY3JpcHRpb24YBiABKAkSGAoQY291bnRlcnBhcnR5X3JhdxgHIAEoCRIWCg5yZWd1bGF0ZWRfY29kZRgIIAEoCRITCgtzb3VyY2Vfa2luZBgJIAEoCSJSCh1MaXN0R3JvdXBUcmFuc2FjdGlvbnNSZXNwb25zZRIxCgx0cmFuc2FjdGlvbnMYASADKAsyGy52ZWtzdC52MS5RdWV1ZWRUcmFuc2FjdGlvbiKcAQoTUmVzb2x2ZUdyb3VwUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEhgKEGNvdW50ZXJwYXJ0eV9rZXkYAyABKAkSKAoHb3V0Y29tZRgEIAEoDjIXLnZla3N0LnYxLlJldmlld091dGNvbWUSFQoNY2F0ZWdvcnlfY29kZRgFIAEoCSJvChRSZXNvbHZlR3JvdXBSZXNwb25zZRITCgtkZWNpc2lvbl9pZBgBIAEoCRIVCg1jb3ZlcmVkX2NvdW50GAIgASgFEisKDWNvdmVyZWRfdG90YWwYAyABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5IkMKE1VuZG9EZWNpc2lvblJlcXVlc3QSFwoPb3JnYW5pemF0aW9uX2lkGAEgASgJEhMKC2RlY2lzaW9uX2lkGAIgASgJIi8KFFVuZG9EZWNpc2lvblJlc3BvbnNlEhcKD3JldHJhY3RlZF9jb3VudBgBIAEoBSqtAQoNUmV2aWV3T3V0Y29tZRIeChpSRVZJRVdfT1VUQ09NRV9VTlNQRUNJRklFRBAAEh4KGlJFVklFV19PVVRDT01FX0NBVEVHT1JJU0VEEAESJAogUkVWSUVXX09VVENPTUVfSU5URVJOQUxfVFJBTlNGRVIQAhIaChZSRVZJRVdfT1VUQ09NRV9OT05fUE5MEAMSGgoWUkVWSUVXX09VVENPTUVfU0tJUFBFRBAEMvICCg1SZXZpZXdTZXJ2aWNlElkKEExpc3RSZXZpZXdHcm91cHMSIS52ZWtzdC52MS5MaXN0UmV2aWV3R3JvdXBzUmVxdWVzdBoiLnZla3N0LnYxLkxpc3RSZXZpZXdHcm91cHNSZXNwb25zZRJoChVMaXN0R3JvdXBUcmFuc2FjdGlvbnMSJi52ZWtzdC52MS5MaXN0R3JvdXBUcmFuc2FjdGlvbnNSZXF1ZXN0GicudmVrc3QudjEuTGlzdEdyb3VwVHJhbnNhY3Rpb25zUmVzcG9uc2USTQoMUmVzb2x2ZUdyb3VwEh0udmVrc3QudjEuUmVzb2x2ZUdyb3VwUmVxdWVzdBoeLnZla3N0LnYxLlJlc29sdmVHcm91cFJlc3BvbnNlEk0KDFVuZG9EZWNpc2lvbhIdLnZla3N0LnYxLlVuZG9EZWNpc2lvblJlcXVlc3QaHi52ZWtzdC52MS5VbmRvRGVjaXNpb25SZXNwb25zZUIzWjFnaXRodWIuY29tL015YXVEZXYvdmVrc3QvY29yZS9nZW4vdmVrc3QvdjE7dmVrdHYxYgZwcm90bzM", [file_vekst_type_v1_money]);
+  fileDesc("ChV2ZWtzdC92MS9yZXZpZXcucHJvdG8SCHZla3N0LnYxIpwBCgtSZXZpZXdHcm91cBIYChBjb3VudGVycGFydHlfa2V5GAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRIRCglyb3dfY291bnQYAyABKAUSIwoFdG90YWwYBCABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EhIKCmZpcnN0X3NlZW4YBSABKAkSEQoJbGFzdF9zZWVuGAYgASgJImQKF0xpc3RSZXZpZXdHcm91cHNSZXF1ZXN0EhcKD29yZ2FuaXphdGlvbl9pZBgBIAEoCRIRCgllbnRpdHlfaWQYAiABKAkSDQoFbGltaXQYAyABKAUSDgoGb2Zmc2V0GAQgASgFIqoBChhMaXN0UmV2aWV3R3JvdXBzUmVzcG9uc2USJQoGZ3JvdXBzGAEgAygLMhUudmVrc3QudjEuUmV2aWV3R3JvdXASFwoPdG90YWxfcm93X2NvdW50GAIgASgFEiAKGHRvdGFsX2NvdW50ZXJwYXJ0eV9jb3VudBgDIAEoBRIsCg50b3RhbF9hYnNvbHV0ZRgEIAEoCzIULnZla3N0LnR5cGUudjEuTW9uZXkiZAocTGlzdEdyb3VwVHJhbnNhY3Rpb25zUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEhgKEGNvdW50ZXJwYXJ0eV9rZXkYAyABKAki8gEKEVF1ZXVlZFRyYW5zYWN0aW9uEgoKAmlkGAEgASgJEhEKCWJvb2tlZF9vbhgCIAEoCRIRCglkaXJlY3Rpb24YAyABKAkSJAoGYW1vdW50GAQgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRIpCgtiYXNlX2Ftb3VudBgFIAEoCzIULnZla3N0LnR5cGUudjEuTW9uZXkSEwoLZGVzY3JpcHRpb24YBiABKAkSGAoQY291bnRlcnBhcnR5X3JhdxgHIAEoCRIWCg5yZWd1bGF0ZWRfY29kZRgIIAEoCRITCgtzb3VyY2Vfa2luZBgJIAEoCSJSCh1MaXN0R3JvdXBUcmFuc2FjdGlvbnNSZXNwb25zZRIxCgx0cmFuc2FjdGlvbnMYASADKAsyGy52ZWtzdC52MS5RdWV1ZWRUcmFuc2FjdGlvbiKcAQoTUmVzb2x2ZUdyb3VwUmVxdWVzdBIXCg9vcmdhbml6YXRpb25faWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEhgKEGNvdW50ZXJwYXJ0eV9rZXkYAyABKAkSKAoHb3V0Y29tZRgEIAEoDjIXLnZla3N0LnYxLlJldmlld091dGNvbWUSFQoNY2F0ZWdvcnlfY29kZRgFIAEoCSJvChRSZXNvbHZlR3JvdXBSZXNwb25zZRITCgtkZWNpc2lvbl9pZBgBIAEoCRIVCg1jb3ZlcmVkX2NvdW50GAIgASgFEisKDWNvdmVyZWRfdG90YWwYAyABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5IkMKE1VuZG9EZWNpc2lvblJlcXVlc3QSFwoPb3JnYW5pemF0aW9uX2lkGAEgASgJEhMKC2RlY2lzaW9uX2lkGAIgASgJIi8KFFVuZG9EZWNpc2lvblJlc3BvbnNlEhcKD3JldHJhY3RlZF9jb3VudBgBIAEoBSIwChVMaXN0Q2F0ZWdvcmllc1JlcXVlc3QSFwoPb3JnYW5pemF0aW9uX2lkGAEgASgJIlAKCENhdGVnb3J5EgoKAmlkGAEgASgJEgwKBGNvZGUYAiABKAkSDAoEbmFtZRgDIAEoCRIMCgRwYXRoGAQgASgJEg4KBmlzX3BubBgFIAEoCCJAChZMaXN0Q2F0ZWdvcmllc1Jlc3BvbnNlEiYKCmNhdGVnb3JpZXMYASADKAsyEi52ZWtzdC52MS5DYXRlZ29yeSqtAQoNUmV2aWV3T3V0Y29tZRIeChpSRVZJRVdfT1VUQ09NRV9VTlNQRUNJRklFRBAAEh4KGlJFVklFV19PVVRDT01FX0NBVEVHT1JJU0VEEAESJAogUkVWSUVXX09VVENPTUVfSU5URVJOQUxfVFJBTlNGRVIQAhIaChZSRVZJRVdfT1VUQ09NRV9OT05fUE5MEAMSGgoWUkVWSUVXX09VVENPTUVfU0tJUFBFRBAEMscDCg1SZXZpZXdTZXJ2aWNlElkKEExpc3RSZXZpZXdHcm91cHMSIS52ZWtzdC52MS5MaXN0UmV2aWV3R3JvdXBzUmVxdWVzdBoiLnZla3N0LnYxLkxpc3RSZXZpZXdHcm91cHNSZXNwb25zZRJoChVMaXN0R3JvdXBUcmFuc2FjdGlvbnMSJi52ZWtzdC52MS5MaXN0R3JvdXBUcmFuc2FjdGlvbnNSZXF1ZXN0GicudmVrc3QudjEuTGlzdEdyb3VwVHJhbnNhY3Rpb25zUmVzcG9uc2USTQoMUmVzb2x2ZUdyb3VwEh0udmVrc3QudjEuUmVzb2x2ZUdyb3VwUmVxdWVzdBoeLnZla3N0LnYxLlJlc29sdmVHcm91cFJlc3BvbnNlEk0KDFVuZG9EZWNpc2lvbhIdLnZla3N0LnYxLlVuZG9EZWNpc2lvblJlcXVlc3QaHi52ZWtzdC52MS5VbmRvRGVjaXNpb25SZXNwb25zZRJTCg5MaXN0Q2F0ZWdvcmllcxIfLnZla3N0LnYxLkxpc3RDYXRlZ29yaWVzUmVxdWVzdBogLnZla3N0LnYxLkxpc3RDYXRlZ29yaWVzUmVzcG9uc2VCM1oxZ2l0aHViLmNvbS9NeWF1RGV2L3Zla3N0L2NvcmUvZ2VuL3Zla3N0L3YxO3Zla3R2MWIGcHJvdG8z", [file_vekst_type_v1_money]);
 
 /**
  * One counterparty's worth of unsettled transactions.
@@ -376,6 +376,79 @@ export const UndoDecisionResponseSchema: GenMessage<UndoDecisionResponse> = /*@_
   messageDesc(file_vekst_v1_review, 9);
 
 /**
+ * @generated from message vekst.v1.ListCategoriesRequest
+ */
+export type ListCategoriesRequest = Message<"vekst.v1.ListCategoriesRequest"> & {
+  /**
+   * @generated from field: string organization_id = 1;
+   */
+  organizationId: string;
+};
+
+/**
+ * Describes the message vekst.v1.ListCategoriesRequest.
+ * Use `create(ListCategoriesRequestSchema)` to create a new message.
+ */
+export const ListCategoriesRequestSchema: GenMessage<ListCategoriesRequest> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_review, 10);
+
+/**
+ * @generated from message vekst.v1.Category
+ */
+export type Category = Message<"vekst.v1.Category"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string code = 2;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * "OPEX > Administration > Finance", for a searchable picker.
+   *
+   * @generated from field: string path = 4;
+   */
+  path: string;
+
+  /**
+   * @generated from field: bool is_pnl = 5;
+   */
+  isPnl: boolean;
+};
+
+/**
+ * Describes the message vekst.v1.Category.
+ * Use `create(CategorySchema)` to create a new message.
+ */
+export const CategorySchema: GenMessage<Category> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_review, 11);
+
+/**
+ * @generated from message vekst.v1.ListCategoriesResponse
+ */
+export type ListCategoriesResponse = Message<"vekst.v1.ListCategoriesResponse"> & {
+  /**
+   * @generated from field: repeated vekst.v1.Category categories = 1;
+   */
+  categories: Category[];
+};
+
+/**
+ * Describes the message vekst.v1.ListCategoriesResponse.
+ * Use `create(ListCategoriesResponseSchema)` to create a new message.
+ */
+export const ListCategoriesResponseSchema: GenMessage<ListCategoriesResponse> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_review, 12);
+
+/**
  * What a person decided about a counterparty.
  *
  * @generated from enum vekst.v1.ReviewOutcome
@@ -489,6 +562,19 @@ export const ReviewService: GenService<{
     methodKind: "unary";
     input: typeof UndoDecisionRequestSchema;
     output: typeof UndoDecisionResponseSchema;
+  },
+  /**
+   * The categories a human may choose in the review queue's picker. Backed
+   * by the existing ClassifiableCategories query: computed lines and
+   * non-leaf nodes are not choices, and a picker offering them produces a
+   * classification the report cannot place.
+   *
+   * @generated from rpc vekst.v1.ReviewService.ListCategories
+   */
+  listCategories: {
+    methodKind: "unary";
+    input: typeof ListCategoriesRequestSchema;
+    output: typeof ListCategoriesResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_vekst_v1_review, 0);

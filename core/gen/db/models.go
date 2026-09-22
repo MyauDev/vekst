@@ -45,6 +45,16 @@ type Category struct {
 	CreatedAt          pgtype.Timestamptz
 }
 
+type CategoryTemplate struct {
+	TaxonomyVersion string
+	Code            string
+	ParentCode      pgtype.Text
+	Level           int16
+	Name            string
+	IsLeaf          bool
+	IsPnl           bool
+}
+
 type Classification struct {
 	OrgID            pgtype.UUID
 	ID               pgtype.UUID
@@ -88,6 +98,11 @@ type ClassificationRun struct {
 	ReviewCount     int32
 	StartedAt       pgtype.Timestamptz
 	FinishedAt      pgtype.Timestamptz
+}
+
+type Currency struct {
+	Code     string
+	Exponent int16
 }
 
 type DedupSkip struct {

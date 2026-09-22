@@ -105,6 +105,7 @@ lint: ## Lint every language
 	./scripts/check-codeowners.sh
 	./scripts/check-web-tokens.sh
 	./scripts/check-taxonomy-seed.sh
+	./scripts/check-currency-seed.sh
 	cd classifier && uv run ruff check . && uv run mypy .
 	cd web && npx tsc --noEmit
 
