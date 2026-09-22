@@ -356,6 +356,21 @@ describe("the money-flow diagram refuses what it cannot balance", () => {
     expect(readFileSync(join(chartsDir, "MoneyFlowChart.tsx"), "utf8"))
       .toMatch(/BigInt\(revenue\.total\.minorUnits\) <= 0n\) return null/);
   });
+
+  it("says so, rather than quietly becoming a table", () => {
+    // What a silent refusal looks like from outside the code is "the chart
+    // disappeared", which is a fair reading: a component that withdraws
+    // without a word is indistinguishable from one that broke.
+    const body = readFileSync(join(chartsDir, "MoneyFlowChart.tsx"), "utf8");
+    expect(body).toMatch(/unavailableKey=\{zeroRevenue \? "chart\.moneyflow\.unavailable"/);
+    expect(t("chart.moneyflow.unavailable", "ru")).toBeTruthy();
+
+    // And the shell only shows it for the reason it names -- not for an
+    // environment that cannot measure a chart, where the table is the whole
+    // answer and there is nothing to explain.
+    const shell = readFileSync(join(chartsDir, "ChartShell.tsx"), "utf8");
+    expect(shell).toMatch(/!hasData && unavailableKey/);
+  });
 });
 
 /** A flat line at zero has no shape, and this chart's whole job is shape. */

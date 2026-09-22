@@ -286,6 +286,18 @@ describe("the report", () => {
     expect(screen.getByText(t("chart.cashflow.net"))).toBeDefined();
   });
 
+  it("says why a chart it will not draw is not on screen", async () => {
+    // The Sankey declines a diagram it cannot balance -- with zero revenue
+    // there is no inflow for the expense side to come out of. It used to
+    // decline silently, and a card that turns into a table without a word
+    // reads as a chart that broke. This mock has revenue, so the message is
+    // absent here; its presence is asserted in charts.test.tsx against the
+    // component, which is where the condition lives.
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08&view=charts");
+    await loaded();
+    expect(screen.queryByText(t("chart.moneyflow.unavailable"))).toBeNull();
+  });
+
   it("heads a bucket drill-down with the bucket's name, not its wire kind", async () => {
     // A bucket has no human name on the wire at all, only a kind, so this
     // panel was headed "unclassified" verbatim -- the one drill-down whose

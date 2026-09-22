@@ -154,6 +154,12 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report, exp, locale, theme]);
 
+  /** The one refusal this card can explain: see `unavailableKey` below. */
+  const zeroRevenue = useMemo(() => {
+    const revenue = report.lines.find((l) => l.categoryId === "01");
+    return revenue !== undefined && BigInt(revenue.total.minorUnits) <= 0n;
+  }, [report]);
+
   const rows = useMemo(() => {
     if (exp === undefined) return [];
     return report.lines.map((l) => ({
@@ -255,6 +261,11 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     <ChartShell
       titleKey="chart.moneyflow.title"
       noteKey="chart.moneyflow.note"
+      // Only for the reason the message actually names. `option` is also null
+      // for a currency with no known exponent or a report with no revenue
+      // line at all, and telling a reader "net sales are zero" about either of
+      // those would be a confident wrong answer in place of a silent one.
+      unavailableKey={zeroRevenue ? "chart.moneyflow.unavailable" : undefined}
       locale={locale}
       hasData={option !== null}
       table={rows.length ? <CategoryTable rows={rows} locale={locale} /> : <p className="text-sm text-text-muted">{NO_DATA}</p>}

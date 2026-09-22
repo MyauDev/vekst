@@ -34,6 +34,20 @@ interface ChartShellProps {
    * invent a sentence.
    */
   noteKey?: MessageKey;
+  /**
+   * Why this chart has nothing to draw, shown above the table when `hasData`
+   * is false. Added 2026-09-22, the same day the Sankey learned to decline a
+   * diagram it could not balance -- and declined it in front of a reader as
+   * a card that silently turned into a table. "The chart is gone" is what
+   * that looks like from the outside, and it is a fair reading: a component
+   * that withdraws without saying why is indistinguishable from one that
+   * broke.
+   *
+   * Only for the data reason. Where the chart cannot be *measured* -- jsdom,
+   * or any environment without `ResizeObserver` -- the table is the whole
+   * answer and there is nothing to explain.
+   */
+  unavailableKey?: MessageKey;
   /** `false` when there is nothing to draw (e.g. every value is zero). */
   hasData: boolean;
   chart: ReactNode;
@@ -43,6 +57,7 @@ interface ChartShellProps {
 export function ChartShell({
   titleKey,
   noteKey,
+  unavailableKey,
   locale,
   hasData,
   chart,
@@ -72,6 +87,12 @@ export function ChartShell({
 
       {noteKey ? (
         <p className="mt-1 max-w-prose text-xs text-text-muted">{t(noteKey, locale)}</p>
+      ) : null}
+
+      {!hasData && unavailableKey ? (
+        <p className="mt-4 max-w-prose border-l-2 border-border-strong pl-3 text-sm text-text-muted">
+          {t(unavailableKey, locale)}
+        </p>
       ) : null}
 
       <div className="mt-4">{asTable || !drawable ? table : chart}</div>

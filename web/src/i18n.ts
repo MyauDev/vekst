@@ -104,6 +104,8 @@ const messages = {
     "chart.cashflow.net": "Net movement",
     "chart.moneyflow.title": "Money flow",
     "chart.moneyflow.note": "Where the revenue for this range went.",
+    "chart.moneyflow.unavailable":
+      "Nothing to draw: net sales are zero for this range, so there is no inflow for the expense side to come out of. The figures are below — and a report with costs but no revenue is usually a classification problem, not an empty month.",
     "chart.moneyflow.totalIn": "Total in",
     "chart.moneyflow.other": "Other",
     "chart.netresult.title": "Net result by month",
@@ -399,6 +401,8 @@ const messages = {
     "chart.cashflow.net": "Чистое движение",
     "chart.moneyflow.title": "Движение денег",
     "chart.moneyflow.note": "Куда ушла выручка за этот период.",
+    "chart.moneyflow.unavailable":
+      "Рисовать нечего: выручка за период нулевая, то есть нет притока, из которого выходит расходная сторона. Цифры ниже — а отчёт с расходами и без выручки обычно значит проблему с классификацией, а не пустой месяц.",
     "chart.moneyflow.totalIn": "Всего поступило",
     "chart.moneyflow.other": "Прочее",
     "chart.netresult.title": "Итог по месяцам",
