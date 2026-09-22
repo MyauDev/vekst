@@ -216,5 +216,11 @@ func level(s string) slog.Level {
 // line that has to change.
 const (
 	taxonomyVersion = "v1"
-	rulesetVersion  = "v1"
+
+	// v2 since migration 00019: v1's 71 template rules carried forward plus
+	// three Belarusian revenue rules. v1 is left in place and still means what
+	// it meant -- every classification written before the bump pins it, and a
+	// report spanning the bump reports both, which is what ReportVersions
+	// being a repeated field is for.
+	rulesetVersion = "v2"
 )

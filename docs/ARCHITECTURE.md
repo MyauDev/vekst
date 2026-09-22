@@ -173,6 +173,15 @@ that the boundary was drawn in the wrong place. Move the logic, not the credenti
 - The classifier reports `engine_version`. `core` stores it on every classification row.
   A report pins `taxonomy_version` + `ruleset_version` + `engine_version`. Those three
   strings are what make a March report reproduce in June.
+- **The ruleset is versioned by copy, not by append.** `EffectiveRules` selects a single
+  `ruleset_version` and takes every rule under it, so a new version is the whole set: the
+  previous one is copied forward unchanged and the new rules are added to the copy. The
+  binary names the version it runs in `core/cmd/vekst-core/main.go`, currently `v2`
+  (migration 00019 — three Belarusian revenue rules, without which no Belarusian import
+  could produce revenue at all). Adding rules to a live version instead would make that
+  version's name mean one thing before the deployment and another after it, which is the
+  one property it exists to have. Rows written under an earlier version keep it, and
+  `ReportVersions.ruleset` is a repeated field so a report spanning a bump reports both.
 
 ### 3.5 Failure behaviour
 
