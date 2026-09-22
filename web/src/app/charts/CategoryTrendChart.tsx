@@ -69,6 +69,13 @@ export function facets(report: Report, locale: Locale): Facet[] {
       }),
       texts: l.values.map((v) => (exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),
     }))
+    // A section with nothing in it over the whole range has no shape to
+     // recognise, which is this chart's entire job. Against a real statement
+     // three of the six facets were flat lines at zero, and because a
+     // degenerate domain puts that line at the bottom of its own cell rather
+     // than the middle, they also read as a broken second row -- a heading
+     // with its chart somewhere far below it.
+    .filter((f) => f.rows.some((r) => r.value !== 0))
     .sort((a, b) => b.totalAbs - a.totalAbs)
     .slice(0, MAX_FACETS);
 }

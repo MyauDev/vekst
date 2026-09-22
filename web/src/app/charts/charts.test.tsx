@@ -9,6 +9,7 @@ import { rows as expenseRows } from "./ExpenseCategoriesChart";
 import { expenseLinesFor } from "./MoneyFlowChart";
 import { facets as trendFacets } from "./CategoryTrendChart";
 import { rows as cashRows } from "./CashFlowChart";
+import { netResultRows } from "./NetResultChart";
 import type { Report, ReportLine } from "../../data/report";
 
 const web = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ...p);
@@ -111,11 +112,11 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
     expect(css).not.toMatch(/--chart-diverge-(positive|negative):\s*var\(--vk-danger/);
   });
 
-  it("both two-series charts render a legend", () => {
+  it("every two-or-more-series chart renders a legend", () => {
     // §13.5: a legend wherever two or more series appear. bklit ships no
     // legend primitive, so this is plain JSX rather than an option key --
     // data-chart-legend marks it for exactly this assertion.
-    for (const file of ["RevenueExpenseChart.tsx", "CashFlowChart.tsx"]) {
+    for (const file of ["RevenueExpenseChart.tsx", "CashFlowChart.tsx", "NetResultChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
       expect(body, `${file} has no legend`).toMatch(/<ChartLegend/);
     }
@@ -127,7 +128,7 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
   it("the single-series charts do not", () => {
     // Absence is the assertion here: a legend on a single series is the
     // "an icon beside every label" mistake in chart form.
-    for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx", "CategoryTrendChart.tsx"]) {
+    for (const file of ["ExpenseCategoriesChart.tsx", "CategoryTrendChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
       expect(body, `${file} draws a legend`).not.toMatch(/<ChartLegend|data-chart-legend/);
     }
@@ -267,11 +268,27 @@ describe("money in and out is drawn with the signs it arrives with", () => {
     ],
   });
 
-  it("keeps the outflow below the line", () => {
+  it("plots both bars as sizes, because the value axis has no room below zero", () => {
+    // bklit's BarChart scales to `[0, maxValue * 1.1]` and draws
+    // `barHeight = innerHeight - scale(value)`, so a negative value is a
+    // rectangle of negative height: nothing at all. This shipped as a
+    // stacked diverging column and drew neither series -- `stacked` summed
+    // them into `in + out` and the card showed the net under a legend
+    // promising in and out.
     const [january, february] = cashRows(twoMonths, "en");
     expect(january!.moneyIn).toBe(8000);
-    expect(january!.moneyOut).toBe(-7600);
-    expect(february!.moneyOut).toBe(-9000);
+    expect(january!.moneyOut).toBe(7600);
+    expect(february!.moneyOut).toBe(9000);
+  });
+
+  it("keeps the sign on the figure, which is where it is read", () => {
+    // The bar is a magnitude; the table is not.
+    expect(cashRows(twoMonths, "en")[0]!.outText).toMatch(/^−/);
+  });
+
+  it("never stacks the two, which would draw one column of neither figure", () => {
+    const body = readFileSync(join(chartsDir, "CashFlowChart.tsx"), "utf8");
+    expect(body).not.toMatch(/^\s*stacked$/m);
   });
 
   it("prints a month that spent more than it took in as a negative net", () => {
@@ -283,5 +300,70 @@ describe("money in and out is drawn with the signs it arrives with", () => {
 
   it("draws one column per period of the report, in the report's own order", () => {
     expect(cashRows(twoMonths, "en")).toHaveLength(twoMonths.periods.length);
+  });
+});
+
+/**
+ * A loss month is a month, not a month that did not happen.
+ *
+ * `NetResultChart` was specified as a diverging column centred on zero and was
+ * never one: the same `[0, maxValue]` value scale means a negative bar has
+ * negative height and renders nothing. Every loss was invisible, and nothing
+ * on the card said so. It survived because the fixtures had no loss months.
+ */
+describe("net result draws a loss", () => {
+  const withNet = (...minor: string[]) =>
+    report({
+      periods: minor.map((_, i) => `2026-${String(i + 1).padStart(2, "0")}`),
+      netByPeriod: minor.map(money),
+    });
+
+  it("gives a loss month a bar of its own size", () => {
+    const [profit, loss] = netResultRows(withNet("500000", "-300000"), "en");
+    expect(profit!.profit).toBe(5000);
+    expect(profit!.loss).toBe(0);
+    // The magnitude, not the signed value -- a signed one is not drawn.
+    expect(loss!.loss).toBe(3000);
+    expect(loss!.profit).toBe(0);
+  });
+
+  it("puts exactly one of the two series in any month, so the stack is that series", () => {
+    const rows = netResultRows(withNet("500000", "-300000", "0"), "en");
+    for (const r of rows) {
+      expect(r.profit === 0 || r.loss === 0, `${r.period} draws two bars`).toBe(true);
+    }
+  });
+
+  it("keeps the sign on the figure the tooltip and table print", () => {
+    const [, loss] = netResultRows(withNet("500000", "-300000"), "en");
+    expect(loss!.text).toMatch(/^−/);
+  });
+});
+
+/**
+ * A Sankey with no inflow is a diagram asserting that money came out of
+ * nothing. Against a real statement whose revenue was all misclassified, that
+ * is exactly what it drew.
+ */
+describe("the money-flow diagram refuses what it cannot balance", () => {
+  it("has nothing to draw when revenue is zero", () => {
+    const noRevenue = report({
+      lines: [line("01", "NET SALES", false, "0"), line("04", "OPEX", false, "17126211")],
+    });
+    // `expenseLinesFor` still describes the expense side; what the chart
+    // refuses is the diagram, which the component decides from this figure.
+    expect(BigInt(noRevenue.lines[0]!.total.minorUnits) <= 0n).toBe(true);
+    expect(readFileSync(join(chartsDir, "MoneyFlowChart.tsx"), "utf8"))
+      .toMatch(/BigInt\(revenue\.total\.minorUnits\) <= 0n\) return null/);
+  });
+});
+
+/** A flat line at zero has no shape, and this chart's whole job is shape. */
+describe("category trend drops a section with nothing in it", () => {
+  it("keeps a section that moved and drops one that never did", () => {
+    const moved = line("04", "OPEX", false, "500000");
+    const still = line("07", "CIT", false, "0");
+    const data = trendFacets(report({ lines: [moved, still] }), "en");
+    expect(data.map((f) => f.categoryId)).toEqual(["04"]);
   });
 });

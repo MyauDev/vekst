@@ -102,6 +102,17 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     // than the fixture's several.
     const revenue = report.lines.find((l) => l.categoryId === "01");
     if (!revenue) return null;
+
+    // No revenue, no diagram. A Sankey's node height is its total flow, so
+    // the picture only means "nothing was dropped" if inflow equals outflow
+    // at every node -- and with a zero revenue node there is no inflow for
+    // the expense side to come out of. Drawn anyway (as it was against a real
+    // statement whose revenue was all misclassified) it is a hairline "Total
+    // in" with a full-height expense bar hanging off it: a diagram asserting
+    // that 171,262.11 flowed out of nothing. The table view below says the
+    // same figures without claiming they balance.
+    if (BigInt(revenue.total.minorUnits) <= 0n) return null;
+
     const revenueLines = [revenue];
 
     const expenseLines = expenseLinesFor(report, exp, locale);

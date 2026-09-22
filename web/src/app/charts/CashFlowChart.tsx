@@ -1,7 +1,6 @@
 /**
- * Money in and money out, month by month — one diverging column per period,
- * inflow above the zero line and outflow below it. Built on the vendored
- * `@bklit/bar-chart`, the same primitive `NetResultChart` uses.
+ * Money in and money out, month by month — two columns per period, side by
+ * side. Built on the vendored `@bklit/bar-chart`.
  *
  * Why this exists next to `RevenueExpenseChart`, which looks like the same
  * chart: it is not the same figures, and the gap between them is a thing an
@@ -21,15 +20,24 @@
  * Two series, so §13.5 requires a legend. Slots 1 and 2, the same two
  * `RevenueExpenseChart` uses and in the same roles — money in wears the hue
  * revenue wears, money out the hue expenses wear — so a reader moving between
- * the two cards is not re-learning the palette. The diverging palette would
- * have been the other candidate (§13.3, the shape is above/below a baseline)
- * and is wrong here: this chart has two named series, not one measure whose
- * sign changes, and `NetResultChart` immediately below is that chart. Reusing
- * its two hues would make "in" and "a profitable month" the same colour.
+ * the two cards is not re-learning the palette.
  *
- * `stacked` is what puts one column per month rather than two: each row carries
- * a positive `moneyIn` and a negative `moneyOut`, and a stack through zero
- * draws exactly one column spanning both.
+ * **Both bars are magnitudes, and that is a constraint rather than a
+ * preference.** This chart shipped as a stacked diverging column, inflow above
+ * the zero line and outflow below, and it drew neither: bklit's `BarChart`
+ * builds its value scale as `domain: [0, maxValue * 1.1]` (`bar-chart.tsx`)
+ * and its bars as `barHeight = innerHeight - scale(value)`, so a negative
+ * value has no room on the axis and renders a rectangle of negative height,
+ * which is to say nothing at all. `stacked` then summed the two series and
+ * drew `in + out` — the net — under a legend promising in and out. Against a
+ * real statement (4.8M in, 4.8M out) the card showed twelve blue columns and
+ * no orange at all, identical to `NetResultChart` beside it.
+ *
+ * Grouped magnitudes are what the library can actually draw, and they answer
+ * the question the card asks: how much came in this month, how much went out,
+ * which was bigger. The signed figures are in the table view, where a sign is
+ * read rather than inferred from a direction — along with the net, which is
+ * the one number neither bar gives you.
  */
 import { useMemo } from "react";
 import { BarChart } from "@/components/charts/bar-chart";
@@ -53,6 +61,7 @@ export interface CashRow {
    *  x value is the label, the way `NetResultChart` does it. */
   period: string;
   moneyIn: number;
+  /** A magnitude, not a signed amount -- see the file header. */
   moneyOut: number;
   inText: string;
   outText: string;
@@ -65,11 +74,12 @@ export interface CashRow {
 
 /**
  * The rows the chart draws and the table prints, as a pure function of the
- * report — so the sign rule below is checkable without a DOM.
+ * report — so what follows is checkable without a DOM.
  *
- * `cash` is already signed for display (in positive, out negative) in the data
- * layer. Nothing here re-signs it: an `Math.abs()` on the way to a stacked bar
- * is how an outflow ends up drawn above the line.
+ * `cash` arrives signed for display: in positive, out negative. The *text*
+ * keeps those signs, because the table is where a figure is read. The plotted
+ * `moneyOut` is its magnitude, because the axis has no room below zero (file
+ * header) and a value it cannot place is a bar it does not draw.
  */
 export function rows(report: Report, locale: Locale): CashRow[] {
   const exp = exponentOf(report.currencyCode);
@@ -81,7 +91,7 @@ export function rows(report: Report, locale: Locale): CashRow[] {
   return report.cash.map((c) => ({
     period: formatPeriodShort(c.period, locale),
     moneyIn: major(c.moneyIn.minorUnits),
-    moneyOut: major(c.moneyOut.minorUnits),
+    moneyOut: Math.abs(major(c.moneyOut.minorUnits)),
     inText: text(c.moneyIn.minorUnits),
     outText: text(c.moneyOut.minorUnits),
     netText: text(c.net.minorUnits),
@@ -132,10 +142,13 @@ export function CashFlowChart({
             ]}
           />
 
+          {/* Not `stacked`: two columns per month, side by side. Stacking
+              would add a magnitude to a magnitude and draw one column of
+              `in + out`, which is neither figure and is not a total of
+              anything. */}
           <BarChart
             data={data}
             xDataKey="period"
-            stacked
             aspectRatio="2.6 / 1"
             animationDuration={chartsAnimate() ? 500 : 0}
           >
