@@ -88,6 +88,34 @@ vi.mock("../transport", async () => {
               summary: { importedRows: 412, skippedInBatch: 6, skippedCrossBatch: 3, internalTransfers: 4 },
             };
           },
+          listBatchTransactions: (req) => {
+            if (req.batchId === REJECTED_ID) {
+              // A rejected file persists nothing, so there is nothing to list.
+              return { rows: [] };
+            }
+            return {
+              rows: [
+                {
+                  id: "r1", bookedOn: "2026-08-02", lineNo: 4, postingNo: 0, documentRef: "",
+                  amount: { minorUnits: "-9640", currencyCode: "EUR" },
+                  counterpartyRaw: "DHL EXPRESS", description: "DHL EXPRESS INVOICE 88214",
+                  regulatedCode: "",
+                  categoryCode: "04", categoryName: "Operating expenses",
+                  engineLayer: "L1", evidence: "counterparty rule", confidence: 0.95,
+                },
+                {
+                  id: "r2", bookedOn: "2026-08-03", lineNo: 5, postingNo: 0, documentRef: "",
+                  amount: { minorUnits: "125000", currencyCode: "EUR" },
+                  counterpartyRaw: "UNKNOWN VENDOR LLC", description: "UNKNOWN VENDOR LLC PAYMENT",
+                  regulatedCode: "",
+                  // Not yet reached by the review queue -- every classification
+                  // field on the wire comes back empty, which is what the
+                  // screen has to render as "unclassified", not blank.
+                  categoryCode: "", categoryName: "", engineLayer: "", evidence: "",
+                },
+              ],
+            };
+          },
         });
       },
     }),
@@ -170,5 +198,31 @@ describe("an imported batch", () => {
     ] as const) {
       expect(screen.getByText(t(k)), k).toBeDefined();
     }
+  });
+
+  it("shows the rows the file persisted, each with its own category", async () => {
+    renderAt(`/app/imports/${IMPORTED_ID}`);
+    await screen.findByRole("heading", { name: "nordea-2026-08.csv" });
+
+    expect(await screen.findByText(t("batch.rows.title"))).toBeDefined();
+    // The counterparty, not the description -- the screen prefers whichever
+    // names who the money moved with, the same choice ReviewScreen's own
+    // group label makes.
+    expect(await screen.findByText("DHL EXPRESS")).toBeDefined();
+    expect(screen.getByText("Operating expenses")).toBeDefined();
+  });
+
+  it("says a row is unclassified rather than leaving its category blank", async () => {
+    renderAt(`/app/imports/${IMPORTED_ID}`);
+    await screen.findByRole("heading", { name: "nordea-2026-08.csv" });
+
+    expect(await screen.findByText("UNKNOWN VENDOR LLC")).toBeDefined();
+    expect(screen.getByText(t("batch.rows.unclassified"))).toBeDefined();
+  });
+
+  it("shows no rows section for a rejected batch, which persisted nothing", async () => {
+    renderAt(`/app/imports/${REJECTED_ID}`);
+    await screen.findByText(t("batch.rejected.balance_mismatch"));
+    expect(screen.queryByText(t("batch.rows.title"))).toBeNull();
   });
 });

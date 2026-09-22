@@ -7,6 +7,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { NoopResizeObserver } from "../testResizeObserver";
+
 const web = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", ...p);
 
 // Shared with the mock factory below via vi.hoisted, the same shape
@@ -196,9 +198,22 @@ function renderAt(path: string) {
   return router;
 }
 
+/**
+ * Waits for the report to finish loading. The heading can no longer stand in
+ * for this: ReportScreen.tsx renders it in every state, loading included,
+ * once the period picker moved into the same always-visible header. The
+ * basis line only ever appears once `data` has arrived.
+ */
+async function loaded() {
+  return screen.findByText(t("report.basis.cash"));
+}
+
 afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
   state.batchSourceKinds = ["bank"];
+  // Undoes whatever the two PeriodPicker tests below stub in -- see
+  // testResizeObserver.ts for why this can never be a global default.
+  vi.unstubAllGlobals();
 });
 
 describe("the report", () => {
@@ -221,7 +236,7 @@ describe("the report", () => {
 
   it("shows the reconciliation strip, which is what proves nothing was dropped", async () => {
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
 
     for (const k of ["recon.opening", "recon.in", "recon.out", "recon.transfers", "recon.closing"] as const) {
       expect(screen.getByText(t(k)), k).toBeDefined();
@@ -233,20 +248,20 @@ describe("the report", () => {
     // excluded non-P&L, unallocated, other basis. Never rendered by the
     // fixture, which never had this data.
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
     expect(screen.getByText(t("report.bucket.unclassified"))).toBeDefined();
     expect(screen.getByText(t("report.bucket.non_pnl"))).toBeDefined();
   });
 
   it("carries the currency once, in the header, not in every cell", async () => {
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
     expect(screen.getAllByText(/EUR/)).toHaveLength(1);
   });
 
   it("defaults to the table tab and puts that in the URL", async () => {
     const router = renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
     expect(router.state.location.search.view).toBe("table");
     // The P&L table's own % of revenue column -- unique to it, unlike
     // "Category", which every chart's own jsdom table fallback also shows.
@@ -257,7 +272,7 @@ describe("the report", () => {
   it("switches to the charts tab without leaving the URL behind", async () => {
     const user = userEvent.setup();
     const router = renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
 
     await user.click(screen.getByRole("link", { name: t("report.tab.charts") }));
 
@@ -273,7 +288,7 @@ describe("the report", () => {
     // property of one tab.
     const user = userEvent.setup();
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
     expect(screen.getByText(t("recon.closing"))).toBeDefined();
 
     await user.click(screen.getByRole("link", { name: t("report.tab.charts") }));
@@ -284,14 +299,69 @@ describe("the report", () => {
   it("falls back to year-to-date when the link carries no range", async () => {
     // add-web-experience §4.11.
     const router = renderAt("/app/reports/pnl");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
     expect(router.state.location.search).toEqual({ ...defaultRange(), view: "table" });
   });
 
   it("keeps a truncated range from breaking the link", async () => {
     const router = renderAt("/app/reports/pnl?from=nonsense");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
     expect(router.state.location.search.from).toBe(defaultRange().from);
+  });
+
+  it("shows the range in two month-year pickers a person can actually change", async () => {
+    // react-datepicker's showMonthYearPicker: a grid of the year's twelve
+    // months, with header arrows that step by a whole year -- the fix for
+    // <input type="month">'s one-year-per-click spinner.
+    vi.stubGlobal("ResizeObserver", NoopResizeObserver);
+    const router = renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await loaded();
+
+    const from = screen.getByLabelText(t("report.period.from")) as HTMLInputElement;
+    const to = screen.getByLabelText(t("report.period.to")) as HTMLInputElement;
+    expect(from.value).toBe("Jan 2026");
+    expect(to.value).toBe("Aug 2026");
+
+    const user = userEvent.setup();
+    await user.click(from);
+    // The picker's own month cell, by its accessible name -- not by "Mar"
+    // alone, which the P&L table's own column header for this same period
+    // already puts on screen (formatPeriodShort), and a plain text match
+    // would silently click that instead of ever opening the calendar.
+    await user.click(await screen.findByRole("option", { name: /march 2026/i }));
+
+    await waitFor(() => expect(router.state.location.search.from).toBe("2026-03"));
+    // The tab survives a range change, the same way it survives a tab switch.
+    expect(router.state.location.search.view).toBe("table");
+  });
+
+  it("steps a whole year per header click, not a month", async () => {
+    vi.stubGlobal("ResizeObserver", NoopResizeObserver);
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await loaded();
+
+    const from = screen.getByLabelText(t("report.period.from")) as HTMLInputElement;
+    const user = userEvent.setup();
+    await user.click(from);
+    await screen.findByRole("option", { name: /march 2026/i });
+
+    await user.click(screen.getByRole("button", { name: /previous year/i }));
+    // Same grid, now on 2025 -- its own accessible name says so, which a
+    // bare "Mar" text match could not distinguish from the 2026 cell that
+    // was on screen a moment ago.
+    await user.click(await screen.findByRole("option", { name: /march 2025/i }));
+    expect(from.value).toBe("Mar 2025");
+  });
+
+  it("keeps the picker on screen when the report is blocked", async () => {
+    // Blocked or empty, a range that shows nothing useful is exactly the
+    // state the picker exists to get a person out of -- proven here on the
+    // blocked path, the one this mock can reach without inventing a second
+    // getManagementPNL fixture.
+    state.batchSourceKinds = ["bank", "ledger"];
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await screen.findByText(t("report.blocked"));
+    expect(screen.getByLabelText(t("report.period.from"))).toBeDefined();
   });
 });
 
@@ -310,7 +380,7 @@ describe("the drill-down is a route, not a state flag", () => {
   it("closes on the back button and leaves the report", async () => {
     // add-web-experience §4.10. This is the whole reason the panel is a route.
     const router = renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
-    await screen.findByRole("heading", { name: t("report.title") });
+    await loaded();
 
     await router.navigate({
       to: "/app/reports/pnl/cell/$categoryId/$period",
@@ -372,7 +442,8 @@ describe("both palettes, and print", () => {
     it(`renders under the ${theme} palette`, async () => {
       document.documentElement.setAttribute("data-theme", theme);
       renderAt("/app/reports/pnl?from=2026-01&to=2026-08&view=charts");
-      expect(await screen.findByRole("heading", { name: t("report.title") })).toBeDefined();
+      await loaded();
+      expect(screen.getByRole("heading", { name: t("report.title") })).toBeDefined();
       expect(screen.getByText(t("recon.closing"))).toBeDefined();
 
       // Task 8.16: every chart from WORKFLOW.md §5.3 renders under both

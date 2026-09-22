@@ -4,6 +4,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { foldTopN } from "./support";
+import { rows as expenseRows } from "./ExpenseCategoriesChart";
+import { expenseLinesFor } from "./MoneyFlowChart";
+import { facets as trendFacets } from "./CategoryTrendChart";
+import type { Report, ReportLine } from "../../data/report";
 
 const web = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ...p);
 const chartsDir = dirname(fileURLToPath(import.meta.url));
@@ -132,5 +136,87 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
       const body = readFileSync(join(chartsDir, file), "utf8");
       expect(body, `${file} declares a yAxisId`).not.toMatch(/yAxisId/);
     }
+  });
+});
+
+/**
+ * `pnl.go`'s `present()` prints a cost section positive and a section that
+ * nets to a *credit* for the range negative -- verified live against a real
+ * org, where 69 rows of currency exchange netted a 3,997,171.06 BYN gain
+ * under Financial result (section "06") and printed as -399717106 on the
+ * wire. Before this fix, ExpenseCategoriesChart and MoneyFlowChart each
+ * `Math.abs()`-ed every non-revenue line, which drew that gain as this
+ * range's second-biggest expense.
+ */
+describe("a section that nets to a credit is not an expense", () => {
+  const money = (minorUnits: string): ReportLine["total"] => ({ minorUnits, currencyCode: "EUR" });
+
+  const line = (categoryId: string, label: string, computed: boolean, totalMinor: string): ReportLine => ({
+    categoryId,
+    label,
+    computed,
+    values: [money(totalMinor)],
+    total: money(totalMinor),
+  });
+
+  function report(lines: ReportLine[]): Report {
+    return {
+      currencyCode: "EUR",
+      periods: ["2026-01"],
+      basis: "cash",
+      lines,
+      buckets: [],
+      netByPeriod: [money("0")],
+      netTotal: money("0"),
+      revenueTotal: money("0"),
+      expensesTotal: money("0"),
+      expensesByPeriod: [money("0")],
+      reconciliation: {
+        opening: money("0"), moneyIn: money("0"), moneyOut: money("0"),
+        transfers: money("0"), closing: money("0"),
+      },
+      provenance: { taxonomyVersion: "v1", rulesetVersion: "v1", engineVersion: "v1" },
+      unreviewedAmount: money("0"),
+    };
+  }
+
+  // Revenue, a genuine cost (OPEX, prints positive), a section that nets to
+  // a credit (Financial result, prints negative -- the live shape above),
+  // and a computed line (NI) that must never be treated as a category.
+  const revenue = line("01", "NET SALES", false, "1000000");
+  const opex = line("04", "OPEX", false, "500000");
+  const financialGain = line("06", "Financial result", false, "-399717106");
+  const ni = line("95", "NI", true, "500000");
+  const mixed = report([revenue, opex, financialGain, ni]);
+
+  it("ExpenseCategoriesChart never draws the gain as a bar", () => {
+    const bars = expenseRows(mixed, "en");
+    expect(bars.map((b) => b.name)).toEqual(["OPEX"]);
+    expect(bars.some((b) => b.name === "Financial result")).toBe(false);
+  });
+
+  it("ExpenseCategoriesChart still draws a genuine cost at its full size", () => {
+    const bars = expenseRows(mixed, "en");
+    expect(bars.find((b) => b.name === "OPEX")?.value).toBe(5000);
+  });
+
+  it("MoneyFlowChart never routes the gain onto the expense side of the Sankey", () => {
+    const nodes = expenseLinesFor(mixed, 2);
+    expect(nodes.map((n) => n.label)).toEqual(["OPEX"]);
+  });
+
+  it("CategoryTrendChart excludes computed lines and revenue, not only credits", () => {
+    const data = trendFacets(mixed, "en");
+    expect(data.map((f) => f.categoryId)).toEqual(["06", "04"]);
+    expect(data.some((f) => f.categoryId === "95")).toBe(false);
+    expect(data.some((f) => f.categoryId === "01")).toBe(false);
+  });
+
+  it("CategoryTrendChart plots the credit with its real sign, not folded flat", () => {
+    const data = trendFacets(mixed, "en");
+    const financial = data.find((f) => f.categoryId === "06");
+    // -399717106 minor units at exponent 2 -- a loss shape, not a spike
+    // indistinguishable from OPEX's genuine positive cost.
+    expect(financial?.rows[0]?.value).toBe(-3997171.06);
   });
 });

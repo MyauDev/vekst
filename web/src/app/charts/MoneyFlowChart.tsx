@@ -61,6 +61,31 @@ function chartToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+/**
+ * The Sankey's expense side, before folding into slots and before colour: a
+ * pure function of the report and its exponent, so the sign rule it applies
+ * is checkable without a DOM.
+ *
+ * `pnl.go`'s `present()` prints a cost section positive and, on purpose, a
+ * section that nets to a *credit* for the range negative -- a currency gain
+ * booked under Financial result is not an expense that period, however
+ * large. A Sankey link cannot be negative, and flipping it back with
+ * `Math.abs()` would draw that gain as an outflow the same as a real cost;
+ * excluded here for the same reason `ExpenseCategoriesChart.rows` excludes
+ * it, which is also what keeps the diagram's own remainder calculation from
+ * being overstated and silently swallowing the "Net result" link.
+ */
+export function expenseLinesFor(report: Report, exp: number): Sliced<null>[] {
+  return report.lines
+    .filter((l) => !l.computed && l.categoryId !== "01")
+    .filter((l) => BigInt(l.total.minorUnits) > 0n)
+    .map((l) => ({
+      label: l.label,
+      value: Number(BigInt(l.total.minorUnits)) / 10 ** exp,
+      item: null,
+    }));
+}
+
 export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; locale: Locale }>) {
   const [theme] = useTheme();
   const exp = exponentOf(report.currencyCode);
@@ -78,13 +103,7 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     if (!revenue) return null;
     const revenueLines = [revenue];
 
-    const expenseLines: Sliced<null>[] = report.lines
-      .filter((l) => !l.computed && l.categoryId !== "01")
-      .map((l) => ({
-        label: l.label,
-        value: Math.abs(Number(BigInt(l.total.minorUnits)) / 10 ** exp),
-        item: null,
-      }));
+    const expenseLines = expenseLinesFor(report, exp);
 
     const { kept, other } = foldTopN(expenseLines, MAX_EXPENSE_SLOTS, t("chart.moneyflow.other", locale));
     const expenseNodes = other ? [...kept, { label: other.label, value: other.value }] : kept;

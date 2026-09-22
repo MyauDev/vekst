@@ -4,6 +4,7 @@ package vekst.v1;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
+import "vekst/type/v1/money.proto";
 
 option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
 
@@ -25,6 +26,15 @@ service ImportService {
 
   rpc GetImportBatch(GetImportBatchRequest) returns (GetImportBatchResponse);
   rpc ListImportBatches(ListImportBatchesRequest) returns (ListImportBatchesResponse);
+
+  // The rows this batch actually persisted, in file order, each with its live
+  // classification -- empty on a row the review queue has not reached yet,
+  // which is the fact that put it there, not a missing value. A person
+  // opening a batch to check what happened to it needs both at once: reading
+  // its rows off the report's own drill-down would mean guessing a category
+  // and a period first, which is exactly backwards from "I have a file open,
+  // what did this product do with it".
+  rpc ListBatchTransactions(ListBatchTransactionsRequest) returns (ListBatchTransactionsResponse);
 
   // add-ingest-validation (change 2.3).
   rpc GetValidationReport(GetValidationReportRequest) returns (GetValidationReportResponse);
@@ -124,6 +134,55 @@ message GetImportBatchRequest {
 
 message GetImportBatchResponse {
   ImportBatch batch = 1;
+}
+
+// ImportedRow is `report.proto`'s DrillTransaction in miniature, not the same
+// message reused across a service boundary: `ImportService` and
+// `ReportService` are two different browser-facing contracts, and a proto
+// field this screen does not need (matched_rule_priority stays absent from
+// both, for the same reason it is absent there) is scope this file should
+// decide for itself rather than inherit.
+message ImportedRow {
+  string id = 1;
+
+  // YYYY-MM-DD.
+  string booked_on = 2;
+  int32 line_no = 3;
+
+  // The grain: 0 with no document_ref for a bank payment, 1..n for the
+  // postings of one ledger document.
+  int32 posting_no = 4;
+  string document_ref = 5;
+
+  vekst.type.v1.Money amount = 6;
+  // Absent when the row needed no conversion.
+  vekst.type.v1.Money base_amount = 7;
+
+  string counterparty_raw = 8;
+  string description = 9;
+  // КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+  string regulated_code = 10;
+
+  // The live classification. Empty on a row that has not been classified at
+  // all -- which is the fact that put it in the review queue, not a missing
+  // value.
+  string category_code = 11;
+  string category_name = 12;
+  // L0 memory, L0.5 a regulated code, L1 a rule, human a person. Empty
+  // alongside category_code.
+  string engine_layer = 13;
+  string evidence = 14;
+  // A probability and not money. Absent on an unclassified row.
+  optional double confidence = 15;
+}
+
+message ListBatchTransactionsRequest {
+  string org_id = 1;
+  string batch_id = 2;
+}
+
+message ListBatchTransactionsResponse {
+  repeated ImportedRow rows = 1;
 }
 
 message ListImportBatchesRequest {

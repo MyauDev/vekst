@@ -8,6 +8,7 @@
  * one screen that existed, which was correct while one screen existed.
  */
 import type { ReactNode } from "react";
+import { useMatch, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Code, ConnectError, createClient, type Transport } from "@connectrpc/connect";
 
@@ -16,8 +17,8 @@ import { signOut } from "../data/auth";
 import { reviewSummary } from "../data/review";
 import { setSession } from "../data/session";
 import { t } from "../i18n";
-import { defaultRange } from "../ui/period";
 import { useLocale, useTheme } from "../ui/preferences";
+import { usePeriodRange, type PeriodRange } from "../ui/periodPreference";
 import { ErrorState, Loading } from "../ui/feedback";
 import { FirstRunScreen } from "./FirstRunScreen";
 import { Rail } from "./Rail";
@@ -34,6 +35,29 @@ export function AppLayout({
 }>) {
   const [locale] = useLocale();
   const [theme] = useTheme();
+  const [rememberedRange, setPeriodRange] = usePeriodRange();
+  // While the Report screen is the active route, its own URL search params
+  // are the range actually on screen -- which a shared link can set to
+  // something the remembered preference below knows nothing about, and the
+  // header has to show what is being viewed, not a stale preference beside
+  // it. Off that route there is nothing on screen to reflect, so the
+  // remembered range is the only honest answer.
+  const reportMatch = useMatch({ from: "/app/reports/pnl", shouldThrow: false });
+  const range = reportMatch ? { from: reportMatch.search.from, to: reportMatch.search.to } : rememberedRange;
+  const navigate = useNavigate();
+  function onPeriodChange(next: PeriodRange) {
+    setPeriodRange(next);
+    // The match's own current search, not a `prev` updater -- reportMatch
+    // already holds it, strongly typed, and reading through it here keeps
+    // the tab (table/charts) untouched without threading it as a parameter.
+    if (reportMatch) {
+      void navigate({
+        to: "/app/reports/pnl",
+        search: { ...next, view: reportMatch.search.view },
+        replace: true,
+      });
+    }
+  }
   const { data, error, isPending } = useQuery({
     queryKey: ["currentUser"],
     queryFn: () => createClient(IdentityService, transport).getCurrentUser({}),
@@ -89,8 +113,6 @@ export function AppLayout({
     baseCurrency: organisation.baseCurrency,
   });
 
-  const range = defaultRange();
-
   return (
     <div className="flex min-h-dvh">
       {/* Visible only on keyboard focus. The review queue is keyboard-first
@@ -128,6 +150,7 @@ export function AppLayout({
           entity={entity?.name ?? ""}
           from={range.from}
           to={range.to}
+          onPeriodChange={onPeriodChange}
           locale={locale}
           theme={theme}
         />

@@ -8,9 +8,13 @@ import { fileURLToPath } from "node:url";
 const repo = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", ...p);
 
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { initPeriodRange } from "./ui/periodPreference";
+import { NoopResizeObserver } from "./testResizeObserver";
 
 // `AppLayout` reads `reviewSummary` from `../data/review`, which -- like
 // every real data module -- imports `transport` statically from
@@ -81,6 +85,11 @@ function renderAt(
   );
   return router;
 }
+
+beforeEach(() => {
+  localStorage.clear();
+  initPeriodRange();
+});
 
 describe("the public surface", () => {
   it("serves the landing with one action, repeated, and no session", async () => {
@@ -216,6 +225,54 @@ describe("where core sends the browser after sign-in", () => {
     expect(await screen.findByText(t("error.invalid_flow"))).toBeDefined();
     expect(screen.queryByText("invalid_flow")).toBeNull();
     window.history.replaceState({}, "", "/");
+  });
+});
+
+describe("the period is one setting, not one screen's", () => {
+  // The complaint this answers: the picker used to render only inside
+  // ReportScreen's own header, and every fallback was a hardcoded
+  // year-to-date, so leaving the Report screen and coming back -- even by
+  // the rail's own "Report" link, which carries no range of its own --
+  // silently discarded whatever a person had just picked.
+
+  it("the picker is present on a screen that is not the Report screen", async () => {
+    renderAt("/app/home", { user: signedInUser });
+    await screen.findByRole("heading", { name: t("home.title") });
+    expect(screen.getByLabelText(t("report.period.from"))).toBeDefined();
+  });
+
+  it("a range picked from the header survives navigating away and back", async () => {
+    vi.stubGlobal("ResizeObserver", NoopResizeObserver);
+    const { defaultRange } = await import("./ui/period");
+    const year = defaultRange().from.slice(0, 4);
+
+    const user = userEvent.setup();
+    const router = renderAt("/app/home", { user: signedInUser });
+    await screen.findByRole("heading", { name: t("home.title") });
+
+    const from = screen.getByLabelText(t("report.period.from")) as HTMLInputElement;
+    await user.click(from);
+    await user.click(await screen.findByRole("option", { name: new RegExp(`march ${year}`, "i") }));
+
+    // The rail's own "Report" link carries no range of its own -- the
+    // fallback in router.tsx's validateSearch is the whole point here.
+    await user.click(screen.getByRole("link", { name: t("nav.reports") }));
+    await screen.findByText(t("report.title"));
+
+    expect(router.state.location.search).toMatchObject({ from: `${year}-03` });
+    vi.unstubAllGlobals();
+  });
+
+  it("shows what is on screen, not the remembered preference, when a shared link names its own range", async () => {
+    // A link someone else sent opens the range it names -- it must not be
+    // silently swapped for whatever this browser last remembered, and the
+    // header has to agree with the report underneath it rather than show a
+    // second, different answer beside it.
+    renderAt("/app/reports/pnl?from=2020-01&to=2020-06&view=table", { user: signedInUser });
+    await screen.findByText(t("report.title"));
+
+    const from = screen.getByLabelText(t("report.period.from")) as HTMLInputElement;
+    expect(from.value).toBe("Jan 2020");
   });
 });
 

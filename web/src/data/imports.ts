@@ -34,8 +34,10 @@ import type {
   ImportBatch as ProtoImportBatch,
   ValidationError as ProtoValidationError,
   BalanceMismatchDetail as ProtoBalanceMismatchDetail,
+  ImportedRow as ProtoImportedRow,
 } from "../gen/vekst/v1/import_pb";
-import type { Money, SourceKind } from "./types";
+import type { Money as ProtoMoney } from "../gen/vekst/type/v1/money_pb";
+import type { EngineLayer, Money, SourceKind } from "./types";
 
 const client = createClient(ImportService, transport);
 
@@ -193,4 +195,65 @@ export async function getBatch(id: string): Promise<BatchDetail | undefined> {
       : undefined,
     balanceCheck: balanceMismatch ? balanceCheckFromProto(balanceMismatch) : undefined,
   };
+}
+
+/**
+ * One row a batch persisted, with whatever classification it carries right
+ * now. `ImportedRow` on the wire, in miniature -- see that message's own
+ * comment in import.proto for why it is not `report.ts`'s `DrilldownRow`
+ * reused: two different browser-facing contracts, not one message shared
+ * across a service boundary.
+ */
+export interface BatchRow {
+  id: string;
+  bookedOn: string;
+  lineNo: number;
+  postingNo: number;
+  documentRef: string;
+  amount: Money;
+  /** Absent when the row needed no conversion. */
+  baseAmount?: Money;
+  counterpartyRaw: string;
+  description: string;
+  regulatedCode: string;
+  /** Empty on a row the review queue has not reached yet -- which is the
+   *  fact that put it there, not a missing value. */
+  categoryCode: string;
+  categoryName: string;
+  engineLayer: EngineLayer | "";
+  evidence: string;
+  confidence?: number;
+}
+
+function moneyFromProto(m: ProtoMoney | undefined): Money {
+  return m ? { minorUnits: m.minorUnits, currencyCode: m.currencyCode } : { minorUnits: "0", currencyCode: "" };
+}
+
+function batchRowFromProto(r: ProtoImportedRow): BatchRow {
+  return {
+    id: r.id,
+    bookedOn: r.bookedOn,
+    lineNo: r.lineNo,
+    postingNo: r.postingNo,
+    documentRef: r.documentRef,
+    amount: moneyFromProto(r.amount),
+    baseAmount: r.baseAmount ? moneyFromProto(r.baseAmount) : undefined,
+    counterpartyRaw: r.counterpartyRaw,
+    description: r.description,
+    regulatedCode: r.regulatedCode,
+    categoryCode: r.categoryCode,
+    categoryName: r.categoryName,
+    engineLayer: (r.engineLayer || "") as EngineLayer | "",
+    evidence: r.evidence,
+    confidence: r.confidence,
+  };
+}
+
+/** The rows a batch persisted, in file order -- the same order `line_no`
+ *  gives a validation error, so a person moving between the two lists finds
+ *  the same row in the same place in both. */
+export async function listBatchTransactions(batchId: string): Promise<readonly BatchRow[]> {
+  const { orgId } = requireSession();
+  const res = await client.listBatchTransactions({ orgId, batchId });
+  return res.rows.map(batchRowFromProto);
 }

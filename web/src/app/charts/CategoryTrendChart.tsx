@@ -16,6 +16,19 @@
  * 8-line spaghetti chart" (§5.3) is a shape-recognition job, not a
  * read-the-exact-value one — that is what the table view and each facet's
  * own tooltip are for.
+ *
+ * Facets are non-revenue, non-computed lines only -- the same set
+ * `ExpenseCategoriesChart` charts, and for the same two reasons. Computed
+ * lines (GM, NM, CM, IBT, NI) are each derived from sections already on
+ * screen elsewhere (`NetResultChart` has NI, `RevenueExpenseChart` has
+ * revenue), so admitting them here would rank a subtotal against the parts
+ * that made it and could crowd a real category out of the top eight.
+ * Values are plotted signed, not `Math.abs()`-ed: `pnl.go`'s `present()`
+ * prints a cost section positive but a section that nets to a *credit* for a
+ * given month negative, on purpose -- a currency gain booked under Financial
+ * result did not cost anything that month, and flattening its sign would
+ * draw a gain month and a loss month as two equally-tall upward spikes with
+ * nothing to tell them apart.
  */
 import { useMemo } from "react";
 import { LineChart } from "@/components/charts/line-chart";
@@ -38,16 +51,19 @@ interface Facet {
   texts: readonly string[];
 }
 
-function facets(report: Report, locale: Locale): Facet[] {
+export function facets(report: Report, locale: Locale): Facet[] {
   const exp = exponentOf(report.currencyCode);
   return report.lines
+    .filter((l) => !l.computed && l.categoryId !== "01")
     .map((l) => ({
       categoryId: l.categoryId,
       label: l.label,
+      // Ranked by size, but plotted below with its real sign -- see the file
+      // header on why the two must not be the same number.
       totalAbs: exp === undefined ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
       rows: report.periods.map((period, i) => {
         const m = l.values[i];
-        const value = m && exp !== undefined ? Math.abs(Number(BigInt(m.minorUnits)) / 10 ** exp) : 0;
+        const value = m && exp !== undefined ? Number(BigInt(m.minorUnits)) / 10 ** exp : 0;
         return { period, value };
       }),
       texts: l.values.map((v) => (exp !== undefined ? formatMinorUnits(v.minorUnits, exp, locale) : "—")),

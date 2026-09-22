@@ -24,6 +24,20 @@ type Querier interface {
 	// migrations (design D6/Q5), and fails naming both when the schema is
 	// behind.
 	AppliedMigrationVersion(ctx context.Context) (int64, error)
+	// Every row a batch persisted, in file order, each with its live
+	// classification -- the column list is drilldown.sql's LineTransactions,
+	// copied rather than shared (sqlc emits static SQL, so a shared fragment is
+	// not available), because a person opening a batch wants the same
+	// provenance a report's drill-down shows, from the opposite direction: here
+	// the file is given and the category is what is being checked, not the
+	// other way round.
+	//
+	// Ordered by line_no, not booked_on: this is "what did this product do with
+	// my file", read the way the file itself reads, not the way a report
+	// would. The classification join is LEFT, same reasoning as
+	// LineTransactions -- a row the review queue has not reached yet still
+	// belongs in this list, with an empty category rather than a missing row.
+	BatchTransactions(ctx context.Context, batchID pgtype.UUID) ([]BatchTransactionsRow, error)
 	// One category by its natural key. `org_id IS NOT DISTINCT FROM $2` rather
 	// than `=`: the shared rows carry NULL, and NULL = NULL is unknown, so the
 	// ordinary comparison would never match exactly the rows every organisation

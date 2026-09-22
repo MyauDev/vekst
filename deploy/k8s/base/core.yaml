@@ -53,6 +53,9 @@ spec:
             - name: VEKST_OBJECT_STORE_ENDPOINT
               valueFrom:
                 secretKeyRef: { name: vekst-object-store, key: endpoint, optional: true }
+            - name: VEKST_OBJECT_STORE_PRESIGN_ENDPOINT
+              valueFrom:
+                secretKeyRef: { name: vekst-object-store, key: presign_endpoint, optional: true }
             - name: VEKST_OBJECT_STORE_BUCKET
               valueFrom:
                 secretKeyRef: { name: vekst-object-store, key: bucket, optional: true }

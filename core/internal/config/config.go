@@ -76,11 +76,18 @@ type Config struct {
 	// Google client ID disables sign-in (add-file-upload design, following
 	// add-identity design D6a): core still serves, and CreateImportBatch
 	// answers with a configuration error rather than a nil dereference.
-	ObjectStoreEndpoint    string
-	ObjectStoreBucket      string
-	ObjectStoreRegion      string
-	ObjectStoreAccessKeyID string
-	ObjectStoreSecretKey   string
+	ObjectStoreEndpoint string
+	// ObjectStorePresignEndpoint is the host a presigned PUT is signed
+	// against, when a browser cannot reach ObjectStoreEndpoint directly --
+	// true only of the local overlay's MinIO, whose cluster-internal name
+	// "minio:9000" no laptop browser can resolve. Empty means the two are
+	// the same host, true of a real S3 endpoint that is already publicly
+	// reachable.
+	ObjectStorePresignEndpoint string
+	ObjectStoreBucket          string
+	ObjectStoreRegion          string
+	ObjectStoreAccessKeyID     string
+	ObjectStoreSecretKey       string
 	// ObjectStorePathStyle is true for MinIO: bucket.subdomain addressing
 	// needs DNS a real S3 has and a local cluster does not.
 	ObjectStorePathStyle bool
@@ -121,27 +128,28 @@ func (c Config) ObjectStoreConfigured() bool {
 // correct for local development.
 func Load() (Config, error) {
 	c := Config{
-		Addr:                   env("VEKST_ADDR", ":8080"),
-		ClassifierAddr:         env("VEKST_CLASSIFIER_ADDR", ""),
-		ClassifierTimeout:      2 * time.Second,
-		ShutdownTimeout:        15 * time.Second,
-		LogLevel:               env("VEKST_LOG_LEVEL", "info"),
-		DatabaseURL:            env("DATABASE_URL", ""),
-		DatabaseMaxConns:       10,
-		DatabaseConnectTimeout: 5 * time.Second,
-		GoogleClientID:         env("VEKST_GOOGLE_CLIENT_ID", ""),
-		GoogleClientSecret:     env("VEKST_GOOGLE_CLIENT_SECRET", ""),
-		GoogleRedirectURL:      env("VEKST_GOOGLE_REDIRECT_URL", ""),
-		SessionLifetime:        14 * 24 * time.Hour,
-		SessionRetention:       7 * 24 * time.Hour,
-		AuthFlowLifetime:       10 * time.Minute,
-		ObjectStoreEndpoint:    env("VEKST_OBJECT_STORE_ENDPOINT", ""),
-		ObjectStoreBucket:      env("VEKST_OBJECT_STORE_BUCKET", "vekst"),
-		ObjectStoreRegion:      env("VEKST_OBJECT_STORE_REGION", "us-east-1"),
-		ObjectStoreAccessKeyID: env("VEKST_OBJECT_STORE_ACCESS_KEY_ID", ""),
-		ObjectStoreSecretKey:   env("VEKST_OBJECT_STORE_SECRET_KEY", ""),
-		UploadMaxBytes:         26_214_400, // 25 MiB
-		UploadURLLifetime:      15 * time.Minute,
+		Addr:                       env("VEKST_ADDR", ":8080"),
+		ClassifierAddr:             env("VEKST_CLASSIFIER_ADDR", ""),
+		ClassifierTimeout:          2 * time.Second,
+		ShutdownTimeout:            15 * time.Second,
+		LogLevel:                   env("VEKST_LOG_LEVEL", "info"),
+		DatabaseURL:                env("DATABASE_URL", ""),
+		DatabaseMaxConns:           10,
+		DatabaseConnectTimeout:     5 * time.Second,
+		GoogleClientID:             env("VEKST_GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:         env("VEKST_GOOGLE_CLIENT_SECRET", ""),
+		GoogleRedirectURL:          env("VEKST_GOOGLE_REDIRECT_URL", ""),
+		SessionLifetime:            14 * 24 * time.Hour,
+		SessionRetention:           7 * 24 * time.Hour,
+		AuthFlowLifetime:           10 * time.Minute,
+		ObjectStoreEndpoint:        env("VEKST_OBJECT_STORE_ENDPOINT", ""),
+		ObjectStorePresignEndpoint: env("VEKST_OBJECT_STORE_PRESIGN_ENDPOINT", ""),
+		ObjectStoreBucket:          env("VEKST_OBJECT_STORE_BUCKET", "vekst"),
+		ObjectStoreRegion:          env("VEKST_OBJECT_STORE_REGION", "us-east-1"),
+		ObjectStoreAccessKeyID:     env("VEKST_OBJECT_STORE_ACCESS_KEY_ID", ""),
+		ObjectStoreSecretKey:       env("VEKST_OBJECT_STORE_SECRET_KEY", ""),
+		UploadMaxBytes:             26_214_400, // 25 MiB
+		UploadURLLifetime:          15 * time.Minute,
 	}
 
 	var errPathStyle error

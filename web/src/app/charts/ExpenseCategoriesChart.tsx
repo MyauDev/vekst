@@ -34,17 +34,27 @@ interface Row {
  * one row per leaf category), so this chart's bars are section totals
  * (CS, OCS, OPEX, OIE, FR, CIT) rather than the individual expense
  * categories the fixture invented. Coarser than before, and real.
+ *
+ * `pnl.go`'s own `present()` prints a cost section positive -- "a cost is
+ * negative in the store and positive on the page" -- but that inversion runs
+ * both ways: a section that nets to a *credit* for the range (a currency
+ * gain booked under Financial result, a refund under Cost of Sales) comes
+ * back negative, on purpose, because it was not a cost that period. This is
+ * "top expense categories", not "top category magnitudes" -- a line that
+ * prints negative here is not an expense at all, however large, and
+ * `Math.abs()`-ing it back to positive would draw a real gain as though it
+ * were this range's second-biggest cost. Excluded, not flipped.
  */
-function rows(report: Report, locale: Locale) {
+export function rows(report: Report, locale: Locale) {
   const exp = exponentOf(report.currencyCode);
   const sliced: Sliced<Row>[] = report.lines
     .filter((line) => !line.computed && line.categoryId !== "01")
+    .filter((line) => BigInt(line.total.minorUnits) > 0n)
     .map((line) => {
       const minor = BigInt(line.total.minorUnits);
-      const magnitude = minor < 0n ? -minor : minor;
       return {
         label: line.label,
-        value: exp === undefined ? 0 : Number(magnitude) / 10 ** exp,
+        value: exp === undefined ? 0 : Number(minor) / 10 ** exp,
         item: { categoryId: line.categoryId },
       };
     });

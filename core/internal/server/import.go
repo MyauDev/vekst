@@ -123,6 +123,36 @@ func (h *importHandler) GetImportBatch(
 	return connect.NewResponse(&vektv1.GetImportBatchResponse{Batch: batchToProto(batch)}), nil
 }
 
+func (h *importHandler) ListBatchTransactions(
+	ctx context.Context,
+	req *connect.Request[vektv1.ListBatchTransactionsRequest],
+) (*connect.Response[vektv1.ListBatchTransactionsResponse], error) {
+	user, ok := identity.FromContext(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(identity.CodeUnauthenticated))
+	}
+
+	orgID, err := uuid.Parse(req.Msg.GetOrgId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid_argument"))
+	}
+	batchID, err := uuid.Parse(req.Msg.GetBatchId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid_argument"))
+	}
+
+	rows, err := h.svc.ListBatchTransactions(ctx, user.ID, orgID, batchID)
+	if err != nil {
+		return nil, importError(err)
+	}
+
+	out := &vektv1.ListBatchTransactionsResponse{Rows: make([]*vektv1.ImportedRow, len(rows))}
+	for i, r := range rows {
+		out.Rows[i] = importedRowToProto(r)
+	}
+	return connect.NewResponse(out), nil
+}
+
 func (h *importHandler) ListImportBatches(
 	ctx context.Context,
 	req *connect.Request[vektv1.ListImportBatchesRequest],
@@ -671,6 +701,30 @@ func dedupSummaryToProto(s ingest.Summary) *vektv1.DedupSummary {
 		SkippedCrossBatch: s.SkippedCrossBatch,
 		InternalTransfers: s.InternalTransfers,
 	}
+}
+
+func importedRowToProto(r ingest.BatchRow) *vektv1.ImportedRow {
+	out := &vektv1.ImportedRow{
+		Id:              r.ID.String(),
+		BookedOn:        r.BookedOn,
+		LineNo:          r.LineNo,
+		PostingNo:       r.PostingNo,
+		DocumentRef:     r.DocumentRef,
+		Amount:          toMoney(r.Amount),
+		BaseAmount:      toMoney(r.BaseAmount),
+		CounterpartyRaw: r.CounterpartyRaw,
+		Description:     r.Description,
+		RegulatedCode:   r.RegulatedCode,
+		CategoryCode:    r.CategoryCode,
+		CategoryName:    r.CategoryName,
+		EngineLayer:     r.EngineLayer,
+		Evidence:        r.Evidence,
+	}
+	if r.HasConfidence {
+		c := r.Confidence
+		out.Confidence = &c
+	}
+	return out
 }
 
 func skippedRowToProto(s dedup.Skip) *vektv1.SkippedRow {

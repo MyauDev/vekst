@@ -12,13 +12,15 @@
  */
 import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 
-import { getBatch } from "../data/imports";
-import type { BatchDetail, ValidationError } from "../data/imports";
+import { getBatch, listBatchTransactions } from "../data/imports";
+import type { BatchDetail, BatchRow, ValidationError } from "../data/imports";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
 import { t } from "../i18n";
 import type { Locale, MessageKey } from "../i18n";
 import { useLocale } from "../ui/preferences";
+import { useVirtualRows } from "../ui/useVirtualRows";
 import { BatchStateChip } from "../ui/StateChip";
 import { EmptyState, ErrorState, Loading } from "../ui/feedback";
 
@@ -79,12 +81,70 @@ function Errors({ errors, locale }: Readonly<{ errors: readonly ValidationError[
   );
 }
 
+const ROW = 40;
+
+/**
+ * The rows this batch actually persisted, in file order (`line_no`, the same
+ * order the error list above already uses), each with whatever
+ * classification it carries right now. Windowed rather than capped like
+ * `Errors` above: a healthy batch's whole point is that every row is on
+ * screen, not a bounded sample of them -- `Errors` shows a defect, this shows
+ * an outcome, and the two are read differently.
+ */
+function Rows({ rows, locale }: Readonly<{ rows: readonly BatchRow[]; locale: Locale }>) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtual = useVirtualRows({ count: rows.length, parentRef, rowHeight: ROW });
+
+  return (
+    <div ref={parentRef} className="max-h-96 overflow-y-auto">
+      <div style={{ height: virtual.getTotalSize(), position: "relative" }}>
+        {virtual.getVirtualItems().map((item) => {
+          const row = rows[item.index]!;
+          const exp = exponentOf(row.amount.currencyCode);
+          return (
+            <div
+              key={row.id}
+              className="absolute inset-x-0 flex items-center gap-4 border-b border-border text-sm"
+              style={{ height: ROW, transform: `translateY(${item.start}px)` }}
+            >
+              <span className="tabular w-16 shrink-0 text-right text-text-subtle">{row.lineNo}</span>
+              <span className="tabular w-24 shrink-0 text-text-muted">{row.bookedOn}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {row.counterpartyRaw || row.description}
+              </span>
+              <span
+                className={
+                  "w-48 shrink-0 truncate text-2xs uppercase tracking-widest " +
+                  (row.categoryCode ? "text-text-subtle" : "text-text-subtle italic")
+                }
+              >
+                {row.categoryCode ? row.categoryName : t("batch.rows.unclassified", locale)}
+              </span>
+              <span className="tabular w-28 shrink-0 text-right text-figure">
+                {exp === undefined ? NO_DATA : formatMinorUnits(row.amount.minorUnits, exp, locale)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function BatchScreen() {
   const { batchId } = useParams({ from: "/app/imports/$batchId" });
   const [locale] = useLocale();
   const { data, error, isPending } = useQuery({
     queryKey: ["batch", batchId],
     queryFn: () => getBatch(batchId),
+  });
+  // Its own call, not folded into `data`: unlike the batch's summary counts
+  // this can run to hundreds of rows, and `ReviewScreen`'s own transactions
+  // query is the same shape for the same reason -- fetched for what is
+  // actually open, not eagerly for every batch the list screen shows.
+  const rows = useQuery({
+    queryKey: ["batchTransactions", batchId],
+    queryFn: () => listBatchTransactions(batchId),
   });
 
   if (isPending) return <Loading label={batchId} rows={4} />;
@@ -154,6 +214,20 @@ export function BatchScreen() {
               </div>
             ))}
           </dl>
+        </section>
+      ) : null}
+
+      {rows.data && rows.data.length > 0 ? (
+        <section className="rounded-panel border border-border bg-surface-raised p-6">
+          <div className="flex flex-wrap items-baseline gap-4">
+            <h2 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
+              {t("batch.rows.title", locale)}
+            </h2>
+            <span className="tabular text-2xs text-text-subtle">{rows.data.length}</span>
+          </div>
+          <div className="mt-3">
+            <Rows rows={rows.data} locale={locale} />
+          </div>
         </section>
       ) : null}
 

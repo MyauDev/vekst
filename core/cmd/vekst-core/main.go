@@ -25,8 +25,8 @@ import (
 	"github.com/MyauDev/vekst/core/internal/migrate"
 	"github.com/MyauDev/vekst/core/internal/report"
 	"github.com/MyauDev/vekst/core/internal/review"
-	"github.com/MyauDev/vekst/core/internal/tenancy"
 	"github.com/MyauDev/vekst/core/internal/server"
+	"github.com/MyauDev/vekst/core/internal/tenancy"
 )
 
 func main() {
@@ -142,12 +142,13 @@ func run() error {
 	var store blob.ObjectStore
 	if cfg.ObjectStoreConfigured() {
 		store = blob.New(blob.Config{
-			Endpoint:    cfg.ObjectStoreEndpoint,
-			Bucket:      cfg.ObjectStoreBucket,
-			Region:      cfg.ObjectStoreRegion,
-			AccessKeyID: cfg.ObjectStoreAccessKeyID,
-			SecretKey:   cfg.ObjectStoreSecretKey,
-			PathStyle:   cfg.ObjectStorePathStyle,
+			Endpoint:        cfg.ObjectStoreEndpoint,
+			PresignEndpoint: cfg.ObjectStorePresignEndpoint,
+			Bucket:          cfg.ObjectStoreBucket,
+			Region:          cfg.ObjectStoreRegion,
+			AccessKeyID:     cfg.ObjectStoreAccessKeyID,
+			SecretKey:       cfg.ObjectStoreSecretKey,
+			PathStyle:       cfg.ObjectStorePathStyle,
 		})
 		log.Info("object store configured", "endpoint", cfg.ObjectStoreEndpoint, "bucket", cfg.ObjectStoreBucket)
 	} else {

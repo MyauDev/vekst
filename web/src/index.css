@@ -424,6 +424,90 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * 2.2 The react-datepicker bridge.
+ *
+ * `PeriodPicker` (src/app/PeriodPicker.tsx) is the one screen that reaches
+ * for a third-party widget rather than a native control. Its stylesheet
+ * (react-datepicker/dist/react-datepicker.css) ships its own literal colours
+ * and is imported as-is, unedited, the same reason §2.1 gives for the bklit
+ * charts: an upgrade replaces the file wholesale, and an edit here would be
+ * silently lost on the next `npm update`. This block overrides its class
+ * names with `var(--vk-*)` afterwards, in plain CSS so each reference
+ * resolves live against whichever theme is active -- the same reasoning as
+ * §2.1, and the same reason this is not `@theme inline`.
+ *
+ * Scoped under `.vk-datepicker`, the wrapper `PeriodPicker` renders around
+ * both fields, rather than at `.react-datepicker` directly: react-datepicker
+ * portals its calendar to `document.body` in some configurations, and a
+ * bare class-name override would as happily restyle a second, unrelated
+ * instance of the library if one is ever added -- the scope makes this
+ * block's reach a deliberate choice rather than an accident of specificity.
+ * ------------------------------------------------------------------------- */
+
+.vk-datepicker .react-datepicker,
+.vk-datepicker .react-datepicker__header,
+.vk-datepicker .react-datepicker__month-dropdown,
+.vk-datepicker .react-datepicker__year-dropdown {
+  background-color: var(--vk-surface-raised);
+  border-color: var(--vk-border);
+  color: var(--vk-text);
+  font-family: var(--font-sans);
+  box-shadow: var(--vk-shadow-menu);
+}
+
+.vk-datepicker .react-datepicker__header {
+  border-bottom-color: var(--vk-border);
+}
+
+.vk-datepicker .react-datepicker__current-month,
+.vk-datepicker .react-datepicker__day-name,
+.vk-datepicker .react-datepicker-time__header {
+  color: var(--vk-text);
+}
+
+.vk-datepicker .react-datepicker__navigation-icon::before {
+  border-color: var(--vk-text-subtle);
+}
+
+.vk-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--vk-text);
+}
+
+.vk-datepicker .react-datepicker__month-text,
+.vk-datepicker .react-datepicker__month-option,
+.vk-datepicker .react-datepicker__year-option {
+  color: var(--vk-text);
+}
+
+.vk-datepicker .react-datepicker__month-text:hover,
+.vk-datepicker .react-datepicker__month-option:hover,
+.vk-datepicker .react-datepicker__year-option:hover {
+  background-color: var(--vk-surface-sunken);
+}
+
+.vk-datepicker .react-datepicker__month-text--keyboard-selected,
+.vk-datepicker .react-datepicker__month-text--selected,
+.vk-datepicker .react-datepicker__month-option--selected-month {
+  background-color: var(--vk-accent);
+  color: var(--vk-accent-text);
+}
+
+.vk-datepicker .react-datepicker__month-text--disabled,
+.vk-datepicker .react-datepicker__month-option--disabled {
+  color: var(--vk-text-subtle);
+  opacity: 0.5;
+}
+
+.vk-datepicker .react-datepicker__month-text--today {
+  font-weight: 600;
+}
+
+.vk-datepicker .react-datepicker__triangle::before,
+.vk-datepicker .react-datepicker__triangle::after {
+  border-bottom-color: var(--vk-surface-raised) !important;
+}
+
+/* ---------------------------------------------------------------------------
  * 3. Type, space, shape, motion. These do not change between themes.
  * ------------------------------------------------------------------------- */
 
