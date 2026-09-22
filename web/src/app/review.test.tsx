@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Shared with the mock factory below via vi.hoisted -- a resolved group has
 // to disappear from subsequent listReviewGroups calls (the same behaviour
@@ -64,17 +64,29 @@ vi.mock("../transport", async () => {
   // Ten, not two: change 5.4's own reason for existing is that "1"-"9" alone
   // cannot address the tenth, and a fixture with only two categories could
   // never prove that a click reaches it.
+  //
+  // Codes are "99…", deliberately outside the real taxonomy: `categoryName()`
+  // translates a known code regardless of what the fixture calls it, and a
+  // code this suite invented colliding with a real one would have this
+  // fixture's own "Bank commission" silently overridden by the production
+  // Russian catalogue's name for a completely different leaf. An org-scoped
+  // code this build has never heard of is also the more representative case
+  // -- most of an organisation's own taxonomy is exactly that.
   const CATEGORIES = [
-    { id: "c1", code: "0402010202", name: "Logistics", path: "OPEX > Marketing and Sales > Marketing > MRK Services > Logistics", isPnl: true },
-    { id: "c2", code: "04020102", name: "Software and subscriptions", path: "OPEX > Marketing and Sales > Marketing > MRK Services", isPnl: true },
-    { id: "c3", code: "0401020201", name: "Office rent", path: "OPEX > Admin > Office rent", isPnl: true },
-    { id: "c4", code: "0401020202", name: "Utilities", path: "OPEX > Admin > Utilities", isPnl: true },
-    { id: "c5", code: "0401020203", name: "Insurance", path: "OPEX > Admin > Insurance", isPnl: true },
-    { id: "c6", code: "0401020204", name: "Legal fees", path: "OPEX > Admin > Legal fees", isPnl: true },
-    { id: "c7", code: "0401020205", name: "Bank commission", path: "OPEX > Admin > Bank commission", isPnl: true },
-    { id: "c8", code: "0401020206", name: "Travel", path: "OPEX > Admin > Travel", isPnl: true },
-    { id: "c9", code: "0401020207", name: "Training", path: "OPEX > Admin > Training", isPnl: true },
-    { id: "c10", code: "0401020208", name: "Equipment", path: "OPEX > Admin > Equipment", isPnl: true },
+    { id: "c1", code: "9902", name: "Logistics", path: "OPEX > Marketing and Sales > Marketing > MRK Services > Logistics", isPnl: true },
+    { id: "c2", code: "9901", name: "Software and subscriptions", path: "OPEX > Marketing and Sales > Marketing > MRK Services", isPnl: true },
+    { id: "c3", code: "9903", name: "Office rent", path: "OPEX > Admin > Office rent", isPnl: true },
+    { id: "c4", code: "9904", name: "Utilities", path: "OPEX > Admin > Utilities", isPnl: true },
+    { id: "c5", code: "9905", name: "Insurance", path: "OPEX > Admin > Insurance", isPnl: true },
+    { id: "c6", code: "9906", name: "Legal fees", path: "OPEX > Admin > Legal fees", isPnl: true },
+    { id: "c7", code: "9907", name: "Bank commission", path: "OPEX > Admin > Bank commission", isPnl: true },
+    { id: "c8", code: "9908", name: "Travel", path: "OPEX > Admin > Travel", isPnl: true },
+    { id: "c9", code: "9909", name: "Training", path: "OPEX > Admin > Training", isPnl: true },
+    { id: "c10", code: "9910", name: "Equipment", path: "OPEX > Admin > Equipment", isPnl: true },
+    // A real taxonomy code, unlike the ten above -- for the one test that
+    // needs `categoryName()` to actually translate something rather than
+    // fall back to what the wire sent.
+    { id: "c11", code: "0401010203", name: "Audit", path: "OPEX > Admin > Finance > Audit", isPnl: true },
   ];
 
   return {
@@ -115,11 +127,17 @@ vi.mock("../transport", async () => {
 const { makeRouter } = await import("../router");
 const { transport } = await import("../transport");
 const { t } = await import("../i18n");
+const { setLocale } = await import("../ui/preferences");
 
 beforeEach(() => {
   resolvedKeys.clear();
   failNextResolve.code = null;
 });
+
+// setLocale's emit() notifies every mounted useLocale() subscriber
+// synchronously, which is a real state update outside of any event React
+// already knows to batch -- act() is what tells it this one is deliberate.
+afterEach(() => act(() => setLocale("en")));
 
 function renderReview() {
   const router = makeRouter(transport, createMemoryHistory({ initialEntries: ["/app/review"] }));
@@ -322,6 +340,33 @@ describe("worked from a click, digit shortcuts included", () => {
     expect(await screen.findByText("Bank commission", { selector: "span" })).toBeDefined();
   });
 
+  // Regression: a filter typed for one counterparty used to survive into the
+  // next one -- approving auto-advances the queue, but neither the filter nor
+  // the selection was ever scoped to the group that made them. The picker for
+  // the new group looked like it had silently lost most of the taxonomy, when
+  // every category was still there under a leftover search term nobody meant
+  // to apply to it.
+  it("clears the filter and the pending selection once the queue advances", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    const search = screen.getByLabelText(t("review.search.placeholder"));
+    await user.type(search, "Bank commission");
+    await user.click(screen.getByRole("button", { name: /Bank commission/ }));
+    await user.click(screen.getByRole("button", { name: t("review.action.approve") }));
+
+    await screen.findByText("KONTUR SERVICE");
+
+    expect((search as HTMLInputElement).value).toBe("");
+    // Every seeded category is back, not only the one the old filter matched.
+    expect(screen.getByRole("button", { name: /Logistics/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Training/ })).toBeDefined();
+    // Nothing carried over as a pre-made choice for the new group.
+    const approve = screen.getByRole("button", { name: t("review.action.approve") }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+  });
+
   it("does not treat T or N as shortcuts while the filter field has focus", async () => {
     // Regression: the global T/N shortcuts used to fire even while this
     // field had focus -- "Training" would have marked an internal transfer
@@ -337,5 +382,22 @@ describe("worked from a click, digit shortcuts included", () => {
     // The group is still here -- typing "T" did not resolve it out from
     // under the person still typing.
     expect(screen.getByText("VEKTOR LOGISTIKA")).toBeDefined();
+  });
+
+  it("shows a category's name in Russian while the wire keeps sending English", async () => {
+    act(() => setLocale("ru"));
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    // "Audit" (c11, code 0401010203) is a real taxonomy code; the other ten
+    // fixture categories deliberately are not, so this is the one place the
+    // Russian catalogue in i18n.ts actually renders instead of falling back
+    // to whatever categoryFromProto put in `label`.
+    expect(screen.getByRole("button", { name: /Аудит/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /^Audit$/ })).toBeNull();
+    // The other nine still show the wire's own English name: they are not in
+    // the static catalogue, and a translation nobody wrote is not owed to
+    // any code the frontend does not recognise.
+    expect(screen.getByRole("button", { name: /Equipment/ })).toBeDefined();
   });
 });

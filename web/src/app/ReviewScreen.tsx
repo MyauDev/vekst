@@ -32,6 +32,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ResolveGroupError, decideGroup, listCategories, listGroupTransactions, listReviewGroups } from "../data/review";
 import type { ReviewDecision } from "../data/review";
+import { categoryName } from "./categoryName";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
 import { authErrorMessage, t } from "../i18n";
 import type { Locale } from "../i18n";
@@ -96,7 +97,14 @@ export function ReviewScreen() {
   const groups = useQuery({ queryKey: ["reviewGroups"], queryFn: listReviewGroups });
   const categories = useQuery({ queryKey: ["categories"], queryFn: listCategories });
 
-  const allCategories = categories.data ?? [];
+  // Translated once per locale change, not per render of every button below:
+  // `label` becomes what the picker, the search and the "Selected" line all
+  // read, so a Russian reviewer can find "Аренда офиса" by typing "аренда"
+  // rather than having to know the English name stored on the wire.
+  const allCategories = useMemo(
+    () => (categories.data ?? []).map((c) => ({ ...c, label: categoryName(c.code, c.label, locale) })),
+    [categories.data, locale],
+  );
   // Recomputed, not just filtered from a stale reference: this is also what
   // "1"-"9" address below, so it has to be exactly what is on screen right
   // now, search included.
@@ -139,9 +147,18 @@ export function ReviewScreen() {
     [group, qc, locale],
   );
 
-  // A stale failure from the previous group would otherwise sit on screen
-  // after the reviewer has moved on to a different one.
-  useEffect(() => setDecideError(null), [group?.counterpartyKey]);
+  // Every per-group choice is scoped to the group it was made in. Without
+  // this, moving to the next counterparty with the arrow keys (decide()'s own
+  // reset only covers the decided group) carries the filter text and the
+  // selected category along -- a stale filter hides categories that are very
+  // much still there, which reads as "the picker lost most of the taxonomy",
+  // and a stale selection risks approving the new group under the old one's
+  // category.
+  useEffect(() => {
+    setDecideError(null);
+    setQuery("");
+    setSelected(null);
+  }, [group?.counterpartyKey]);
 
   // Bound to the document rather than to a focused element: the queue is the
   // screen, and requiring a click to "focus" it first would make a
