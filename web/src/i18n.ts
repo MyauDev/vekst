@@ -232,6 +232,16 @@ const messages = {
     "dedup.transfer.active": "Excluded as a transfer between your own accounts",
     "dedup.transfer.dismissed": "Included",
 
+    // The review queue's own codes (core/internal/review's Code* constants).
+    "error.review_forbidden": "You do not have permission to resolve this group.",
+    "error.review_outcome_required": "Choose approve, transfer or not in P&L.",
+    "error.review_category_required": "Choose a category before approving.",
+    "error.review_category_not_allowed": "A transfer or not-in-P&L decision does not take a category.",
+    "error.review_unknown_category": "That category no longer exists. Refresh and try again.",
+    "error.review_group_is_empty": "This group has already been resolved.",
+    "error.review_decision_already_undone": "This decision was already undone.",
+    "error.review_already_decided": "Somebody else already resolved this group.",
+
     "review.title": "Review",
     "review.remaining": "remaining",
     "review.suggested": "Suggested",
@@ -522,6 +532,16 @@ const messages = {
     "dedup.level.D3": "Уже был импортирован ранее",
     "dedup.transfer.active": "Исключено как перевод между вашими счетами",
     "dedup.transfer.dismissed": "Учтено",
+
+    // The review queue's own codes (core/internal/review's Code* constants).
+    "error.review_forbidden": "У вас нет прав для решения по этой группе.",
+    "error.review_outcome_required": "Выберите: утвердить, перевод или не в ОПиУ.",
+    "error.review_category_required": "Выберите категорию перед утверждением.",
+    "error.review_category_not_allowed": "Перевод или решение «не в ОПиУ» не принимает категорию.",
+    "error.review_unknown_category": "Эта категория больше не существует. Обновите страницу и попробуйте снова.",
+    "error.review_group_is_empty": "Эта группа уже решена.",
+    "error.review_decision_already_undone": "Это решение уже отменено.",
+    "error.review_already_decided": "Кто-то другой уже решил по этой группе.",
 
     "review.title": "Проверка",
     "review.remaining": "осталось",

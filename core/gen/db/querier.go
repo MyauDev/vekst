@@ -38,10 +38,10 @@ type Querier interface {
 	// LineTransactions -- a row the review queue has not reached yet still
 	// belongs in this list, with an empty category rather than a missing row.
 	BatchTransactions(ctx context.Context, batchID pgtype.UUID) ([]BatchTransactionsRow, error)
-	// One category by its natural key. `org_id IS NOT DISTINCT FROM $2` rather
-	// than `=`: the shared rows carry NULL, and NULL = NULL is unknown, so the
-	// ordinary comparison would never match exactly the rows every organisation
-	// needs to reach.
+	// One category by its natural key. No org_id predicate, same as
+	// EffectiveTaxonomy above and for the same reason: RLS already admits a
+	// shared row or this organisation's own, and a code is unique within
+	// whichever of those it belongs to.
 	CategoryByCode(ctx context.Context, arg CategoryByCodeParams) (CategoryByCodeRow, error)
 	// What a classification may target, and the only list change 3.2 sends to the
 	// classifier.

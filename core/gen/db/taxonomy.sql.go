@@ -15,12 +15,11 @@ const categoryByCode = `-- name: CategoryByCode :one
 SELECT id, taxonomy_version, org_id, scope, code, parent_id, level, name,
        pnl_section, is_pnl, is_leaf, is_computed, formula, requires_allocation
 FROM categories
-WHERE taxonomy_version = $1 AND org_id IS NOT DISTINCT FROM $2 AND code = $3
+WHERE taxonomy_version = $1 AND code = $2
 `
 
 type CategoryByCodeParams struct {
 	TaxonomyVersion string
-	OrgID           pgtype.UUID
 	Code            string
 }
 
@@ -41,12 +40,12 @@ type CategoryByCodeRow struct {
 	RequiresAllocation bool
 }
 
-// One category by its natural key. `org_id IS NOT DISTINCT FROM $2` rather
-// than `=`: the shared rows carry NULL, and NULL = NULL is unknown, so the
-// ordinary comparison would never match exactly the rows every organisation
-// needs to reach.
+// One category by its natural key. No org_id predicate, same as
+// EffectiveTaxonomy above and for the same reason: RLS already admits a
+// shared row or this organisation's own, and a code is unique within
+// whichever of those it belongs to.
 func (q *Queries) CategoryByCode(ctx context.Context, arg CategoryByCodeParams) (CategoryByCodeRow, error) {
-	row := q.db.QueryRow(ctx, categoryByCode, arg.TaxonomyVersion, arg.OrgID, arg.Code)
+	row := q.db.QueryRow(ctx, categoryByCode, arg.TaxonomyVersion, arg.Code)
 	var i CategoryByCodeRow
 	err := row.Scan(
 		&i.ID,

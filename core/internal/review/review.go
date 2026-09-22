@@ -454,7 +454,6 @@ func (s *Service) Resolve(
 		}
 		category, err := q.CategoryByCode(ctx, gendb.CategoryByCodeParams{
 			TaxonomyVersion: s.versions.Taxonomy,
-			OrgID:           pgtype.UUID{},
 			Code:            code,
 		})
 		if err != nil {

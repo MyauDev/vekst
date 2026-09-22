@@ -106,7 +106,6 @@ func TestAdoptedCategoriesAreNotVisibleAcrossOrganisations(t *testing.T) {
 	if err := d.InTx(ctx, orgA, func(ctx context.Context, tx pgx.Tx) error {
 		row, err := gendb.New(tx).CategoryByCode(ctx, gendb.CategoryByCodeParams{
 			TaxonomyVersion: TaxonomyVersion,
-			OrgID:           orgA.pg(),
 			Code:            "0401010101",
 		})
 		if err != nil {
@@ -131,16 +130,22 @@ func TestAdoptedCategoriesAreNotVisibleAcrossOrganisations(t *testing.T) {
 			}
 		}
 
-		// By id, not only by list: the same category code exists in both
-		// organisations (each adopted its own copy), so this asks for A's row
-		// specifically, by the identifier org B is never supposed to have.
-		_, err = q.CategoryByCode(ctx, gendb.CategoryByCodeParams{
+		// By code, not only by list: the same code exists in both organisations
+		// (each adopted its own copy). CategoryByCode carries no org_id
+		// parameter -- RLS alone decides what a transaction bound to B can
+		// see -- so this has to resolve to B's own row and never A's.
+		row, err := q.CategoryByCode(ctx, gendb.CategoryByCodeParams{
 			TaxonomyVersion: TaxonomyVersion,
-			OrgID:           orgA.pg(),
 			Code:            "0401010101",
 		})
-		if err == nil {
+		if err != nil {
+			t.Fatalf("a transaction bound to org B could not resolve its own adopted code: %v", err)
+		}
+		if row.ID == aLeafID {
 			t.Error("a transaction bound to org B resolved org A's own category row")
+		}
+		if row.OrgID != orgB.pg() {
+			t.Errorf("resolved row belongs to org_id %v, want org B", row.OrgID)
 		}
 		return nil
 	}); err != nil {

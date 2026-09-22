@@ -26,7 +26,7 @@
  * requests spell the field `organization_id`. `requireSession()`'s own
  * `Session.orgId` is unaffected -- only the wire field name differs.
  */
-import { createClient } from "@connectrpc/connect";
+import { ConnectError, createClient } from "@connectrpc/connect";
 
 import { transport } from "../transport";
 import { requireSession } from "./session";
@@ -152,6 +152,23 @@ function toProtoOutcome(d: ReviewDecision): ReviewOutcome {
 }
 
 /**
+ * A coded failure from `ResolveGroup` -- `code` is one of
+ * `review_forbidden`, `review_outcome_required`, `review_category_required`,
+ * `review_category_not_allowed`, `review_unknown_category`,
+ * `review_group_is_empty` or `review_already_decided`.
+ *
+ * Decoded here for the same reason `CreateOrganisationError` is decoded in
+ * `org.ts`: a screen must never import `@connectrpc/connect` itself, so
+ * unwrapping a `ConnectError` into a plain code is this module's job.
+ */
+export class ResolveGroupError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = "ResolveGroupError";
+  }
+}
+
+/**
  * Approving a *group* rather than a row is the whole design. A person who
  * decides VEKTOR LOGISTIKA is Logistics has decided it for every row that will
  * ever carry that name, and approving them one at a time is the same decision
@@ -163,11 +180,15 @@ export async function decideGroup(input: {
   decision: ReviewDecision;
 }): Promise<void> {
   const { orgId, entityId } = requireSession();
-  await client.resolveGroup({
-    organizationId: orgId,
-    entityId,
-    counterpartyKey: input.counterpartyKey,
-    outcome: toProtoOutcome(input.decision),
-    categoryCode: input.decision.kind === "classify" ? input.decision.categoryCode : "",
-  });
+  try {
+    await client.resolveGroup({
+      organizationId: orgId,
+      entityId,
+      counterpartyKey: input.counterpartyKey,
+      outcome: toProtoOutcome(input.decision),
+      categoryCode: input.decision.kind === "classify" ? input.decision.categoryCode : "",
+    });
+  } catch (err) {
+    throw new ResolveGroupError(ConnectError.from(err).rawMessage || "error.unknown");
+  }
 }

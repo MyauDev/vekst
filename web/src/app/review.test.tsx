@@ -8,13 +8,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // to disappear from subsequent listReviewGroups calls (the same behaviour
 // the deleted `decided` fixture Set gave), and a test needs to be able to
 // clear it between cases the way `resetFixtures` used to.
-const { resolvedKeys } = vi.hoisted(() => ({ resolvedKeys: new Set<string>() }));
+const { resolvedKeys, failNextResolve } = vi.hoisted(() => ({
+  resolvedKeys: new Set<string>(),
+  // A test's way of making resolveGroup answer the way the real backend does
+  // when a decision is refused -- a coded failure, not a network error.
+  failNextResolve: { code: null as string | null },
+}));
 
 // `review.ts` imports `transport` statically from "../transport", the same
 // convention `dedup.test.ts` and `imports.test.tsx` mock around.
 vi.mock("../transport", async () => {
   const { stubTransport, signedInUser } = await import("../testTransport");
   const { ReviewService } = await import("../gen/vekst/v1/review_pb");
+  const { Code, ConnectError } = await import("@connectrpc/connect");
 
   const GROUPS = [
     {
@@ -88,6 +94,11 @@ vi.mock("../transport", async () => {
           listGroupTransactions: (req) => ({ transactions: TRANSACTIONS[req.counterpartyKey] ?? [] }),
           listCategories: () => ({ categories: CATEGORIES }),
           resolveGroup: (req) => {
+            if (failNextResolve.code) {
+              const code = failNextResolve.code;
+              failNextResolve.code = null;
+              throw new ConnectError(code, Code.InvalidArgument);
+            }
             resolvedKeys.add(req.counterpartyKey);
             return {
               decisionId: "d1", coveredCount: 1,
@@ -105,7 +116,10 @@ const { makeRouter } = await import("../router");
 const { transport } = await import("../transport");
 const { t } = await import("../i18n");
 
-beforeEach(() => resolvedKeys.clear());
+beforeEach(() => {
+  resolvedKeys.clear();
+  failNextResolve.code = null;
+});
 
 function renderReview() {
   const router = makeRouter(transport, createMemoryHistory({ initialEntries: ["/app/review"] }));
@@ -224,6 +238,23 @@ describe("worked from a click, digit shortcuts included", () => {
     await user.click(screen.getByRole("button", { name: t("review.action.approve") }));
     await waitFor(() => expect(screen.queryByText("VEKTOR LOGISTIKA")).toBeNull());
     expect(await screen.findByText("KONTUR SERVICE")).toBeDefined();
+  });
+
+  // A coded failure (a stale category, a race with another reviewer) must be
+  // readable, not silent -- the two look identical to a person watching the
+  // screen otherwise. Regression for the bug where approving did nothing.
+  it("shows a message when the backend refuses the decision, and the group stays", async () => {
+    const user = userEvent.setup();
+    failNextResolve.code = "review_unknown_category";
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    await user.click(screen.getByRole("button", { name: /Logistics/ }));
+    await user.click(screen.getByRole("button", { name: t("review.action.approve") }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(t("error.review_unknown_category"));
+    // The group was not silently dropped: it is still there to retry.
+    expect(screen.getByText("VEKTOR LOGISTIKA")).toBeDefined();
   });
 
   it("reaches a category past the ninth, which no digit key can address", async () => {

@@ -30,10 +30,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { decideGroup, listCategories, listGroupTransactions, listReviewGroups } from "../data/review";
+import { ResolveGroupError, decideGroup, listCategories, listGroupTransactions, listReviewGroups } from "../data/review";
 import type { ReviewDecision } from "../data/review";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
-import { t } from "../i18n";
+import { authErrorMessage, t } from "../i18n";
 import type { Locale } from "../i18n";
 import { useLocale } from "../ui/preferences";
 import { Kbd } from "../ui/Kbd";
@@ -87,6 +87,10 @@ export function ReviewScreen() {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // A decision that fails must say so: the backend returns a coded failure
+  // (a race with another reviewer, a stale category), and a screen that
+  // swallows it looks identical to one that did nothing at all.
+  const [decideError, setDecideError] = useState<string | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const groups = useQuery({ queryKey: ["reviewGroups"], queryFn: listReviewGroups });
@@ -117,15 +121,27 @@ export function ReviewScreen() {
   const decide = useCallback(
     async (decision: ReviewDecision) => {
       if (!group) return;
-      await decideGroup({ counterpartyKey: group.counterpartyKey, decision });
+      setDecideError(null);
+      try {
+        await decideGroup({ counterpartyKey: group.counterpartyKey, decision });
+      } catch (err) {
+        setDecideError(
+          err instanceof ResolveGroupError ? authErrorMessage(err.code, locale) : t("error.unknown", locale),
+        );
+        return;
+      }
       setSelected(null);
       setIndex(0);
       await qc.invalidateQueries({ queryKey: ["reviewGroups"] });
       // The rail badge counts the same list, so it has to be refreshed with it.
       await qc.invalidateQueries({ queryKey: ["reviewSummary"] });
     },
-    [group, qc],
+    [group, qc, locale],
   );
+
+  // A stale failure from the previous group would otherwise sit on screen
+  // after the reviewer has moved on to a different one.
+  useEffect(() => setDecideError(null), [group?.counterpartyKey]);
 
   // Bound to the document rather than to a focused element: the queue is the
   // screen, and requiring a click to "focus" it first would make a
@@ -269,6 +285,12 @@ export function ReviewScreen() {
             ))
           )}
         </ol>
+
+        {decideError ? (
+          <p role="alert" className="text-sm font-medium text-danger">
+            {decideError}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-3 border-t border-border pt-4">
           <button
