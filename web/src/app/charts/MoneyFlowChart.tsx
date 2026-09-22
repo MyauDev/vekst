@@ -39,6 +39,7 @@ import { t } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { useTheme } from "../../ui/preferences";
 import type { Report } from "../../data/report";
+import { lineName } from "../lineName";
 import { ChartShell } from "./ChartShell";
 import { CategoryTable } from "./ChartTable";
 import { foldTopN, reducedMotion } from "./support";
@@ -75,12 +76,12 @@ function chartToken(name: string): string {
  * it, which is also what keeps the diagram's own remainder calculation from
  * being overstated and silently swallowing the "Net result" link.
  */
-export function expenseLinesFor(report: Report, exp: number): Sliced<null>[] {
+export function expenseLinesFor(report: Report, exp: number, locale: Locale): Sliced<null>[] {
   return report.lines
     .filter((l) => !l.computed && l.categoryId !== "01")
     .filter((l) => BigInt(l.total.minorUnits) > 0n)
     .map((l) => ({
-      label: l.label,
+      label: lineName(l.categoryId, l.label, locale),
       value: Number(BigInt(l.total.minorUnits)) / 10 ** exp,
       item: null,
     }));
@@ -103,7 +104,7 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
     if (!revenue) return null;
     const revenueLines = [revenue];
 
-    const expenseLines = expenseLinesFor(report, exp);
+    const expenseLines = expenseLinesFor(report, exp, locale);
 
     const { kept, other } = foldTopN(expenseLines, MAX_EXPENSE_SLOTS, t("chart.moneyflow.other", locale));
     const expenseNodes = other ? [...kept, { label: other.label, value: other.value }] : kept;
@@ -114,7 +115,10 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
 
     const structural = chartToken("--vk-text");
     const nodes = [
-      ...revenueLines.map((l) => ({ name: l.label, itemStyle: { color: structural } })),
+      ...revenueLines.map((l) => ({
+        name: lineName(l.categoryId, l.label, locale),
+        itemStyle: { color: structural },
+      })),
       { name: totalInLabel, itemStyle: { color: structural } },
       ...expenseNodes.map((e, i) => ({
         name: e.label,
@@ -125,7 +129,7 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
 
     const links = [
       ...revenueLines.map((l) => ({
-        source: l.label,
+        source: lineName(l.categoryId, l.label, locale),
         target: totalInLabel,
         value: Number(BigInt(l.total.minorUnits)) / 10 ** exp,
       })),
@@ -141,7 +145,10 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
 
   const rows = useMemo(() => {
     if (exp === undefined) return [];
-    return report.lines.map((l) => ({ label: l.label, text: formatMinorUnits(l.total.minorUnits, exp, locale) }));
+    return report.lines.map((l) => ({
+      label: lineName(l.categoryId, l.label, locale),
+      text: formatMinorUnits(l.total.minorUnits, exp, locale),
+    }));
   }, [report, exp, locale]);
 
   const option = useMemo(() => {
@@ -236,6 +243,7 @@ export function MoneyFlowChart({ report, locale }: Readonly<{ report: Report; lo
   return (
     <ChartShell
       titleKey="chart.moneyflow.title"
+      noteKey="chart.moneyflow.note"
       locale={locale}
       hasData={option !== null}
       table={rows.length ? <CategoryTable rows={rows} locale={locale} /> : <p className="text-sm text-text-muted">{NO_DATA}</p>}

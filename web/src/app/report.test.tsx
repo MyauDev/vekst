@@ -234,6 +234,70 @@ describe("the report", () => {
     expect(screen.getByText(t("report.blocked.mixed_basis"))).toBeDefined();
   });
 
+  it("calls each line by a name, and keeps the code it is keyed by beside it", async () => {
+    // The wire sends the taxonomy's abbreviation as a label, on purpose --
+    // a section is identified by its code and renaming it would move a
+    // figure (00014_pnl_sections says so outright). What that left on screen
+    // was a table of twelve rows, eight of them initialisms: "OCS", "OIE",
+    // "IBT". Both now: the name for the owner, the code for the accountant
+    // reading down the column.
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await loaded();
+
+    expect(screen.getByText(t("line.05"))).toBeDefined(); // "Other income and expenses"
+    expect(screen.getByText(t("line.94"))).toBeDefined(); // "Profit before tax"
+    // And the abbreviation is still there, as its own element.
+    expect(screen.getByText("IBT")).toBeDefined();
+  });
+
+  it("prints the bottom line once", async () => {
+    // There used to be a footer row labelled "Net result" printing
+    // netByPeriod -- which is NI, which is already the last row of `Order`
+    // and so was already the row directly above it. Two rows, the same eight
+    // figures, different names.
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
+    await loaded();
+
+    expect(screen.getAllByText(t("line.95"))).toHaveLength(1);
+    // Counting the figures would not catch it: this mock has no financial
+    // result and no tax, so CM, IBT and NI are all the same number anyway.
+    // The row is what was duplicated, and the footer is where it lived.
+    const table = screen.getByRole("table");
+    expect(table.querySelector("tfoot"), "the table still has a footer row").toBeNull();
+  });
+
+  it("charts money in and out, which is the bank rather than the P&L", async () => {
+    // Added 2026-09-22. It sits beside "Revenue against expenses" and is a
+    // different set of figures: that one is the profit and loss, this one is
+    // what actually moved through the accounts. The note on the card is what
+    // keeps the two apart for a reader, so it is part of the assertion.
+    renderAt("/app/reports/pnl?from=2026-01&to=2026-08&view=charts");
+    await loaded();
+
+    expect(await screen.findByText(t("chart.cashflow.title"))).toBeDefined();
+    expect(screen.getByText(t("chart.cashflow.note"))).toBeDefined();
+
+    // jsdom has no ResizeObserver, so every chart renders its table view --
+    // which is the half of this the reader can check figures in anyway.
+    // The mock's reconciliation is 800000 in and 760000 out every month.
+    expect(screen.getAllByText("8,000.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("−7,600.00").length).toBeGreaterThan(0);
+    // ... and the row neither of the two bars gives you directly.
+    expect(screen.getByText(t("chart.cashflow.net"))).toBeDefined();
+  });
+
+  it("heads a bucket drill-down with the bucket's name, not its wire kind", async () => {
+    // A bucket has no human name on the wire at all, only a kind, so this
+    // panel was headed "unclassified" verbatim -- the one drill-down whose
+    // title was a protocol token.
+    renderAt("/app/reports/pnl/cell/unclassified/2026-03?from=2026-01&to=2026-08");
+    await screen.findByText(t("drilldown.close"));
+
+    expect(
+      screen.getAllByRole("heading", { name: t("report.bucket.unclassified") }).length,
+    ).toBeGreaterThan(0);
+  });
+
   it("shows the reconciliation strip, which is what proves nothing was dropped", async () => {
     renderAt("/app/reports/pnl?from=2026-01&to=2026-08");
     await loaded();
@@ -411,10 +475,15 @@ describe("the drill-down is a route, not a state flag", () => {
 
     expect(await screen.findByText(t("drilldown.operands"))).toBeDefined();
     // The report table stays mounted underneath the panel (design D8), so
-    // each operand's label legitimately appears twice -- once in the table
+    // each operand's name legitimately appears twice -- once in the table
     // row, once in the operand link -- hence getAllByText, not getByText.
-    expect(screen.getAllByText("NET SALES").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Cost of sales").length).toBeGreaterThan(0);
+    //
+    // The names, not the wire's labels: this mock sends "NET SALES" and the
+    // panel is expected to print "Net sales", because an operand list headed
+    // by abbreviations says what GM is keyed by rather than what it is made
+    // of.
+    expect(screen.getAllByText(t("line.01")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(t("line.02")).length).toBeGreaterThan(0);
   });
 
   it("lists the transactions with the layer and confidence that make them auditable", async () => {
@@ -453,6 +522,7 @@ describe("both palettes, and print", () => {
       // report's own table tab (that path is covered by the tests above).
       for (const key of [
         "chart.moneyflow.title",
+        "chart.cashflow.title",
         "chart.expenses.title",
         "chart.netresult.title",
         "chart.revenueExpense.title",

@@ -54,19 +54,28 @@ function perPeriod(fn: (i: number) => string): readonly string[] {
   return PERIODS.map((_, i) => fn(i));
 }
 
-/** Derived exactly as the report is, so the sample cannot fail to add up. */
+/**
+ * Derived exactly as the report is, so the sample cannot fail to add up.
+ *
+ * The labels are the abbreviations `core/internal/report/pnl.go` really sends
+ * — "CS", "OCS", "OPEX", "OIE" — not prose. The landing's claim about this
+ * table is "not a screenshot, the same component the application renders", and
+ * feeding it nicer strings than the backend produces quietly makes that false:
+ * the readable names come from `app/lineName.ts`, and a sample that arrived
+ * pre-translated would be the one place that path was never exercised.
+ */
 export const SAMPLE_REPORT: Report = (() => {
   const netSales = line("01", "NET SALES", false, RAW["01"]!);
-  const cs = line("02", "Cost of sales", false, RAW["02"]!);
+  const cs = line("02", "CS", false, RAW["02"]!);
   const gmValues = perPeriod((i) => sumMinorUnits([RAW["01"]![i]!, RAW["02"]![i]!]));
   const gm = line("91", "GM", true, gmValues);
 
-  const ocs = line("03", "Other cost of sales", false, RAW["03"]!);
+  const ocs = line("03", "OCS", false, RAW["03"]!);
   const nmValues = perPeriod((i) => sumMinorUnits([gmValues[i]!, RAW["03"]![i]!]));
   const nm = line("92", "NM", true, nmValues);
 
-  const opex = line("04", "Operating expenses", false, RAW["04"]!);
-  const oie = line("05", "Other expenses", false, RAW["05"]!);
+  const opex = line("04", "OPEX", false, RAW["04"]!);
+  const oie = line("05", "OIE", false, RAW["05"]!);
   const cmValues = perPeriod((i) => sumMinorUnits([nmValues[i]!, RAW["04"]![i]!, RAW["05"]![i]!]));
   const cm = line("93", "CM", true, cmValues);
 
@@ -91,6 +100,14 @@ export const SAMPLE_REPORT: Report = (() => {
     expensesByPeriod: perPeriod((i) =>
       (BigInt(netSales.values[i]!.minorUnits) - BigInt(cm.values[i]!.minorUnits)).toString(),
     ).map(money),
+    // No bank movement in the sample, and the strip says so: this is a P&L
+    // with no statement behind it, so `cash` is zero for every month rather
+    // than a plausible-looking series invented to fill a chart the landing
+    // does not render. A marketing page that makes up a reconciliation is
+    // making up the one figure this product sells.
+    cash: PERIODS.map((period) => ({
+      period, moneyIn: money("0"), moneyOut: money("0"), net: money("0"),
+    })),
     reconciliation: {
       opening: money("15230000"), moneyIn: money("0"),
       moneyOut: money("0"), transfers: money("0"), closing: money("15230000"),

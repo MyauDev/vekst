@@ -3,10 +3,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { t } from "../../i18n";
 import { foldTopN } from "./support";
 import { rows as expenseRows } from "./ExpenseCategoriesChart";
 import { expenseLinesFor } from "./MoneyFlowChart";
 import { facets as trendFacets } from "./CategoryTrendChart";
+import { rows as cashRows } from "./CashFlowChart";
 import type { Report, ReportLine } from "../../data/report";
 
 const web = (...p: string[]) => join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ...p);
@@ -109,12 +111,14 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
     expect(css).not.toMatch(/--chart-diverge-(positive|negative):\s*var\(--vk-danger/);
   });
 
-  it("the two-series chart renders a legend", () => {
+  it("both two-series charts render a legend", () => {
     // §13.5: a legend wherever two or more series appear. bklit ships no
     // legend primitive, so this is plain JSX rather than an option key --
     // data-chart-legend marks it for exactly this assertion.
-    const body = readFileSync(join(chartsDir, "RevenueExpenseChart.tsx"), "utf8");
-    expect(body).toMatch(/data-chart-legend/);
+    for (const file of ["RevenueExpenseChart.tsx", "CashFlowChart.tsx"]) {
+      const body = readFileSync(join(chartsDir, file), "utf8");
+      expect(body, `${file} has no legend`).toMatch(/data-chart-legend/);
+    }
   });
 
   it("the single-series charts do not", () => {
@@ -132,7 +136,8 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
     // -- it is `data.length` separate single-axis LineChart instances, not
     // one chart with several -- and MoneyFlowChart is a Sankey, which has no
     // y-axis concept at all.
-    for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx", "RevenueExpenseChart.tsx"]) {
+    for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx",
+      "RevenueExpenseChart.tsx", "CashFlowChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
       expect(body, `${file} declares a yAxisId`).not.toMatch(/yAxisId/);
     }
@@ -171,6 +176,7 @@ describe("a section that nets to a credit is not an expense", () => {
       revenueTotal: money("0"),
       expensesTotal: money("0"),
       expensesByPeriod: [money("0")],
+      cash: [{ period: "2026-01", moneyIn: money("0"), moneyOut: money("0"), net: money("0") }],
       reconciliation: {
         opening: money("0"), moneyIn: money("0"), moneyOut: money("0"),
         transfers: money("0"), closing: money("0"),
@@ -185,24 +191,31 @@ describe("a section that nets to a credit is not an expense", () => {
   // and a computed line (NI) that must never be treated as a category.
   const revenue = line("01", "NET SALES", false, "1000000");
   const opex = line("04", "OPEX", false, "500000");
-  const financialGain = line("06", "Financial result", false, "-399717106");
+  const financialGain = line("06", "FR", false, "-399717106");
   const ni = line("95", "NI", true, "500000");
   const mixed = report([revenue, opex, financialGain, ni]);
 
+  // The labels below are the resolved names, not the wire's abbreviations:
+  // every chart runs its lines through `app/lineName.ts` now. The fixture
+  // still carries the abbreviations the backend really sends ("OPEX", "FR"),
+  // so these assertions fail if that resolution is dropped anywhere.
+  const OPEX_NAME = t("line.04", "en");
+  const FR_NAME = t("line.06", "en");
+
   it("ExpenseCategoriesChart never draws the gain as a bar", () => {
     const bars = expenseRows(mixed, "en");
-    expect(bars.map((b) => b.name)).toEqual(["OPEX"]);
-    expect(bars.some((b) => b.name === "Financial result")).toBe(false);
+    expect(bars.map((b) => b.name)).toEqual([OPEX_NAME]);
+    expect(bars.some((b) => b.name === FR_NAME)).toBe(false);
   });
 
   it("ExpenseCategoriesChart still draws a genuine cost at its full size", () => {
     const bars = expenseRows(mixed, "en");
-    expect(bars.find((b) => b.name === "OPEX")?.value).toBe(5000);
+    expect(bars.find((b) => b.name === OPEX_NAME)?.value).toBe(5000);
   });
 
   it("MoneyFlowChart never routes the gain onto the expense side of the Sankey", () => {
-    const nodes = expenseLinesFor(mixed, 2);
-    expect(nodes.map((n) => n.label)).toEqual(["OPEX"]);
+    const nodes = expenseLinesFor(mixed, 2, "en");
+    expect(nodes.map((n) => n.label)).toEqual([OPEX_NAME]);
   });
 
   it("CategoryTrendChart excludes computed lines and revenue, not only credits", () => {
@@ -218,5 +231,61 @@ describe("a section that nets to a credit is not an expense", () => {
     // -399717106 minor units at exponent 2 -- a loss shape, not a spike
     // indistinguishable from OPEX's genuine positive cost.
     expect(financial?.rows[0]?.value).toBe(-3997171.06);
+  });
+});
+
+/**
+ * Money in and out: the bank, not the P&L.
+ *
+ * The sign rule is the whole of this chart's correctness. `data/report.ts`
+ * hands over `cash` already signed for display -- in positive, out negative,
+ * the convention every outflow in this product uses -- and a stacked bar
+ * through zero draws exactly that. An `Math.abs()` anywhere on the way is how
+ * an outflow ends up drawn above the line, next to the money that came in,
+ * with nothing on the card to say which is which.
+ */
+describe("money in and out is drawn with the signs it arrives with", () => {
+  const money = (minorUnits: string) => ({ minorUnits, currencyCode: "EUR" });
+
+  const report = {
+    currencyCode: "EUR",
+    periods: ["2026-01", "2026-02"],
+    basis: "cash" as const,
+    lines: [],
+    buckets: [],
+    netByPeriod: [money("0"), money("0")],
+    netTotal: money("0"),
+    revenueTotal: money("0"),
+    expensesTotal: money("0"),
+    expensesByPeriod: [money("0"), money("0")],
+    cash: [
+      // A month that took in more than it spent, and one that did not.
+      { period: "2026-01", moneyIn: money("800000"), moneyOut: money("-760000"), net: money("40000") },
+      { period: "2026-02", moneyIn: money("500000"), moneyOut: money("-900000"), net: money("-400000") },
+    ],
+    reconciliation: {
+      opening: money("0"), moneyIn: money("0"), moneyOut: money("0"),
+      transfers: money("0"), closing: money("0"),
+    },
+    provenance: { taxonomyVersion: "v1", rulesetVersion: "v1", engineVersion: "v1" },
+    unreviewedAmount: money("0"),
+  } satisfies Report;
+
+  it("keeps the outflow below the line", () => {
+    const [january, february] = cashRows(report, "en");
+    expect(january!.moneyIn).toBe(8000);
+    expect(january!.moneyOut).toBe(-7600);
+    expect(february!.moneyOut).toBe(-9000);
+  });
+
+  it("prints a month that spent more than it took in as a negative net", () => {
+    // The two bars of a break-even month look alike; only the figure says
+    // which way it went, which is why the table carries a third row.
+    const [, february] = cashRows(report, "en");
+    expect(february!.netText).toMatch(/^−/);
+  });
+
+  it("draws one column per period of the report, in the report's own order", () => {
+    expect(cashRows(report, "en")).toHaveLength(report.periods.length);
   });
 });

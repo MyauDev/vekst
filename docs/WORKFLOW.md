@@ -383,10 +383,20 @@ the tail folded into "Other"; a legend appears whenever there are two or more se
 every chart has a table view; dark mode uses its own chosen steps rather than an
 automatic inversion.
 
+*Amended 2026-09-22.* Every card carries one line under its title saying what it is
+drawn from. Two of these cards are genuinely different figures that look like the same
+chart, and the distinction cannot live in the head of whoever built them. Line names on
+every chart and in the table come from the taxonomy **code**, not from the label the wire
+sends: `core/internal/report/pnl.go` labels a section with its abbreviation on purpose,
+because a section is keyed by its code and renaming it would move a figure — so the
+translation belongs on the client (`web/src/app/lineName.ts`) and the abbreviation stays
+on screen beside the name for the reader who reads down the codes.
+
 | Chart | Form | Colour job | Why |
 | --- | --- | --- | --- |
 | Headline row | Stat tiles: revenue, expenses, net, unreviewed amount | none | A single number is not a one-bar chart |
 | **Money flow** | **Sankey**: revenue sources → total in → expense categories | categorical, top 8 + Other | The "where does my money go" answer, and the picture customers screenshot |
+| Money in and out | Diverging column per month, inflow above zero and outflow below | categorical, 2 hues, legend | *Added 2026-09-22.* The bank, not the P&L: what actually moved, including CAPEX and everything classified out of the P&L. A business can be profitable on "Revenue against expenses" and out of money here in the same month, and that month is the one worth seeing. Slots 1 and 2, the same two that chart carries, so "in" wears revenue's hue |
 | Top expense categories | Horizontal bar, sorted high to low | sequential, one hue | The job is magnitude, not identity |
 | Net result by month | Diverging column, centred on zero | diverging, two hues + neutral | The job is above or below a baseline |
 | Revenue against expenses | Two lines, one axis | categorical, 2 hues, legend + direct labels | Two series, same unit |

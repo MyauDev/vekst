@@ -10,6 +10,7 @@ import type { Locale, MessageKey } from "../i18n";
 import type { ReportView } from "../router";
 import { useLocale } from "../ui/preferences";
 import { EmptyState, ErrorState, Loading } from "../ui/feedback";
+import { CashFlowChart } from "./charts/CashFlowChart";
 import { CategoryTrendChart } from "./charts/CategoryTrendChart";
 import { ExpenseCategoriesChart } from "./charts/ExpenseCategoriesChart";
 import { MoneyFlowChart } from "./charts/MoneyFlowChart";
@@ -135,12 +136,21 @@ export function ReportScreen() {
               <PnlTable report={data} locale={locale} from={from} to={to} />
             </div>
           ) : (
-            // WORKFLOW.md §5.3's table order: money flow, top expenses, net
-            // result, revenue vs. expenses, category trend. The headline row
-            // above (the stat tiles) is that table's first row -- a single
-            // number is not a one-bar chart.
+            // WORKFLOW.md §5.3's table order: money flow, money in and out,
+            // top expenses, net result, revenue vs. expenses, category trend.
+            // The headline row above (the stat tiles) is that table's first
+            // row -- a single number is not a one-bar chart.
+            //
+            // Money in and out sits second, directly under the Sankey it
+            // answers the other half of: the Sankey is where the money went
+            // over the whole range, and this is when it moved. Both are the
+            // bank rather than the P&L, which is why they are adjacent and
+            // why "Revenue against expenses" -- which looks like the same
+            // chart and is not the same figures -- stays further down with
+            // the other P&L cards.
             <div className="flex flex-col gap-6">
               <MoneyFlowChart report={data} locale={locale} />
+              <CashFlowChart report={data} locale={locale} />
               <ExpenseCategoriesChart report={data} locale={locale} />
               <NetResultChart report={data} locale={locale} />
               <RevenueExpenseChart report={data} locale={locale} />

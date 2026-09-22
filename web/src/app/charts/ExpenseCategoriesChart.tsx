@@ -16,6 +16,7 @@ import { ChartTooltip } from "@/components/charts/tooltip";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../../money";
 import type { Locale } from "../../i18n";
 import type { Report } from "../../data/report";
+import { lineName } from "../lineName";
 import { ChartShell } from "./ChartShell";
 import { CategoryTable } from "./ChartTable";
 import { chartsAnimate, foldTopN } from "./support";
@@ -53,7 +54,9 @@ export function rows(report: Report, locale: Locale) {
     .map((line) => {
       const minor = BigInt(line.total.minorUnits);
       return {
-        label: line.label,
+        // The readable name, never the wire's abbreviation: a bar labelled
+        // "OIE" is a bar nobody can act on. See `app/lineName.ts`.
+        label: lineName(line.categoryId, line.label, locale),
         value: exp === undefined ? 0 : Number(minor) / 10 ** exp,
         item: { categoryId: line.categoryId },
       };
@@ -84,6 +87,7 @@ export function ExpenseCategoriesChart({
   return (
     <ChartShell
       titleKey="chart.expenses.title"
+      noteKey="chart.expenses.note"
       locale={locale}
       hasData={data.length > 0}
       table={<CategoryTable rows={data.map(({ name, text }) => ({ label: name, text }))} locale={locale} />}
@@ -93,10 +97,11 @@ export function ExpenseCategoriesChart({
           xDataKey="name"
           orientation="horizontal"
           aspectRatio="2.4 / 1"
-          // Wide enough for the longest category label ("Software and
-          // subscriptions") at BarYAxis's patched 190px cap -- see the
-          // comment there.
-          margin={{ left: 200, right: 16, top: 8, bottom: 8 }}
+          // Wide enough for the longest section name in either language
+          // ("Other income and expenses", "Финансовые доходы и расходы") at
+          // BarYAxis's patched 220px cap -- see the comment there. The two
+          // numbers move together or a label truncates.
+          margin={{ left: 236, right: 16, top: 8, bottom: 8 }}
           animationDuration={chartsAnimate() ? 600 : 0}
         >
           <Grid horizontal={false} vertical />

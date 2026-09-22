@@ -38,6 +38,7 @@ import { ChartTooltip } from "@/components/charts/tooltip";
 import { exponentOf, formatMinorUnits } from "../../money";
 import type { Locale } from "../../i18n";
 import type { Report } from "../../data/report";
+import { lineName } from "../lineName";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
 import { chartsAnimate } from "./support";
@@ -57,7 +58,7 @@ export function facets(report: Report, locale: Locale): Facet[] {
     .filter((l) => !l.computed && l.categoryId !== "01")
     .map((l) => ({
       categoryId: l.categoryId,
-      label: l.label,
+      label: lineName(l.categoryId, l.label, locale),
       // Ranked by size, but plotted below with its real sign -- see the file
       // header on why the two must not be the same number.
       totalAbs: exp === undefined ? 0 : Math.abs(Number(BigInt(l.total.minorUnits))),
@@ -78,7 +79,13 @@ function Facet({ facet }: Readonly<{ facet: Facet }>) {
 
   return (
     <div>
-      <p className="text-2xs font-semibold text-text-subtle">{facet.label}</p>
+      {/* A facet's heading is its only identity -- every line in this chart
+          is the same hue (§13.4) -- so it is read at the body size rather
+          than the micro one, and `title` carries a name too long for the
+          column since these became real names rather than abbreviations. */}
+      <p className="truncate text-xs font-medium text-text" title={facet.label}>
+        {facet.label}
+      </p>
       <LineChart data={rowsWithAvg} xDataKey="period" margin={{ top: 8, right: 4, bottom: 4, left: 4 }} aspectRatio="2.4 / 1">
         <Line dataKey="value" stroke="var(--chart-1)" strokeWidth={2} animate={chartsAnimate()} showMarkers={false} />
         <Line dataKey="avg" stroke="var(--vk-chart-deemph)" strokeWidth={1} animate={false} showMarkers={false} showHighlight={false} />
@@ -106,6 +113,7 @@ export function CategoryTrendChart({
   return (
     <ChartShell
       titleKey="chart.trend.title"
+      noteKey="chart.trend.note"
       locale={locale}
       hasData={data.length > 0}
       table={

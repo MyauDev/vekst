@@ -28,22 +28,26 @@
  * be `SubtotalRow`'s job. Below the table, `report.buckets` -- what the
  * table could not include, in the fixed order CLAUDE.md names: unclassified,
  * non-P&L, unallocated, other basis.
+ *
+ * There is no footer row. There was one, labelled "Net result", printing
+ * `report.netByPeriod` -- which is NI (95), which is already the last line of
+ * `Order` and was therefore already the row directly above it. Two rows, the
+ * same figures, different names, and a reader checking one against the other
+ * finds they agree and learns nothing. Removed 2026-09-22; the bottom line is
+ * the NI row, and it is set in semibold to say so.
  */
 import { Link } from "@tanstack/react-router";
 
 import { NO_DATA, formatMinorUnits, exponentOf, localeTag } from "../money";
 import { t } from "../i18n";
-import type { Locale, MessageKey } from "../i18n";
+import type { Locale } from "../i18n";
 import { formatPeriodShort } from "../ui/period";
 import type { Money } from "../data/types";
-import type { Report, ReportLine, ReportBucket, BucketKind } from "../data/report";
+import type { Report, ReportLine, ReportBucket } from "../data/report";
+import { BUCKET_KEY, lineAbbreviation, lineName } from "./lineName";
 
-const BUCKET_KEY: Record<BucketKind, MessageKey> = {
-  unclassified: "report.bucket.unclassified",
-  non_pnl: "report.bucket.non_pnl",
-  unallocated: "report.bucket.unallocated",
-  other_basis: "report.bucket.other_basis",
-};
+/** `core/internal/report/pnl.go`'s `NI` -- the last line of its `Order`. */
+const NET_INCOME = "95";
 
 function fmt(m: Money, locale: Locale): string {
   const exp = exponentOf(m.currencyCode);
@@ -123,19 +127,35 @@ function Row({
   to: string;
   linked: boolean;
 }>) {
+  const abbreviation = lineAbbreviation(line.categoryId, line.label, locale);
   return (
     <tr
       className={
-        line.computed
-          ? "h-10 border-b-2 border-border-strong font-medium"
-          : "h-10 border-b border-border"
+        // NI is the bottom line and the last row of `Order`, so it carries
+        // the weight the removed footer used to (see the file header).
+        line.categoryId === NET_INCOME
+          ? "h-11 border-b-2 border-border-strong font-semibold"
+          : line.computed
+            ? "h-10 border-b-2 border-border-strong font-medium"
+            : "h-10 border-b border-border"
       }
     >
       <th
         scope="row"
         className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left font-normal"
       >
-        {line.label}
+        {/* The name an owner reads, then the abbreviation the accounting
+            structure is written in. Both, because they serve different
+            readers and neither can be dropped: "OIE" alone is unreadable to
+            the person the product is for, and dropping it loses the anchor an
+            accountant reads down the column for -- and the string the backend
+            actually keys the line by (`app/lineName.ts`). */}
+        {lineName(line.categoryId, line.label, locale)}
+        {abbreviation ? (
+          <span className="ml-2 text-2xs uppercase tracking-wider text-text-subtle">
+            {abbreviation}
+          </span>
+        ) : null}
       </th>
       {line.values.map((v, i) => (
         <Figure
@@ -272,21 +292,6 @@ export function PnlTable({
             />
           ))}
         </tbody>
-
-        <tfoot>
-          <tr className="h-11 font-semibold">
-            <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-surface-raised pr-3 pl-4 text-left">
-              {t("report.net", locale)}
-            </th>
-            {report.netByPeriod.map((m, i) => (
-              <td key={report.periods[i]} className="tabular px-3 text-right">
-                {fmt(m, locale)}
-              </td>
-            ))}
-            <td className="tabular px-3 text-right">{fmt(report.netTotal, locale)}</td>
-            <td />
-          </tr>
-        </tfoot>
 
         {report.buckets.length > 0 ? (
           <tbody>

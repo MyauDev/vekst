@@ -35,6 +35,7 @@ import { t } from "../i18n";
 import type { Locale } from "../i18n";
 import { formatPeriodLong } from "../ui/period";
 import { useLocale } from "../ui/preferences";
+import { cellName, lineName } from "./lineName";
 import { ErrorState, Loading } from "../ui/feedback";
 
 function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): string {
@@ -87,10 +88,12 @@ function Operands({
   operands,
   period,
   search,
+  locale,
 }: Readonly<{
   operands: readonly DrilldownOperand[];
   period: string;
   search: { from: string; to: string; view: "table" | "charts" };
+  locale: Locale;
 }>) {
   return (
     <ul className="flex flex-col gap-1 py-4">
@@ -102,7 +105,10 @@ function Operands({
             search={search}
             className="flex items-center justify-between gap-3 rounded px-2 py-2 text-sm text-text hover:bg-surface-sunken active:bg-border"
           >
-            <span>{o.label}</span>
+            {/* The readable name, the same one the table row above carries
+                -- an operand list reading "NET SALES" and "CS" tells the
+                reader what GM is keyed by, not what it is made of. */}
+            <span>{lineName(o.categoryId, o.label, locale)}</span>
             <span className="text-2xs uppercase tracking-widest text-text-subtle">
               {o.subtracted ? "−" : "+"}
             </span>
@@ -134,7 +140,12 @@ export function DrilldownPanel() {
           {/* A shared link arrives with no memory of the click, so the panel has
               to say which figure this is rather than assume the reader knows. */}
           <h2 className="truncate text-lg font-semibold tracking-tight">
-            {data?.categoryLabel ?? categoryId}
+            {/* A bucket has no human name on the wire, only a kind, so a
+                panel opened on one used to be headed "unclassified"
+                verbatim; a line arrives as the taxonomy's abbreviation.
+                `cellName` answers both vocabularies -- see
+                `app/lineName.ts`. */}
+            {cellName(categoryId, data?.categoryLabel ?? categoryId, locale)}
           </h2>
           <p className="mt-0.5 text-2xs uppercase tracking-widest text-text-subtle">
             {formatPeriodLong(period, locale)}
@@ -171,7 +182,7 @@ export function DrilldownPanel() {
             <h3 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
               {t("drilldown.operands", locale)}
             </h3>
-            <Operands operands={data.operands} period={period} search={search} />
+            <Operands operands={data.operands} period={period} search={search} locale={locale} />
           </>
         ) : null}
         {data?.kind === "transactions" && !empty ? <Rows rows={data.rows} locale={locale} /> : null}

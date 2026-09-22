@@ -62,6 +62,7 @@ export function RevenueExpenseChart({
   return (
     <ChartShell
       titleKey="chart.revenueExpense.title"
+      noteKey="chart.revenueExpense.note"
       locale={locale}
       hasData={hasData}
       table={

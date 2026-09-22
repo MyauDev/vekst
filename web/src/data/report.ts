@@ -199,6 +199,59 @@ function aggregateReconciliation(lines: readonly ProtoReconciliationLine[]): Rec
   };
 }
 
+/**
+ * One month's actual money movement: what came in, what went out, and the
+ * difference.
+ *
+ * `aggregateReconciliation` above collapses the same wire field to a single
+ * strip for the whole range, which is what proves nothing was dropped -- and
+ * which answers "did it balance", not "when did the money move". They are
+ * different questions and the second one needs the months kept.
+ *
+ * This is not the P&L's revenue and expenses, and the difference is the point
+ * of having both on one screen. `expensesByPeriod` is `NET SALES - CM`: the
+ * cost lines of the profit and loss, which exclude CAPEX, exclude everything
+ * classified out of the P&L, and (on an accrual basis) are dated to when a
+ * cost was incurred rather than when it was paid. This is the bank: every
+ * franc that actually left, whatever it was for. A business can be profitable
+ * on the first and out of money on the second, and that is precisely the month
+ * an owner needs to see.
+ *
+ * Transfers are deliberately absent. The wire counts them apart from in and
+ * out because an organisation moving its own money between its own accounts is
+ * neither -- counting it would show a business trading with itself. The
+ * reconciliation strip is where they are accounted for, and it stays on screen
+ * under both tabs.
+ */
+export interface CashPeriod {
+  period: Period;
+  /** Positive: money in. */
+  moneyIn: Money;
+  /** Negative, the sign convention every outflow in this product uses. */
+  moneyOut: Money;
+  /** `moneyIn + moneyOut`, so a month that took in less than it spent is
+   *  negative -- derived, never read off the wire. */
+  net: Money;
+}
+
+function cashByPeriod(
+  periods: readonly string[],
+  lines: readonly ProtoReconciliationLine[],
+  currency: string,
+): CashPeriod[] {
+  const byPeriod = new Map(lines.map((l) => [l.period, l]));
+  return periods.map((period) => {
+    const line = byPeriod.get(period);
+    // The wire's `in` and `out` are both positive magnitudes ("that is how
+    // they read on a page"); `out` is negated here for the same reason the
+    // aggregate strip negates it.
+    const moneyIn = BigInt(line?.in?.minorUnits ?? "0");
+    const moneyOut = -BigInt(line?.out?.minorUnits ?? "0");
+    const m = (v: bigint): Money => ({ minorUnits: v.toString(), currencyCode: currency });
+    return { period, moneyIn: m(moneyIn), moneyOut: m(moneyOut), net: m(moneyIn + moneyOut) };
+  });
+}
+
 function provenanceFromProto(v: ProtoReportVersions | undefined): Provenance {
   const join = (xs: readonly string[]) => xs.join(", ");
   return {
@@ -230,6 +283,9 @@ export interface Report {
   /** The same derivation, per period -- `RevenueExpenseChart`'s own need,
    *  kept here rather than duplicated as BigInt arithmetic inside a chart. */
   expensesByPeriod: readonly Money[];
+  /** What actually moved through the accounts each month -- see `CashPeriod`
+   *  on why this is not `expensesByPeriod` with a different sign. */
+  cash: readonly CashPeriod[];
   reconciliation: Reconciliation;
   provenance: Provenance;
   /** The unclassified bucket's total. A headline figure because an
@@ -281,6 +337,7 @@ function reportFromProto(
       ),
       currencyCode: currency,
     })),
+    cash: cashByPeriod(periods, protoReconciliation, currency),
     reconciliation: aggregateReconciliation(protoReconciliation),
     provenance: provenanceFromProto(versions),
     unreviewedAmount: unclassified?.total ?? { minorUnits: "0", currencyCode: currency },

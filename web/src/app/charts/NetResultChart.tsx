@@ -49,6 +49,7 @@ export function NetResultChart({ report, locale }: Readonly<{ report: Report; lo
   return (
     <ChartShell
       titleKey="chart.netresult.title"
+      noteKey="chart.netresult.note"
       locale={locale}
       hasData={hasData}
       table={

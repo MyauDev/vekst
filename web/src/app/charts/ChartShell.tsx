@@ -22,6 +22,18 @@ import { canRenderChart } from "./support";
 interface ChartShellProps {
   titleKey: MessageKey;
   locale: Locale;
+  /**
+   * One line saying what this card is showing, under the title. Added
+   * 2026-09-22: five cards whose headings were two words each, stacked on one
+   * tab, left the reader to work out from the axes which figures each one was
+   * drawn from -- and two of them ("Revenue against expenses", "Money in and
+   * out") are genuinely different sets of numbers that look alike. The
+   * distinction has to be on the card, not in whoever's head built it.
+   *
+   * Optional only so a card with genuinely nothing to add is not made to
+   * invent a sentence.
+   */
+  noteKey?: MessageKey;
   /** `false` when there is nothing to draw (e.g. every value is zero). */
   hasData: boolean;
   chart: ReactNode;
@@ -30,6 +42,7 @@ interface ChartShellProps {
 
 export function ChartShell({
   titleKey,
+  noteKey,
   locale,
   hasData,
   chart,
@@ -41,9 +54,11 @@ export function ChartShell({
   return (
     <section className="rounded-panel border border-border bg-surface-raised p-6">
       <div className="flex flex-wrap items-baseline gap-4">
-        <h2 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
-          {t(titleKey, locale)}
-        </h2>
+        {/* A card's own name, at the size §14.2 raised the ceiling to rather
+            than the 2xs uppercase micro-heading it used to be. An uppercase
+            tracked-out label is a column header; this is the title of the
+            thing in the card, and it is the first thing read on the tab. */}
+        <h2 className="text-sm font-semibold text-text">{t(titleKey, locale)}</h2>
         {drawable ? (
           <button
             type="button"
@@ -54,6 +69,10 @@ export function ChartShell({
           </button>
         ) : null}
       </div>
+
+      {noteKey ? (
+        <p className="mt-1 max-w-prose text-xs text-text-muted">{t(noteKey, locale)}</p>
+      ) : null}
 
       <div className="mt-4">{asTable || !drawable ? table : chart}</div>
     </section>
