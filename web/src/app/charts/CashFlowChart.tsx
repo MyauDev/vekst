@@ -43,6 +43,7 @@ import { t } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { formatPeriodShort } from "../../ui/period";
 import type { Report } from "../../data/report";
+import { ChartLegend } from "./ChartLegend";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
 import { chartsAnimate } from "./support";
@@ -122,26 +123,14 @@ export function CashFlowChart({
       }
       chart={
         <div>
-          {/* §13.5's legend, marked the same way `RevenueExpenseChart`'s is so
-              `charts.test.tsx` can assert it without parsing JSX. */}
-          <div data-chart-legend className="mb-3 flex items-center gap-5 text-2xs text-text-muted">
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--chart-1)" }}
-              />
-              {inLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--chart-2)" }}
-              />
-              {outLabel}
-            </span>
-          </div>
+          {/* §13.5's legend, the same component `RevenueExpenseChart` draws
+              -- and the same two slots, so "in" wears revenue's hue. */}
+          <ChartLegend
+            items={[
+              { color: "var(--chart-1)", label: inLabel },
+              { color: "var(--chart-2)", label: outLabel },
+            ]}
+          />
 
           <BarChart
             data={data}

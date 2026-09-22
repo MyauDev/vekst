@@ -117,8 +117,11 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
     // data-chart-legend marks it for exactly this assertion.
     for (const file of ["RevenueExpenseChart.tsx", "CashFlowChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
-      expect(body, `${file} has no legend`).toMatch(/data-chart-legend/);
+      expect(body, `${file} has no legend`).toMatch(/<ChartLegend/);
     }
+    // And the component they both draw still carries the marker, so the
+    // rendered DOM is what these two assertions say it is.
+    expect(readFileSync(join(chartsDir, "ChartLegend.tsx"), "utf8")).toMatch(/data-chart-legend/);
   });
 
   it("the single-series charts do not", () => {
@@ -126,7 +129,7 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
     // "an icon beside every label" mistake in chart form.
     for (const file of ["ExpenseCategoriesChart.tsx", "NetResultChart.tsx", "CategoryTrendChart.tsx"]) {
       const body = readFileSync(join(chartsDir, file), "utf8");
-      expect(body).not.toMatch(/data-chart-legend/);
+      expect(body, `${file} draws a legend`).not.toMatch(/<ChartLegend|data-chart-legend/);
     }
   });
 
@@ -153,39 +156,49 @@ describe("WORKFLOW.md §5.3 acceptance scenarios", () => {
  * `Math.abs()`-ed every non-revenue line, which drew that gain as this
  * range's second-biggest expense.
  */
+const money = (minorUnits: string): ReportLine["total"] => ({ minorUnits, currencyCode: "EUR" });
+
+const line = (categoryId: string, label: string, computed: boolean, totalMinor: string): ReportLine => ({
+  categoryId,
+  label,
+  computed,
+  values: [money(totalMinor)],
+  total: money(totalMinor),
+});
+
+/**
+ * A report with nothing in it but what a test puts there. Both blocks below
+ * need one and neither needs the same part of it -- one is about which lines
+ * become bars, the other about the signs on `cash` -- so the fields each
+ * cares about are arguments and the rest is zero.
+ */
+function report(over: Partial<Report> = {}): Report {
+  const periods = over.periods ?? ["2026-01"];
+  return {
+    currencyCode: "EUR",
+    periods,
+    basis: "cash",
+    lines: [],
+    buckets: [],
+    netByPeriod: periods.map(() => money("0")),
+    netTotal: money("0"),
+    revenueTotal: money("0"),
+    expensesTotal: money("0"),
+    expensesByPeriod: periods.map(() => money("0")),
+    cash: periods.map((period) => ({
+      period, moneyIn: money("0"), moneyOut: money("0"), net: money("0"),
+    })),
+    reconciliation: {
+      opening: money("0"), moneyIn: money("0"), moneyOut: money("0"),
+      transfers: money("0"), closing: money("0"),
+    },
+    provenance: { taxonomyVersion: "v1", rulesetVersion: "v1", engineVersion: "v1" },
+    unreviewedAmount: money("0"),
+    ...over,
+  };
+}
+
 describe("a section that nets to a credit is not an expense", () => {
-  const money = (minorUnits: string): ReportLine["total"] => ({ minorUnits, currencyCode: "EUR" });
-
-  const line = (categoryId: string, label: string, computed: boolean, totalMinor: string): ReportLine => ({
-    categoryId,
-    label,
-    computed,
-    values: [money(totalMinor)],
-    total: money(totalMinor),
-  });
-
-  function report(lines: ReportLine[]): Report {
-    return {
-      currencyCode: "EUR",
-      periods: ["2026-01"],
-      basis: "cash",
-      lines,
-      buckets: [],
-      netByPeriod: [money("0")],
-      netTotal: money("0"),
-      revenueTotal: money("0"),
-      expensesTotal: money("0"),
-      expensesByPeriod: [money("0")],
-      cash: [{ period: "2026-01", moneyIn: money("0"), moneyOut: money("0"), net: money("0") }],
-      reconciliation: {
-        opening: money("0"), moneyIn: money("0"), moneyOut: money("0"),
-        transfers: money("0"), closing: money("0"),
-      },
-      provenance: { taxonomyVersion: "v1", rulesetVersion: "v1", engineVersion: "v1" },
-      unreviewedAmount: money("0"),
-    };
-  }
-
   // Revenue, a genuine cost (OPEX, prints positive), a section that nets to
   // a credit (Financial result, prints negative -- the live shape above),
   // and a computed line (NI) that must never be treated as a category.
@@ -193,7 +206,7 @@ describe("a section that nets to a credit is not an expense", () => {
   const opex = line("04", "OPEX", false, "500000");
   const financialGain = line("06", "FR", false, "-399717106");
   const ni = line("95", "NI", true, "500000");
-  const mixed = report([revenue, opex, financialGain, ni]);
+  const mixed = report({ lines: [revenue, opex, financialGain, ni] });
 
   // The labels below are the resolved names, not the wire's abbreviations:
   // every chart runs its lines through `app/lineName.ts` now. The fixture
@@ -245,34 +258,17 @@ describe("a section that nets to a credit is not an expense", () => {
  * with nothing on the card to say which is which.
  */
 describe("money in and out is drawn with the signs it arrives with", () => {
-  const money = (minorUnits: string) => ({ minorUnits, currencyCode: "EUR" });
-
-  const report = {
-    currencyCode: "EUR",
+  // A month that took in more than it spent, and one that did not.
+  const twoMonths = report({
     periods: ["2026-01", "2026-02"],
-    basis: "cash" as const,
-    lines: [],
-    buckets: [],
-    netByPeriod: [money("0"), money("0")],
-    netTotal: money("0"),
-    revenueTotal: money("0"),
-    expensesTotal: money("0"),
-    expensesByPeriod: [money("0"), money("0")],
     cash: [
-      // A month that took in more than it spent, and one that did not.
       { period: "2026-01", moneyIn: money("800000"), moneyOut: money("-760000"), net: money("40000") },
       { period: "2026-02", moneyIn: money("500000"), moneyOut: money("-900000"), net: money("-400000") },
     ],
-    reconciliation: {
-      opening: money("0"), moneyIn: money("0"), moneyOut: money("0"),
-      transfers: money("0"), closing: money("0"),
-    },
-    provenance: { taxonomyVersion: "v1", rulesetVersion: "v1", engineVersion: "v1" },
-    unreviewedAmount: money("0"),
-  } satisfies Report;
+  });
 
   it("keeps the outflow below the line", () => {
-    const [january, february] = cashRows(report, "en");
+    const [january, february] = cashRows(twoMonths, "en");
     expect(january!.moneyIn).toBe(8000);
     expect(january!.moneyOut).toBe(-7600);
     expect(february!.moneyOut).toBe(-9000);
@@ -281,11 +277,11 @@ describe("money in and out is drawn with the signs it arrives with", () => {
   it("prints a month that spent more than it took in as a negative net", () => {
     // The two bars of a break-even month look alike; only the figure says
     // which way it went, which is why the table carries a third row.
-    const [, february] = cashRows(report, "en");
+    const [, february] = cashRows(twoMonths, "en");
     expect(february!.netText).toMatch(/^−/);
   });
 
   it("draws one column per period of the report, in the report's own order", () => {
-    expect(cashRows(report, "en")).toHaveLength(report.periods.length);
+    expect(cashRows(twoMonths, "en")).toHaveLength(twoMonths.periods.length);
   });
 });

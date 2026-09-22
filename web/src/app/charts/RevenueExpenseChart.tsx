@@ -24,6 +24,7 @@ import { t } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { formatPeriodShort } from "../../ui/period";
 import type { Report } from "../../data/report";
+import { ChartLegend } from "./ChartLegend";
 import { ChartShell } from "./ChartShell";
 import { PeriodTable } from "./ChartTable";
 import { chartsAnimate } from "./support";
@@ -77,28 +78,13 @@ export function RevenueExpenseChart({
       }
       chart={
         <div>
-          {/* The legend §13.5 requires for two or more series. Marked with
-              data-chart-legend so charts.test.tsx can assert its presence
-              here and its absence on the single-series charts, without
-              parsing JSX to find it. */}
-          <div data-chart-legend className="mb-3 flex items-center gap-5 text-2xs text-text-muted">
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--chart-1)" }}
-              />
-              {revenueLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--chart-2)" }}
-              />
-              {expensesLabel}
-            </span>
-          </div>
+          {/* The legend §13.5 requires for two or more series. */}
+          <ChartLegend
+            items={[
+              { color: "var(--chart-1)", label: revenueLabel },
+              { color: "var(--chart-2)", label: expensesLabel },
+            ]}
+          />
 
           <LineChart data={rows} xDataKey="period" margin={MARGIN} aspectRatio="2.6 / 1">
             <Grid horizontal vertical={false} />
