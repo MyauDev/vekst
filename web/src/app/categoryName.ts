@@ -48,3 +48,22 @@ export function categoryName(code: string, fallback: string, locale: Locale): st
   if (!NAMED.has(code)) return fallback;
   return t(`category.${code}` as MessageKey, locale);
 }
+
+/** Every branch below a section the same seed creates -- what the review
+ *  picker's tree shows on the way down to a leaf. Sections themselves are
+ *  `lineName()`'s. */
+const BRANCHES = new Set([
+  "0301",
+  "0401", "040101", "04010101", "04010102", "040102", "04010201", "04010202",
+  "040103", "04010301", "040104", "04010401", "040105", "04010501",
+  "0402", "040201", "04020101", "04020102", "040202", "04020201", "04020202",
+  "0405", "040501", "04050101", "04050102",
+  "0501", "050103", "0502",
+  "0601", "0602",
+]);
+
+/** The readable name for a branch of the tree, with the same fallback. */
+export function branchName(code: string, fallback: string, locale: Locale): string {
+  if (!BRANCHES.has(code)) return fallback;
+  return t(`categoryBranch.${code}` as MessageKey, locale);
+}

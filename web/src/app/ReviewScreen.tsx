@@ -16,12 +16,16 @@
  * nothing else on this screen does -- the legend lists keys, not what pressing
  * one commits to.
  *
- * Only digits `1`-`9` can ever address a category directly, and an organisation's
- * taxonomy runs to dozens of leaves (the industry template alone seeds around
- * 60), so the earlier, keyboard-only version of this screen made every category
- * past the ninth unreachable by any means. The filter field narrows that list to
- * what a person actually typed, which also re-numbers `1`-`9` onto whatever
- * matched -- and a click reaches any of them regardless, filtered or not.
+ * The picker is the taxonomy's own tree, walked one level at a time: a section
+ * (Net sales, Operating expenses, ...), then a department, then the leaf. A flat
+ * list of leaves could not tell five "Salary" leaves apart -- they differ only by
+ * the department above them. `1`-`9` address whatever the current level shows,
+ * a branch opens and a leaf is chosen; `Backspace` goes back up, and the
+ * breadcrumb above the options jumps to any level by click. The filter field
+ * searches every leaf at once, each shown with its path, and re-numbers `1`-`9`
+ * onto what matched. Only the side of the P&L the group's sign points to is
+ * offered -- an outflow never sees "Net sales" -- until the reviewer asks for
+ * the rest.
  *
  * 44px rows rather than the 40px of the tables (§5, as amended 2026-09-16).
  * This screen takes keyboard focus and its rows are targets, so it keeps the
@@ -32,7 +36,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ResolveGroupError, decideGroup, listCategories, listGroupTransactions, listReviewGroups } from "../data/review";
 import type { ReviewDecision } from "../data/review";
-import { categoryName } from "./categoryName";
+import { SEPARATOR, buildCategoryTree, leavesOf, openPath, sideOf } from "./categoryTree";
+import type { Side, TreeNode } from "./categoryTree";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
 import { authErrorMessage, t } from "../i18n";
 import type { Locale } from "../i18n";
@@ -64,6 +69,7 @@ function Legend({ locale }: Readonly<{ locale: Locale }>) {
       </span>,
       "review.key.move",
     ],
+    [<Kbd key="b">⌫</Kbd>, "review.key.back"],
     [<Kbd key="c">Esc</Kbd>, "review.key.clear"],
   ] as const;
 
@@ -88,6 +94,14 @@ export function ReviewScreen() {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // The branches opened on the way down, by key. Keys rather than nodes: the
+  // tree is rebuilt whenever the locale changes, and a stale node would keep
+  // showing the old language's names.
+  const [openKeys, setOpenKeys] = useState<readonly string[]>([]);
+  // The other side of the taxonomy, on request: a counterparty that both
+  // pays and is paid nets to one sign, and its rows of the other sign still
+  // need a category from the other side.
+  const [showAllSides, setShowAllSides] = useState(false);
   // A decision that fails must say so: the backend returns a coded failure
   // (a race with another reviewer, a stale category), and a screen that
   // swallows it looks identical to one that did nothing at all.
@@ -97,25 +111,53 @@ export function ReviewScreen() {
   const groups = useQuery({ queryKey: ["reviewGroups"], queryFn: listReviewGroups });
   const categories = useQuery({ queryKey: ["categories"], queryFn: listCategories });
 
-  // Translated once per locale change, not per render of every button below:
-  // `label` becomes what the picker, the search and the "Selected" line all
-  // read, so a Russian reviewer can find "Аренда офиса" by typing "аренда"
-  // rather than having to know the English name stored on the wire.
-  const allCategories = useMemo(
-    () => (categories.data ?? []).map((c) => ({ ...c, label: categoryName(c.code, c.label, locale) })),
-    [categories.data, locale],
-  );
-  // Recomputed, not just filtered from a stale reference: this is also what
-  // "1"-"9" address below, so it has to be exactly what is on screen right
-  // now, search included.
-  const visibleCategories = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return needle ? allCategories.filter((c) => c.label.toLowerCase().includes(needle)) : allCategories;
-  }, [allCategories, query]);
-  const selectedCategory = selected ? allCategories.find((c) => c.code === selected) : undefined;
-
   const list = groups.data ?? [];
   const group = list[Math.min(index, Math.max(list.length - 1, 0))];
+
+  // Money that went out is an expense, money that came in is income: the
+  // picker opens on the side the group's own sign says, so an outflow is
+  // never offered "Net sales". A group that nets to zero says nothing.
+  const units = group?.total.minorUnits ?? "0";
+  const groupSide: Side | null = /^-?0*$/.test(units) ? null : units.startsWith("-") ? "expense" : "income";
+  const side = showAllSides ? null : groupSide;
+
+  // Translated once per locale change, not per render of every button below:
+  // the names in it are what the picker, the search and the "Selected" line all
+  // read, so a Russian reviewer can find "Аренда офиса" by typing "аренда"
+  // rather than having to know the English name stored on the wire.
+  const tree = useMemo(() => {
+    const offered = (categories.data ?? []).filter((c) => {
+      const s = sideOf(c.code);
+      return side === null || s === "both" || s === side;
+    });
+    return buildCategoryTree(offered, locale);
+  }, [categories.data, locale, side]);
+  const allLeaves = useMemo(() => leavesOf(tree), [tree]);
+  const trail = useMemo(() => openPath(tree, openKeys), [tree, openKeys]);
+  // Recomputed, not just filtered from a stale reference: this is also what
+  // "1"-"9" address below, so it has to be exactly what is on screen right
+  // now, search included. A search spans the whole tree and matches a path as
+  // much as a name: "finance" finds every leaf under Finance.
+  const searching = query.trim() !== "";
+  const visibleOptions: readonly TreeNode[] = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (needle) {
+      return allLeaves.filter((l) => [...l.trail, l.name].join(" ").toLowerCase().includes(needle));
+    }
+    return (trail.at(-1) ?? tree).children;
+  }, [allLeaves, query, trail, tree]);
+  const selectedLeaf = selected ? allLeaves.find((l) => l.code === selected) : undefined;
+
+  const choose = useCallback(
+    (node: TreeNode) => {
+      if (node.kind === "leaf") {
+        setSelected(node.code);
+      } else {
+        setOpenKeys([...trail.map((b) => b.key), node.key]);
+      }
+    },
+    [trail],
+  );
 
   // A group's rows are a separate call (`ListGroupTransactions`), not part of
   // `ListReviewGroups` -- fetched for whichever group is open, not for all of
@@ -158,6 +200,8 @@ export function ReviewScreen() {
     setDecideError(null);
     setQuery("");
     setSelected(null);
+    setOpenKeys([]);
+    setShowAllSides(false);
   }, [group?.counterpartyKey]);
 
   // Bound to the document rather than to a focused element: the queue is the
@@ -172,16 +216,17 @@ export function ReviewScreen() {
   // digit, Enter, done, hands never leave the keyboard. "t"/"n" do not --
   // "Training" and "Not in P&L" are both real category text a person may be
   // typing -- and neither do the arrow keys, which move the caret while a
-  // field has focus rather than the selected group.
+  // field has focus rather than the selected group, nor Backspace, which
+  // deletes what was typed.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const typing = document.activeElement instanceof HTMLInputElement;
 
       if (/^[1-9]$/.test(e.key)) {
-        const cat = visibleCategories[Number(e.key) - 1];
-        if (cat) {
-          setSelected(cat.code);
+        const node = visibleOptions[Number(e.key) - 1];
+        if (node) {
+          choose(node);
           e.preventDefault();
         }
         return;
@@ -210,15 +255,20 @@ export function ReviewScreen() {
           setIndex((i) => Math.max(i - 1, 0));
           e.preventDefault();
           break;
+        case "Backspace":
+          setOpenKeys((keys) => keys.slice(0, -1));
+          e.preventDefault();
+          break;
         case "Escape":
           setSelected(null);
+          setOpenKeys([]);
           e.preventDefault();
           break;
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [visibleCategories, selected, decide, list.length]);
+  }, [visibleOptions, choose, selected, decide, list.length]);
 
   const rows = transactions.data ?? [];
   const virtual = useVirtualRows({ count: rows.length, parentRef, rowHeight: ROW });
@@ -267,10 +317,10 @@ export function ReviewScreen() {
           {/* The underline-only choice a category makes when picked by digit
               is easy to miss; this says the same thing in words. */}
           <span className="text-sm text-text-muted">
-            {selectedCategory ? (
+            {selectedLeaf ? (
               <>
-                {t("review.selected", locale)}:{" "}
-                <span className="font-medium text-text">{selectedCategory.label}</span>
+                {t("review.selected", locale)}: {selectedLeaf.trail.map((name) => name + SEPARATOR).join("")}
+                <span className="font-medium text-text">{selectedLeaf.name}</span>
               </>
             ) : (
               " "
@@ -278,28 +328,89 @@ export function ReviewScreen() {
           </span>
         </div>
 
+        {searching ? null : (
+          <nav aria-label={t("review.tree.root", locale)} className="flex flex-wrap items-center gap-1 text-sm">
+            {[{ key: "", label: t("review.tree.root", locale) }, ...trail].map((b, i, all) => (
+              <span key={b.key} className="flex items-center gap-1">
+                {i > 0 ? <span className="text-text-subtle">›</span> : null}
+                {i === all.length - 1 ? (
+                  <span aria-current="location" className="font-medium text-text">
+                    {b.label}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setOpenKeys(trail.slice(0, i).map((x) => x.key))}
+                    className="text-text-muted underline-offset-2 hover:text-text hover:underline"
+                  >
+                    {b.label}
+                  </button>
+                )}
+              </span>
+            ))}
+          </nav>
+        )}
+
+        {groupSide ? (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
+            {showAllSides ? null : t(groupSide === "expense" ? "review.side.expense" : "review.side.income", locale)}
+            <button
+              type="button"
+              onClick={() => {
+                // Hiding a side must not leave a choice from it armed behind
+                // Enter, invisible.
+                if (showAllSides) setSelected(null);
+                setShowAllSides(!showAllSides);
+                setOpenKeys([]);
+              }}
+              className="text-text underline underline-offset-2 hover:text-text-muted"
+            >
+              {t(showAllSides ? "review.side.showMatching" : "review.side.showAll", locale)}
+            </button>
+          </p>
+        ) : null}
+
         <ol className="flex flex-wrap gap-2">
-          {visibleCategories.length === 0 ? (
+          {visibleOptions.length === 0 ? (
             <li className="text-sm text-text-subtle">{t("review.search.empty", locale)}</li>
           ) : (
-            visibleCategories.map((c, i) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(c.code)}
-                  aria-pressed={selected === c.code}
-                  className={
-                    "flex items-center gap-1.5 rounded border px-2 py-1 text-sm transition-colors " +
-                    (selected === c.code
-                      ? "border-text bg-surface-sunken font-medium text-text"
-                      : "border-transparent text-text-muted hover:border-border hover:bg-surface-sunken hover:text-text")
-                  }
-                >
-                  {i < 9 ? <Kbd>{i + 1}</Kbd> : null}
-                  {c.label}
-                </button>
-              </li>
-            ))
+            visibleOptions.map((node, i) => {
+              const on = node.kind === "leaf" && selected === node.code;
+              return (
+                <li key={node.key}>
+                  <button
+                    type="button"
+                    onClick={() => choose(node)}
+                    aria-pressed={node.kind === "leaf" ? on : undefined}
+                    className={
+                      "flex items-center gap-1.5 rounded border px-2 py-1 text-left text-sm transition-colors " +
+                      (on
+                        ? "border-text bg-surface-sunken font-medium text-text"
+                        : node.kind === "branch"
+                          ? "border-border text-text hover:border-border-strong hover:bg-surface-sunken"
+                          : "border-transparent text-text-muted hover:border-border hover:bg-surface-sunken hover:text-text")
+                    }
+                  >
+                    {i < 9 ? <Kbd>{i + 1}</Kbd> : null}
+                    {/* In a search the tree is gone, so each match carries the
+                        path the tree would otherwise have shown. */}
+                    {searching && node.kind === "leaf" ? (
+                      <>
+                        <span className="text-text-subtle">{node.trail.map((name) => name + SEPARATOR).join("")}</span>
+                        {node.name}
+                      </>
+                    ) : (
+                      node.label
+                    )}
+                    {node.kind === "branch" ? (
+                      <span aria-hidden="true" className="text-text-subtle">
+                        ›
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })
           )}
         </ol>
 

@@ -61,32 +61,45 @@ vi.mock("../transport", async () => {
       },
     ],
   };
-  // Ten, not two: change 5.4's own reason for existing is that "1"-"9" alone
-  // cannot address the tenth, and a fixture with only two categories could
-  // never prove that a click reaches it.
+  // A tree, because the picker is one. "Costs > Admin" holds ten leaves, not
+  // two: "1"-"9" alone cannot address the tenth, and a fixture with fewer
+  // could never prove that a click reaches it. Two leaves are called
+  // "Salary" -- the reason the picker became a tree -- and one of them sits
+  // under a single-child branch, which the tree folds into its parent.
   //
-  // Codes are "99…", deliberately outside the real taxonomy: `categoryName()`
-  // translates a known code regardless of what the fixture calls it, and a
-  // code this suite invented colliding with a real one would have this
-  // fixture's own "Bank commission" silently overridden by the production
-  // Russian catalogue's name for a completely different leaf. An org-scoped
-  // code this build has never heard of is also the more representative case
-  // -- most of an organisation's own taxonomy is exactly that.
+  // Codes are "98…"/"99…", deliberately outside the real taxonomy:
+  // `categoryName()` translates a known code regardless of what the fixture
+  // calls it, and a code this suite invented colliding with a real one would
+  // have this fixture's own "Bank commission" silently overridden by the
+  // production Russian catalogue's name for a completely different leaf. An
+  // org-scoped code this build has never heard of is also the more
+  // representative case -- most of an organisation's own taxonomy is exactly
+  // that.
+  const admin = (code: string, name: string) => ({
+    id: `c${code}`, code, name, path: `Costs > Admin > ${name}`, isPnl: true,
+  });
   const CATEGORIES = [
-    { id: "c1", code: "9902", name: "Logistics", path: "OPEX > Marketing and Sales > Marketing > MRK Services > Logistics", isPnl: true },
-    { id: "c2", code: "9901", name: "Software and subscriptions", path: "OPEX > Marketing and Sales > Marketing > MRK Services", isPnl: true },
-    { id: "c3", code: "9903", name: "Office rent", path: "OPEX > Admin > Office rent", isPnl: true },
-    { id: "c4", code: "9904", name: "Utilities", path: "OPEX > Admin > Utilities", isPnl: true },
-    { id: "c5", code: "9905", name: "Insurance", path: "OPEX > Admin > Insurance", isPnl: true },
-    { id: "c6", code: "9906", name: "Legal fees", path: "OPEX > Admin > Legal fees", isPnl: true },
-    { id: "c7", code: "9907", name: "Bank commission", path: "OPEX > Admin > Bank commission", isPnl: true },
-    { id: "c8", code: "9908", name: "Travel", path: "OPEX > Admin > Travel", isPnl: true },
-    { id: "c9", code: "9909", name: "Training", path: "OPEX > Admin > Training", isPnl: true },
-    { id: "c10", code: "9910", name: "Equipment", path: "OPEX > Admin > Equipment", isPnl: true },
-    // A real taxonomy code, unlike the ten above -- for the one test that
-    // needs `categoryName()` to actually translate something rather than
-    // fall back to what the wire sent.
-    { id: "c11", code: "0401010203", name: "Audit", path: "OPEX > Admin > Finance > Audit", isPnl: true },
+    admin("990101", "Logistics"),
+    admin("990102", "Office rent"),
+    admin("990103", "Utilities"),
+    admin("990104", "Insurance"),
+    admin("990105", "Legal fees"),
+    admin("990106", "Bank commission"),
+    admin("990107", "Travel"),
+    admin("990108", "Training"),
+    admin("990109", "Software"),
+    admin("990110", "Equipment"),
+    { id: "c11", code: "990201", name: "Salary", path: "Costs > Developers > Salary", isPnl: true },
+    { id: "c12", code: "99030101", name: "Salary", path: "Costs > Sales team > Staff > Salary", isPnl: true },
+    { id: "c13", code: "990302", name: "Sales tools", path: "Costs > Sales team > Sales tools", isPnl: true },
+    { id: "c14", code: "9801", name: "Consulting", path: "Revenue > Consulting", isPnl: true },
+    // A real taxonomy code, unlike the rest -- for the one test that needs
+    // `categoryName()` and the section and branch names to actually translate
+    // something rather than fall back to what the wire sent.
+    { id: "c15", code: "0401010203", name: "Audit", path: "OPEX > Administration > Finance > FI Services > Audit", isPnl: true },
+    // A real income leaf: every group in GROUPS is money going out, so this
+    // one is offered only after asking for the other side.
+    { id: "c16", code: "050202", name: "Return of payment", path: "OIE > OTHER INCOME > Return of payment", isPnl: true },
   ];
 
   return {
@@ -169,7 +182,7 @@ describe("the review queue", () => {
     // nobody works twice.
     expect(screen.getByText(t("review.legend"))).toBeDefined();
     for (const k of ["review.key.digit", "review.key.enter", "review.key.transfer",
-                     "review.key.notPnl", "review.key.clear"] as const) {
+                     "review.key.notPnl", "review.key.back", "review.key.clear"] as const) {
       expect(screen.getByText(t(k)), k).toBeDefined();
     }
   });
@@ -183,7 +196,8 @@ describe("worked entirely from the keyboard", () => {
     renderReview();
     await screen.findByText("VEKTOR LOGISTIKA");
 
-    await user.keyboard("1");
+    // Costs, then Admin, then Logistics: a digit opens a branch and picks a leaf.
+    await user.keyboard("111");
     await user.keyboard("{Enter}");
 
     // Approving empties the group from the queue and the next one takes its place.
@@ -226,10 +240,24 @@ describe("worked entirely from the keyboard", () => {
     renderReview();
     await screen.findByText("VEKTOR LOGISTIKA");
 
-    await user.keyboard("1");
+    await user.keyboard("111");
     await user.keyboard("{Escape}");
     await user.keyboard("{Enter}");
     expect(screen.getByText("VEKTOR LOGISTIKA")).toBeDefined();
+    // And the picker is back at the top of the tree.
+    expect(screen.getByRole("button", { name: /Costs/ })).toBeDefined();
+  });
+
+  it("goes back up a level with Backspace", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    await user.keyboard("11");
+    expect(screen.getByRole("button", { name: /Logistics/ })).toBeDefined();
+    await user.keyboard("{Backspace}");
+    expect(screen.queryByRole("button", { name: /Logistics/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Developers/ })).toBeDefined();
   });
 
   it("moves between groups with the arrow keys", async () => {
@@ -250,6 +278,8 @@ describe("worked from a click, digit shortcuts included", () => {
     renderReview();
     await screen.findByText("VEKTOR LOGISTIKA");
 
+    await user.click(screen.getByRole("button", { name: /Costs/ }));
+    await user.click(screen.getByRole("button", { name: /Admin/ }));
     await user.click(screen.getByRole("button", { name: /Logistics/ }));
     expect(screen.getByText("Logistics", { selector: "span" })).toBeDefined();
 
@@ -267,7 +297,7 @@ describe("worked from a click, digit shortcuts included", () => {
     renderReview();
     await screen.findByText("VEKTOR LOGISTIKA");
 
-    await user.click(screen.getByRole("button", { name: /Logistics/ }));
+    await user.keyboard("111");
     await user.click(screen.getByRole("button", { name: t("review.action.approve") }));
 
     expect((await screen.findByRole("alert")).textContent).toBe(t("error.review_unknown_category"));
@@ -276,12 +306,13 @@ describe("worked from a click, digit shortcuts included", () => {
   });
 
   it("reaches a category past the ninth, which no digit key can address", async () => {
-    // "Equipment" is CATEGORIES[9] -- the tenth entry, one past every digit
-    // key this screen has. Before this change there was no way to select it
+    // "Equipment" is the tenth leaf under Costs > Admin, one past every digit
+    // key this screen has. Before change 5.4 there was no way to select it
     // at all, mouse or keyboard.
     const user = userEvent.setup();
     renderReview();
     await screen.findByText("VEKTOR LOGISTIKA");
+    await user.keyboard("11");
 
     const equipment = screen.getByRole("button", { name: /Equipment/ });
     // Only the first nine carry a key cap; the tenth has none to click by mistake.
@@ -318,9 +349,63 @@ describe("worked from a click, digit shortcuts included", () => {
     await screen.findByText("VEKTOR LOGISTIKA");
 
     expect(screen.queryByText(new RegExp(t("review.selected")))).toBeNull();
-    await user.keyboard("1");
-    expect(screen.getByText(new RegExp(t("review.selected")))).toBeDefined();
+    await user.keyboard("111");
+    // The whole path, not the leaf alone: the leaf alone is "Salary" five times.
+    expect(screen.getByText(new RegExp(`${t("review.selected")}: Costs › Admin ›`))).toBeDefined();
     expect(screen.getByText("Logistics", { selector: "span" })).toBeDefined();
+  });
+
+  it("offers an outflow only expense categories until asked for the rest", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    expect(screen.getByText(t("review.side.expense"))).toBeDefined();
+    const search = screen.getByLabelText(t("review.search.placeholder"));
+    await user.type(search, "Return of payment");
+    expect(screen.queryByRole("button", { name: /Return of payment/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: t("review.side.showAll") }));
+    expect(screen.getByRole("button", { name: /Return of payment/ })).toBeDefined();
+
+    // Hiding the side again drops a choice made from it, rather than leaving
+    // it armed behind Enter where nobody can see it.
+    await user.click(screen.getByRole("button", { name: /Return of payment/ }));
+    await user.click(screen.getByRole("button", { name: t("review.side.showMatching") }));
+    const approve = screen.getByRole("button", { name: t("review.action.approve") }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+  });
+
+  it("tells two leaves with the same name apart by where they sit", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    // Searching shows every match with its path.
+    await user.type(screen.getByLabelText(t("review.search.placeholder")), "Salary");
+    const matches = screen.getAllByRole("button", { name: /Salary/ });
+    expect(matches.map((b) => b.textContent)).toEqual([
+      "1Costs › Developers › Salary",
+      "2Costs › Sales team › Staff › Salary",
+    ]);
+  });
+
+  it("folds a branch with a single child into it, below the sections", async () => {
+    const user = userEvent.setup();
+    renderReview();
+    await screen.findByText("VEKTOR LOGISTIKA");
+
+    await user.click(screen.getByRole("button", { name: /Costs/ }));
+    await user.click(screen.getByRole("button", { name: /Sales team/ }));
+    // "Staff" holds only "Salary": one click, not two, and both names shown.
+    await user.click(screen.getByRole("button", { name: /Staff › Salary/ }));
+    expect(screen.getByText(new RegExp(`${t("review.selected")}: Costs › Sales team › Staff ›`))).toBeDefined();
+
+    // A section is never folded, even with a single leaf: "Revenue" is the
+    // step that says which side of the P&L this is.
+    await user.click(screen.getByRole("button", { name: t("review.tree.root") }));
+    expect(screen.getByRole("button", { name: /Revenue/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Consulting/ })).toBeNull();
   });
 
   it("filters the category list, and renumbers 1-9 onto what matched", async () => {
@@ -359,9 +444,10 @@ describe("worked from a click, digit shortcuts included", () => {
     await screen.findByText("KONTUR SERVICE");
 
     expect((search as HTMLInputElement).value).toBe("");
-    // Every seeded category is back, not only the one the old filter matched.
-    expect(screen.getByRole("button", { name: /Logistics/ })).toBeDefined();
-    expect(screen.getByRole("button", { name: /Training/ })).toBeDefined();
+    // The whole tree is back from its top, not only the one leaf the old
+    // filter matched.
+    expect(screen.getByRole("button", { name: /Costs/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Revenue/ })).toBeDefined();
     // Nothing carried over as a pre-made choice for the new group.
     const approve = screen.getByRole("button", { name: t("review.action.approve") }) as HTMLButtonElement;
     expect(approve.disabled).toBe(true);
@@ -389,15 +475,21 @@ describe("worked from a click, digit shortcuts included", () => {
     renderReview();
     await screen.findByText("VEKTOR LOGISTIKA");
 
-    // "Audit" (c11, code 0401010203) is a real taxonomy code; the other ten
-    // fixture categories deliberately are not, so this is the one place the
-    // Russian catalogue in i18n.ts actually renders instead of falling back
-    // to whatever categoryFromProto put in `label`.
-    expect(screen.getByRole("button", { name: /Аудит/ })).toBeDefined();
-    expect(screen.queryByRole("button", { name: /^Audit$/ })).toBeNull();
-    // The other nine still show the wire's own English name: they are not in
-    // the static catalogue, and a translation nobody wrote is not owed to
-    // any code the frontend does not recognise.
-    expect(screen.getByRole("button", { name: /Equipment/ })).toBeDefined();
+    // "Audit" (c15, code 0401010203) is a real taxonomy code; the rest of the
+    // fixture deliberately is not, so this is the one place the Russian
+    // catalogue in i18n.ts actually renders instead of falling back to what
+    // the wire sent -- the section, the branches and the leaf alike.
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Операционные расходы/ }));
+    await user.click(screen.getByRole("button", { name: /Администрирование/ }));
+    // "Finance" holds only "FI Services", which holds only "Audit": folded.
+    expect(screen.getByRole("button", { name: /Финансы › Услуги › Аудит/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Audit/ })).toBeNull();
+
+    // The rest still show the wire's own English name: they are not in the
+    // static catalogue, and a translation nobody wrote is not owed to any
+    // code the frontend does not recognise.
+    await user.click(screen.getByRole("button", { name: t("review.tree.root", "ru") }));
+    expect(screen.getByRole("button", { name: /Costs/ })).toBeDefined();
   });
 });

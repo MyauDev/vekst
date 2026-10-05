@@ -122,10 +122,14 @@ export interface Category {
   id: string;
   code: string;
   label: string;
+  /** "OPEX > Administration > Finance > FI Expenses > Salary": every name
+   *  from the section down, the leaf's own included. Five leaves are called
+   *  "Salary"; this is what tells them apart. */
+  path: string;
 }
 
 function categoryFromProto(c: ProtoCategory): Category {
-  return { id: c.id, code: c.code, label: c.name };
+  return { id: c.id, code: c.code, label: c.name, path: c.path };
 }
 
 export async function listCategories(): Promise<readonly Category[]> {
