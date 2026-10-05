@@ -27,7 +27,24 @@
 # REVOKE UPDATE on user_identities (00003), the narrowness check in
 # scripts/check-identity-queries.sh, and the core/internal/identity package
 # comment.
+#
+# category_templates and currencies come from core/migrations/00018 (change
+# 5.3 connect-app-end-to-end). Neither belongs to an organisation, for the
+# same reason: each is a shared catalogue every organisation reads and none
+# owns.
+#
+#   category_templates  The industry taxonomy a new organisation copies from,
+#                        once, at creation (core/internal/tenancy). A
+#                        customer's own copy lands in `categories` as a
+#                        scope = 'org' row, under that organisation's policy;
+#                        this table itself is read-only to vekst_app.
+#   currencies           The ISO-4217 codes this product accepts, generated
+#                        from core/internal/money's exponent map. Read-only to
+#                        vekst_app; nothing writes to it outside migration
+#                        00018.
 auth_flows
+category_templates
+currencies
 goose_db_version
 river_migration
 river_job

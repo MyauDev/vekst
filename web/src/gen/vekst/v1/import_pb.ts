@@ -6,13 +6,15 @@ import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobu
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp, file_google_protobuf_wrappers } from "@bufbuild/protobuf/wkt";
+import type { Money } from "../type/v1/money_pb";
+import { file_vekst_type_v1_money } from "../type/v1/money_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file vekst/v1/import.proto.
  */
 export const file_vekst_v1_import: GenFile = /*@__PURE__*/
-  fileDesc("ChV2ZWtzdC92MS9pbXBvcnQucHJvdG8SCHZla3N0LnYxIuABChhDcmVhdGVJbXBvcnRCYXRjaFJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhEKCWVudGl0eV9pZBgCIAEoCRIpCgtzb3VyY2Vfa2luZBgDIAEoDjIULnZla3N0LnYxLlNvdXJjZUtpbmQSEQoJZmlsZV9uYW1lGAQgASgJEhYKDmRlY2xhcmVkX2J5dGVzGAUgASgDEhUKDWRlY2xhcmVkX3R5cGUYBiABKAkSHgoRaW1wb3J0X3Byb2ZpbGVfaWQYByABKAlIAIgBAUIUChJfaW1wb3J0X3Byb2ZpbGVfaWQiiwIKGUNyZWF0ZUltcG9ydEJhdGNoUmVzcG9uc2USJAoFYmF0Y2gYASABKAsyFS52ZWtzdC52MS5JbXBvcnRCYXRjaBISCgp1cGxvYWRfdXJsGAIgASgJEk4KDnVwbG9hZF9oZWFkZXJzGAMgAygLMjYudmVrc3QudjEuQ3JlYXRlSW1wb3J0QmF0Y2hSZXNwb25zZS5VcGxvYWRIZWFkZXJzRW50cnkSLgoKZXhwaXJlc19hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaNAoSVXBsb2FkSGVhZGVyc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiPgoaQ29uZmlybUltcG9ydFVwbG9hZFJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhAKCGJhdGNoX2lkGAIgASgJIkMKG0NvbmZpcm1JbXBvcnRVcGxvYWRSZXNwb25zZRIkCgViYXRjaBgBIAEoCzIVLnZla3N0LnYxLkltcG9ydEJhdGNoIjkKFUdldEltcG9ydEJhdGNoUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEAoIYmF0Y2hfaWQYAiABKAkiPgoWR2V0SW1wb3J0QmF0Y2hSZXNwb25zZRIkCgViYXRjaBgBIAEoCzIVLnZla3N0LnYxLkltcG9ydEJhdGNoIj0KGExpc3RJbXBvcnRCYXRjaGVzUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJIkMKGUxpc3RJbXBvcnRCYXRjaGVzUmVzcG9uc2USJgoHYmF0Y2hlcxgBIAMoCzIVLnZla3N0LnYxLkltcG9ydEJhdGNoIqYCCgtJbXBvcnRCYXRjaBIKCgJpZBgBIAEoCRIRCgllbnRpdHlfaWQYAiABKAkSKQoLc291cmNlX2tpbmQYAyABKA4yFC52ZWtzdC52MS5Tb3VyY2VLaW5kEiYKBnN0YXR1cxgEIAEoDjIWLnZla3N0LnYxLkltcG9ydFN0YXR1cxIRCglmaWxlX25hbWUYBSABKAkSEwoLYnl0ZV9sZW5ndGgYBiABKAMSFAoMZmFpbHVyZV9jb2RlGAcgASgJEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjcKEmNsYXNzaWZpY2F0aW9uX3J1bhgJIAEoCzIbLnZla3N0LnYxLkNsYXNzaWZpY2F0aW9uUnVuIoICChFDbGFzc2lmaWNhdGlvblJ1bhIxCgZzdGF0dXMYASABKA4yIS52ZWtzdC52MS5DbGFzc2lmaWNhdGlvblJ1blN0YXR1cxIUCgxmYWlsdXJlX2NvZGUYAiABKAkSEwoLY2h1bmtfY291bnQYAyABKAUSGAoQY2xhc3NpZmllZF9jb3VudBgEIAEoBRIUCgxyZXZpZXdfY291bnQYBSABKAUSLgoKc3RhcnRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLZmluaXNoZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkkKD1ZhbGlkYXRpb25FcnJvchIMCgRsaW5lGAEgASgFEg0KBWZpZWxkGAIgASgJEgwKBGNvZGUYAyABKAkSCwoDcmF3GAQgASgJInIKFUJhbGFuY2VNaXNtYXRjaERldGFpbBIPCgdvcGVuaW5nGAEgASgDEhEKCW1vdmVtZW50cxgCIAEoAxIPCgdjbG9zaW5nGAMgASgDEhIKCmRpZmZlcmVuY2UYBCABKAMSEAoIY3VycmVuY3kYBSABKAkiXAoRVmFsaWRhdGlvbldhcm5pbmcSDAoEY29kZRgBIAEoCRI5ChBiYWxhbmNlX21pc21hdGNoGAIgASgLMh8udmVrc3QudjEuQmFsYW5jZU1pc21hdGNoRGV0YWlsIpADChBWYWxpZGF0aW9uUmVwb3J0EhAKCGJhdGNoX2lkGAEgASgJEiwKB291dGNvbWUYAiABKA4yGy52ZWtzdC52MS5WYWxpZGF0aW9uT3V0Y29tZRIRCglyb3dfY291bnQYAyABKAUSEwoLZXJyb3JfY291bnQYBCABKAUSFQoNd2FybmluZ19jb3VudBgFIAEoBRI4ChRiYWxhbmNlX2NoZWNrX3Bhc3NlZBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5Cb29sVmFsdWUSKQoGZXJyb3JzGAcgAygLMhkudmVrc3QudjEuVmFsaWRhdGlvbkVycm9yEi0KCHdhcm5pbmdzGAggAygLMhsudmVrc3QudjEuVmFsaWRhdGlvbldhcm5pbmcSHQoVb3ZlcnJpZGRlbl9ieV91c2VyX2lkGAkgASgJEhcKD292ZXJyaWRlX3JlYXNvbhgKIAEoCRIxCg1vdmVycmlkZGVuX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCI+ChpHZXRWYWxpZGF0aW9uUmVwb3J0UmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEAoIYmF0Y2hfaWQYAiABKAkiSQobR2V0VmFsaWRhdGlvblJlcG9ydFJlc3BvbnNlEioKBnJlcG9ydBgBIAEoCzIaLnZla3N0LnYxLlZhbGlkYXRpb25SZXBvcnQiTQoZT3ZlcnJpZGVWYWxpZGF0aW9uUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEAoIYmF0Y2hfaWQYAiABKAkSDgoGcmVhc29uGAMgASgJIkgKGk92ZXJyaWRlVmFsaWRhdGlvblJlc3BvbnNlEioKBnJlcG9ydBgBIAEoCzIaLnZla3N0LnYxLlZhbGlkYXRpb25SZXBvcnQi7QIKDUltcG9ydFByb2ZpbGUSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIpCgtzb3VyY2Vfa2luZBgDIAEoDjIULnZla3N0LnYxLlNvdXJjZUtpbmQSOgoKY29sdW1uX21hcBgEIAMoCzImLnZla3N0LnYxLkltcG9ydFByb2ZpbGUuQ29sdW1uTWFwRW50cnkSDwoHY2hhcnNldBgFIAEoCRIRCglkZWxpbWl0ZXIYBiABKAkSEwoLZGVjaW1hbF9zZXAYByABKAkSEAoIZGF0ZV9mbXQYCCABKAkSLgoKY3JlYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaMAoOQ29sdW1uTWFwRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASKrAgoaQ3JlYXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSKQoLc291cmNlX2tpbmQYAyABKA4yFC52ZWtzdC52MS5Tb3VyY2VLaW5kEkcKCmNvbHVtbl9tYXAYBCADKAsyMy52ZWtzdC52MS5DcmVhdGVJbXBvcnRQcm9maWxlUmVxdWVzdC5Db2x1bW5NYXBFbnRyeRIPCgdjaGFyc2V0GAUgASgJEhEKCWRlbGltaXRlchgGIAEoCRITCgtkZWNpbWFsX3NlcBgHIAEoCRIQCghkYXRlX2ZtdBgIIAEoCRowCg5Db2x1bW5NYXBFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIkcKG0NyZWF0ZUltcG9ydFByb2ZpbGVSZXNwb25zZRIoCgdwcm9maWxlGAEgASgLMhcudmVrc3QudjEuSW1wb3J0UHJvZmlsZSI9ChdHZXRJbXBvcnRQcm9maWxlUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEgoKcHJvZmlsZV9pZBgCIAEoCSJEChhHZXRJbXBvcnRQcm9maWxlUmVzcG9uc2USKAoHcHJvZmlsZRgBIAEoCzIXLnZla3N0LnYxLkltcG9ydFByb2ZpbGUiKwoZTGlzdEltcG9ydFByb2ZpbGVzUmVxdWVzdBIOCgZvcmdfaWQYASABKAkiRwoaTGlzdEltcG9ydFByb2ZpbGVzUmVzcG9uc2USKQoIcHJvZmlsZXMYASADKAsyFy52ZWtzdC52MS5JbXBvcnRQcm9maWxlIpQCChpVcGRhdGVJbXBvcnRQcm9maWxlUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEgoKcHJvZmlsZV9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEkcKCmNvbHVtbl9tYXAYBCADKAsyMy52ZWtzdC52MS5VcGRhdGVJbXBvcnRQcm9maWxlUmVxdWVzdC5Db2x1bW5NYXBFbnRyeRIPCgdjaGFyc2V0GAUgASgJEhEKCWRlbGltaXRlchgGIAEoCRITCgtkZWNpbWFsX3NlcBgHIAEoCRIQCghkYXRlX2ZtdBgIIAEoCRowCg5Db2x1bW5NYXBFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIkcKG1VwZGF0ZUltcG9ydFByb2ZpbGVSZXNwb25zZRIoCgdwcm9maWxlGAEgASgLMhcudmVrc3QudjEuSW1wb3J0UHJvZmlsZSJAChpEZWxldGVJbXBvcnRQcm9maWxlUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEgoKcHJvZmlsZV9pZBgCIAEoCSIdChtEZWxldGVJbXBvcnRQcm9maWxlUmVzcG9uc2UieAoMRGVkdXBTdW1tYXJ5EhUKDWltcG9ydGVkX3Jvd3MYASABKAUSGAoQc2tpcHBlZF9pbl9iYXRjaBgCIAEoBRIbChNza2lwcGVkX2Nyb3NzX2JhdGNoGAMgASgFEhoKEmludGVybmFsX3RyYW5zZmVycxgEIAEoBSI6ChZHZXREZWR1cFN1bW1hcnlSZXF1ZXN0Eg4KBm9yZ19pZBgBIAEoCRIQCghiYXRjaF9pZBgCIAEoCSJCChdHZXREZWR1cFN1bW1hcnlSZXNwb25zZRInCgdzdW1tYXJ5GAEgASgLMhYudmVrc3QudjEuRGVkdXBTdW1tYXJ5Ir4BCgpTa2lwcGVkUm93Eg8KB2xpbmVfbm8YASABKAUSEgoKcG9zdGluZ19ubxgCIAEoBRINCgVsZXZlbBgDIAEoCRISCgpkZWR1cF9oYXNoGAQgASgJEh4KFm1hdGNoZWRfdHJhbnNhY3Rpb25faWQYBSABKAkSGAoQbWF0Y2hlZF9iYXRjaF9pZBgGIAEoCRIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCI6ChZMaXN0U2tpcHBlZFJvd3NSZXF1ZXN0Eg4KBm9yZ19pZBgBIAEoCRIQCghiYXRjaF9pZBgCIAEoCSI9ChdMaXN0U2tpcHBlZFJvd3NSZXNwb25zZRIiCgRyb3dzGAEgAygLMhQudmVrc3QudjEuU2tpcHBlZFJvdyLWAQoQSW50ZXJuYWxUcmFuc2ZlchIKCgJpZBgBIAEoCRIaChJvdXRfdHJhbnNhY3Rpb25faWQYAiABKAkSGQoRaW5fdHJhbnNhY3Rpb25faWQYAyABKAkSLwoLZGV0ZWN0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhwKFGRpc21pc3NlZF9ieV91c2VyX2lkGAUgASgJEjAKDGRpc21pc3NlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiQQocTGlzdEludGVybmFsVHJhbnNmZXJzUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJIk4KHUxpc3RJbnRlcm5hbFRyYW5zZmVyc1Jlc3BvbnNlEi0KCXRyYW5zZmVycxgBIAMoCzIaLnZla3N0LnYxLkludGVybmFsVHJhbnNmZXIiRQoeRGlzbWlzc0ludGVybmFsVHJhbnNmZXJSZXF1ZXN0Eg4KBm9yZ19pZBgBIAEoCRITCgt0cmFuc2Zlcl9pZBgCIAEoCSJPCh9EaXNtaXNzSW50ZXJuYWxUcmFuc2ZlclJlc3BvbnNlEiwKCHRyYW5zZmVyGAEgASgLMhoudmVrc3QudjEuSW50ZXJuYWxUcmFuc2ZlcipXCgpTb3VyY2VLaW5kEhsKF1NPVVJDRV9LSU5EX1VOU1BFQ0lGSUVEEAASFgoSU09VUkNFX0tJTkRfTEVER0VSEAESFAoQU09VUkNFX0tJTkRfQkFOSxACKukCCgxJbXBvcnRTdGF0dXMSHQoZSU1QT1JUX1NUQVRVU19VTlNQRUNJRklFRBAAEiEKHUlNUE9SVF9TVEFUVVNfQVdBSVRJTkdfVVBMT0FEEAESGwoXSU1QT1JUX1NUQVRVU19BQkFORE9ORUQQAhIaChZJTVBPUlRfU1RBVFVTX1VQTE9BREVEEAMSGQoVSU1QT1JUX1NUQVRVU19QQVJTSU5HEAQSGAoUSU1QT1JUX1NUQVRVU19QQVJTRUQQBRIcChhJTVBPUlRfU1RBVFVTX1ZBTElEQVRJTkcQBhIbChdJTVBPUlRfU1RBVFVTX1ZBTElEQVRFRBAHEhoKFklNUE9SVF9TVEFUVVNfUkVKRUNURUQQCBIcChhJTVBPUlRfU1RBVFVTX1BFUlNJU1RJTkcQCRIaChZJTVBPUlRfU1RBVFVTX0lNUE9SVEVEEAoSGAoUSU1QT1JUX1NUQVRVU19GQUlMRUQQCyq7AQoXQ2xhc3NpZmljYXRpb25SdW5TdGF0dXMSKQolQ0xBU1NJRklDQVRJT05fUlVOX1NUQVRVU19VTlNQRUNJRklFRBAAEiUKIUNMQVNTSUZJQ0FUSU9OX1JVTl9TVEFUVVNfUlVOTklORxABEigKJENMQVNTSUZJQ0FUSU9OX1JVTl9TVEFUVVNfQ0xBU1NJRklFRBACEiQKIENMQVNTSUZJQ0FUSU9OX1JVTl9TVEFUVVNfRkFJTEVEEAMqogEKEVZhbGlkYXRpb25PdXRjb21lEiIKHlZBTElEQVRJT05fT1VUQ09NRV9VTlNQRUNJRklFRBAAEhwKGFZBTElEQVRJT05fT1VUQ09NRV9WQUxJRBABEioKJlZBTElEQVRJT05fT1VUQ09NRV9WQUxJRF9XSVRIX1dBUk5JTkdTEAISHwobVkFMSURBVElPTl9PVVRDT01FX1JFSkVDVEVEEAMyuwsKDUltcG9ydFNlcnZpY2USXAoRQ3JlYXRlSW1wb3J0QmF0Y2gSIi52ZWtzdC52MS5DcmVhdGVJbXBvcnRCYXRjaFJlcXVlc3QaIy52ZWtzdC52MS5DcmVhdGVJbXBvcnRCYXRjaFJlc3BvbnNlEmIKE0NvbmZpcm1JbXBvcnRVcGxvYWQSJC52ZWtzdC52MS5Db25maXJtSW1wb3J0VXBsb2FkUmVxdWVzdBolLnZla3N0LnYxLkNvbmZpcm1JbXBvcnRVcGxvYWRSZXNwb25zZRJTCg5HZXRJbXBvcnRCYXRjaBIfLnZla3N0LnYxLkdldEltcG9ydEJhdGNoUmVxdWVzdBogLnZla3N0LnYxLkdldEltcG9ydEJhdGNoUmVzcG9uc2USXAoRTGlzdEltcG9ydEJhdGNoZXMSIi52ZWtzdC52MS5MaXN0SW1wb3J0QmF0Y2hlc1JlcXVlc3QaIy52ZWtzdC52MS5MaXN0SW1wb3J0QmF0Y2hlc1Jlc3BvbnNlEmIKE0dldFZhbGlkYXRpb25SZXBvcnQSJC52ZWtzdC52MS5HZXRWYWxpZGF0aW9uUmVwb3J0UmVxdWVzdBolLnZla3N0LnYxLkdldFZhbGlkYXRpb25SZXBvcnRSZXNwb25zZRJfChJPdmVycmlkZVZhbGlkYXRpb24SIy52ZWtzdC52MS5PdmVycmlkZVZhbGlkYXRpb25SZXF1ZXN0GiQudmVrc3QudjEuT3ZlcnJpZGVWYWxpZGF0aW9uUmVzcG9uc2USYgoTQ3JlYXRlSW1wb3J0UHJvZmlsZRIkLnZla3N0LnYxLkNyZWF0ZUltcG9ydFByb2ZpbGVSZXF1ZXN0GiUudmVrc3QudjEuQ3JlYXRlSW1wb3J0UHJvZmlsZVJlc3BvbnNlElkKEEdldEltcG9ydFByb2ZpbGUSIS52ZWtzdC52MS5HZXRJbXBvcnRQcm9maWxlUmVxdWVzdBoiLnZla3N0LnYxLkdldEltcG9ydFByb2ZpbGVSZXNwb25zZRJfChJMaXN0SW1wb3J0UHJvZmlsZXMSIy52ZWtzdC52MS5MaXN0SW1wb3J0UHJvZmlsZXNSZXF1ZXN0GiQudmVrc3QudjEuTGlzdEltcG9ydFByb2ZpbGVzUmVzcG9uc2USYgoTVXBkYXRlSW1wb3J0UHJvZmlsZRIkLnZla3N0LnYxLlVwZGF0ZUltcG9ydFByb2ZpbGVSZXF1ZXN0GiUudmVrc3QudjEuVXBkYXRlSW1wb3J0UHJvZmlsZVJlc3BvbnNlEmIKE0RlbGV0ZUltcG9ydFByb2ZpbGUSJC52ZWtzdC52MS5EZWxldGVJbXBvcnRQcm9maWxlUmVxdWVzdBolLnZla3N0LnYxLkRlbGV0ZUltcG9ydFByb2ZpbGVSZXNwb25zZRJWCg9HZXREZWR1cFN1bW1hcnkSIC52ZWtzdC52MS5HZXREZWR1cFN1bW1hcnlSZXF1ZXN0GiEudmVrc3QudjEuR2V0RGVkdXBTdW1tYXJ5UmVzcG9uc2USVgoPTGlzdFNraXBwZWRSb3dzEiAudmVrc3QudjEuTGlzdFNraXBwZWRSb3dzUmVxdWVzdBohLnZla3N0LnYxLkxpc3RTa2lwcGVkUm93c1Jlc3BvbnNlEmgKFUxpc3RJbnRlcm5hbFRyYW5zZmVycxImLnZla3N0LnYxLkxpc3RJbnRlcm5hbFRyYW5zZmVyc1JlcXVlc3QaJy52ZWtzdC52MS5MaXN0SW50ZXJuYWxUcmFuc2ZlcnNSZXNwb25zZRJuChdEaXNtaXNzSW50ZXJuYWxUcmFuc2ZlchIoLnZla3N0LnYxLkRpc21pc3NJbnRlcm5hbFRyYW5zZmVyUmVxdWVzdBopLnZla3N0LnYxLkRpc21pc3NJbnRlcm5hbFRyYW5zZmVyUmVzcG9uc2VCM1oxZ2l0aHViLmNvbS9NeWF1RGV2L3Zla3N0L2NvcmUvZ2VuL3Zla3N0L3YxO3Zla3R2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_google_protobuf_wrappers]);
+  fileDesc("ChV2ZWtzdC92MS9pbXBvcnQucHJvdG8SCHZla3N0LnYxIuABChhDcmVhdGVJbXBvcnRCYXRjaFJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhEKCWVudGl0eV9pZBgCIAEoCRIpCgtzb3VyY2Vfa2luZBgDIAEoDjIULnZla3N0LnYxLlNvdXJjZUtpbmQSEQoJZmlsZV9uYW1lGAQgASgJEhYKDmRlY2xhcmVkX2J5dGVzGAUgASgDEhUKDWRlY2xhcmVkX3R5cGUYBiABKAkSHgoRaW1wb3J0X3Byb2ZpbGVfaWQYByABKAlIAIgBAUIUChJfaW1wb3J0X3Byb2ZpbGVfaWQiiwIKGUNyZWF0ZUltcG9ydEJhdGNoUmVzcG9uc2USJAoFYmF0Y2gYASABKAsyFS52ZWtzdC52MS5JbXBvcnRCYXRjaBISCgp1cGxvYWRfdXJsGAIgASgJEk4KDnVwbG9hZF9oZWFkZXJzGAMgAygLMjYudmVrc3QudjEuQ3JlYXRlSW1wb3J0QmF0Y2hSZXNwb25zZS5VcGxvYWRIZWFkZXJzRW50cnkSLgoKZXhwaXJlc19hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAaNAoSVXBsb2FkSGVhZGVyc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiPgoaQ29uZmlybUltcG9ydFVwbG9hZFJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhAKCGJhdGNoX2lkGAIgASgJIkMKG0NvbmZpcm1JbXBvcnRVcGxvYWRSZXNwb25zZRIkCgViYXRjaBgBIAEoCzIVLnZla3N0LnYxLkltcG9ydEJhdGNoIjkKFUdldEltcG9ydEJhdGNoUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEAoIYmF0Y2hfaWQYAiABKAkiPgoWR2V0SW1wb3J0QmF0Y2hSZXNwb25zZRIkCgViYXRjaBgBIAEoCzIVLnZla3N0LnYxLkltcG9ydEJhdGNoIv0CCgtJbXBvcnRlZFJvdxIKCgJpZBgBIAEoCRIRCglib29rZWRfb24YAiABKAkSDwoHbGluZV9ubxgDIAEoBRISCgpwb3N0aW5nX25vGAQgASgFEhQKDGRvY3VtZW50X3JlZhgFIAEoCRIkCgZhbW91bnQYBiABKAsyFC52ZWtzdC50eXBlLnYxLk1vbmV5EikKC2Jhc2VfYW1vdW50GAcgASgLMhQudmVrc3QudHlwZS52MS5Nb25leRIYChBjb3VudGVycGFydHlfcmF3GAggASgJEhMKC2Rlc2NyaXB0aW9uGAkgASgJEhYKDnJlZ3VsYXRlZF9jb2RlGAogASgJEhUKDWNhdGVnb3J5X2NvZGUYCyABKAkSFQoNY2F0ZWdvcnlfbmFtZRgMIAEoCRIUCgxlbmdpbmVfbGF5ZXIYDSABKAkSEAoIZXZpZGVuY2UYDiABKAkSFwoKY29uZmlkZW5jZRgPIAEoAUgAiAEBQg0KC19jb25maWRlbmNlIkAKHExpc3RCYXRjaFRyYW5zYWN0aW9uc1JlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhAKCGJhdGNoX2lkGAIgASgJIkQKHUxpc3RCYXRjaFRyYW5zYWN0aW9uc1Jlc3BvbnNlEiMKBHJvd3MYASADKAsyFS52ZWtzdC52MS5JbXBvcnRlZFJvdyI9ChhMaXN0SW1wb3J0QmF0Y2hlc1JlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhEKCWVudGl0eV9pZBgCIAEoCSJDChlMaXN0SW1wb3J0QmF0Y2hlc1Jlc3BvbnNlEiYKB2JhdGNoZXMYASADKAsyFS52ZWtzdC52MS5JbXBvcnRCYXRjaCKmAgoLSW1wb3J0QmF0Y2gSCgoCaWQYASABKAkSEQoJZW50aXR5X2lkGAIgASgJEikKC3NvdXJjZV9raW5kGAMgASgOMhQudmVrc3QudjEuU291cmNlS2luZBImCgZzdGF0dXMYBCABKA4yFi52ZWtzdC52MS5JbXBvcnRTdGF0dXMSEQoJZmlsZV9uYW1lGAUgASgJEhMKC2J5dGVfbGVuZ3RoGAYgASgDEhQKDGZhaWx1cmVfY29kZRgHIAEoCRIuCgpjcmVhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI3ChJjbGFzc2lmaWNhdGlvbl9ydW4YCSABKAsyGy52ZWtzdC52MS5DbGFzc2lmaWNhdGlvblJ1biKCAgoRQ2xhc3NpZmljYXRpb25SdW4SMQoGc3RhdHVzGAEgASgOMiEudmVrc3QudjEuQ2xhc3NpZmljYXRpb25SdW5TdGF0dXMSFAoMZmFpbHVyZV9jb2RlGAIgASgJEhMKC2NodW5rX2NvdW50GAMgASgFEhgKEGNsYXNzaWZpZWRfY291bnQYBCABKAUSFAoMcmV2aWV3X2NvdW50GAUgASgFEi4KCnN0YXJ0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi8KC2ZpbmlzaGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJJCg9WYWxpZGF0aW9uRXJyb3ISDAoEbGluZRgBIAEoBRINCgVmaWVsZBgCIAEoCRIMCgRjb2RlGAMgASgJEgsKA3JhdxgEIAEoCSJyChVCYWxhbmNlTWlzbWF0Y2hEZXRhaWwSDwoHb3BlbmluZxgBIAEoAxIRCgltb3ZlbWVudHMYAiABKAMSDwoHY2xvc2luZxgDIAEoAxISCgpkaWZmZXJlbmNlGAQgASgDEhAKCGN1cnJlbmN5GAUgASgJIlwKEVZhbGlkYXRpb25XYXJuaW5nEgwKBGNvZGUYASABKAkSOQoQYmFsYW5jZV9taXNtYXRjaBgCIAEoCzIfLnZla3N0LnYxLkJhbGFuY2VNaXNtYXRjaERldGFpbCKQAwoQVmFsaWRhdGlvblJlcG9ydBIQCghiYXRjaF9pZBgBIAEoCRIsCgdvdXRjb21lGAIgASgOMhsudmVrc3QudjEuVmFsaWRhdGlvbk91dGNvbWUSEQoJcm93X2NvdW50GAMgASgFEhMKC2Vycm9yX2NvdW50GAQgASgFEhUKDXdhcm5pbmdfY291bnQYBSABKAUSOAoUYmFsYW5jZV9jaGVja19wYXNzZWQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuQm9vbFZhbHVlEikKBmVycm9ycxgHIAMoCzIZLnZla3N0LnYxLlZhbGlkYXRpb25FcnJvchItCgh3YXJuaW5ncxgIIAMoCzIbLnZla3N0LnYxLlZhbGlkYXRpb25XYXJuaW5nEh0KFW92ZXJyaWRkZW5fYnlfdXNlcl9pZBgJIAEoCRIXCg9vdmVycmlkZV9yZWFzb24YCiABKAkSMQoNb3ZlcnJpZGRlbl9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiPgoaR2V0VmFsaWRhdGlvblJlcG9ydFJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhAKCGJhdGNoX2lkGAIgASgJIkkKG0dldFZhbGlkYXRpb25SZXBvcnRSZXNwb25zZRIqCgZyZXBvcnQYASABKAsyGi52ZWtzdC52MS5WYWxpZGF0aW9uUmVwb3J0Ik0KGU92ZXJyaWRlVmFsaWRhdGlvblJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhAKCGJhdGNoX2lkGAIgASgJEg4KBnJlYXNvbhgDIAEoCSJIChpPdmVycmlkZVZhbGlkYXRpb25SZXNwb25zZRIqCgZyZXBvcnQYASABKAsyGi52ZWtzdC52MS5WYWxpZGF0aW9uUmVwb3J0Iu0CCg1JbXBvcnRQcm9maWxlEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSKQoLc291cmNlX2tpbmQYAyABKA4yFC52ZWtzdC52MS5Tb3VyY2VLaW5kEjoKCmNvbHVtbl9tYXAYBCADKAsyJi52ZWtzdC52MS5JbXBvcnRQcm9maWxlLkNvbHVtbk1hcEVudHJ5Eg8KB2NoYXJzZXQYBSABKAkSEQoJZGVsaW1pdGVyGAYgASgJEhMKC2RlY2ltYWxfc2VwGAcgASgJEhAKCGRhdGVfZm10GAggASgJEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wGjAKDkNvbHVtbk1hcEVudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiqwIKGkNyZWF0ZUltcG9ydFByb2ZpbGVSZXF1ZXN0Eg4KBm9yZ19pZBgBIAEoCRIMCgRuYW1lGAIgASgJEikKC3NvdXJjZV9raW5kGAMgASgOMhQudmVrc3QudjEuU291cmNlS2luZBJHCgpjb2x1bW5fbWFwGAQgAygLMjMudmVrc3QudjEuQ3JlYXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QuQ29sdW1uTWFwRW50cnkSDwoHY2hhcnNldBgFIAEoCRIRCglkZWxpbWl0ZXIYBiABKAkSEwoLZGVjaW1hbF9zZXAYByABKAkSEAoIZGF0ZV9mbXQYCCABKAkaMAoOQ29sdW1uTWFwRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASJHChtDcmVhdGVJbXBvcnRQcm9maWxlUmVzcG9uc2USKAoHcHJvZmlsZRgBIAEoCzIXLnZla3N0LnYxLkltcG9ydFByb2ZpbGUiPQoXR2V0SW1wb3J0UHJvZmlsZVJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhIKCnByb2ZpbGVfaWQYAiABKAkiRAoYR2V0SW1wb3J0UHJvZmlsZVJlc3BvbnNlEigKB3Byb2ZpbGUYASABKAsyFy52ZWtzdC52MS5JbXBvcnRQcm9maWxlIisKGUxpc3RJbXBvcnRQcm9maWxlc1JlcXVlc3QSDgoGb3JnX2lkGAEgASgJIkcKGkxpc3RJbXBvcnRQcm9maWxlc1Jlc3BvbnNlEikKCHByb2ZpbGVzGAEgAygLMhcudmVrc3QudjEuSW1wb3J0UHJvZmlsZSKUAgoaVXBkYXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhIKCnByb2ZpbGVfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRJHCgpjb2x1bW5fbWFwGAQgAygLMjMudmVrc3QudjEuVXBkYXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QuQ29sdW1uTWFwRW50cnkSDwoHY2hhcnNldBgFIAEoCRIRCglkZWxpbWl0ZXIYBiABKAkSEwoLZGVjaW1hbF9zZXAYByABKAkSEAoIZGF0ZV9mbXQYCCABKAkaMAoOQ29sdW1uTWFwRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASJHChtVcGRhdGVJbXBvcnRQcm9maWxlUmVzcG9uc2USKAoHcHJvZmlsZRgBIAEoCzIXLnZla3N0LnYxLkltcG9ydFByb2ZpbGUiQAoaRGVsZXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhIKCnByb2ZpbGVfaWQYAiABKAkiHQobRGVsZXRlSW1wb3J0UHJvZmlsZVJlc3BvbnNlIngKDERlZHVwU3VtbWFyeRIVCg1pbXBvcnRlZF9yb3dzGAEgASgFEhgKEHNraXBwZWRfaW5fYmF0Y2gYAiABKAUSGwoTc2tpcHBlZF9jcm9zc19iYXRjaBgDIAEoBRIaChJpbnRlcm5hbF90cmFuc2ZlcnMYBCABKAUiOgoWR2V0RGVkdXBTdW1tYXJ5UmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEAoIYmF0Y2hfaWQYAiABKAkiQgoXR2V0RGVkdXBTdW1tYXJ5UmVzcG9uc2USJwoHc3VtbWFyeRgBIAEoCzIWLnZla3N0LnYxLkRlZHVwU3VtbWFyeSK+AQoKU2tpcHBlZFJvdxIPCgdsaW5lX25vGAEgASgFEhIKCnBvc3Rpbmdfbm8YAiABKAUSDQoFbGV2ZWwYAyABKAkSEgoKZGVkdXBfaGFzaBgEIAEoCRIeChZtYXRjaGVkX3RyYW5zYWN0aW9uX2lkGAUgASgJEhgKEG1hdGNoZWRfYmF0Y2hfaWQYBiABKAkSLgoKY3JlYXRlZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiOgoWTGlzdFNraXBwZWRSb3dzUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEAoIYmF0Y2hfaWQYAiABKAkiPQoXTGlzdFNraXBwZWRSb3dzUmVzcG9uc2USIgoEcm93cxgBIAMoCzIULnZla3N0LnYxLlNraXBwZWRSb3ci1gEKEEludGVybmFsVHJhbnNmZXISCgoCaWQYASABKAkSGgoSb3V0X3RyYW5zYWN0aW9uX2lkGAIgASgJEhkKEWluX3RyYW5zYWN0aW9uX2lkGAMgASgJEi8KC2RldGVjdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIcChRkaXNtaXNzZWRfYnlfdXNlcl9pZBgFIAEoCRIwCgxkaXNtaXNzZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkEKHExpc3RJbnRlcm5hbFRyYW5zZmVyc1JlcXVlc3QSDgoGb3JnX2lkGAEgASgJEhEKCWVudGl0eV9pZBgCIAEoCSJOCh1MaXN0SW50ZXJuYWxUcmFuc2ZlcnNSZXNwb25zZRItCgl0cmFuc2ZlcnMYASADKAsyGi52ZWtzdC52MS5JbnRlcm5hbFRyYW5zZmVyIkUKHkRpc21pc3NJbnRlcm5hbFRyYW5zZmVyUmVxdWVzdBIOCgZvcmdfaWQYASABKAkSEwoLdHJhbnNmZXJfaWQYAiABKAkiTwofRGlzbWlzc0ludGVybmFsVHJhbnNmZXJSZXNwb25zZRIsCgh0cmFuc2ZlchgBIAEoCzIaLnZla3N0LnYxLkludGVybmFsVHJhbnNmZXIqVwoKU291cmNlS2luZBIbChdTT1VSQ0VfS0lORF9VTlNQRUNJRklFRBAAEhYKElNPVVJDRV9LSU5EX0xFREdFUhABEhQKEFNPVVJDRV9LSU5EX0JBTksQAirpAgoMSW1wb3J0U3RhdHVzEh0KGUlNUE9SVF9TVEFUVVNfVU5TUEVDSUZJRUQQABIhCh1JTVBPUlRfU1RBVFVTX0FXQUlUSU5HX1VQTE9BRBABEhsKF0lNUE9SVF9TVEFUVVNfQUJBTkRPTkVEEAISGgoWSU1QT1JUX1NUQVRVU19VUExPQURFRBADEhkKFUlNUE9SVF9TVEFUVVNfUEFSU0lORxAEEhgKFElNUE9SVF9TVEFUVVNfUEFSU0VEEAUSHAoYSU1QT1JUX1NUQVRVU19WQUxJREFUSU5HEAYSGwoXSU1QT1JUX1NUQVRVU19WQUxJREFURUQQBxIaChZJTVBPUlRfU1RBVFVTX1JFSkVDVEVEEAgSHAoYSU1QT1JUX1NUQVRVU19QRVJTSVNUSU5HEAkSGgoWSU1QT1JUX1NUQVRVU19JTVBPUlRFRBAKEhgKFElNUE9SVF9TVEFUVVNfRkFJTEVEEAsquwEKF0NsYXNzaWZpY2F0aW9uUnVuU3RhdHVzEikKJUNMQVNTSUZJQ0FUSU9OX1JVTl9TVEFUVVNfVU5TUEVDSUZJRUQQABIlCiFDTEFTU0lGSUNBVElPTl9SVU5fU1RBVFVTX1JVTk5JTkcQARIoCiRDTEFTU0lGSUNBVElPTl9SVU5fU1RBVFVTX0NMQVNTSUZJRUQQAhIkCiBDTEFTU0lGSUNBVElPTl9SVU5fU1RBVFVTX0ZBSUxFRBADKqIBChFWYWxpZGF0aW9uT3V0Y29tZRIiCh5WQUxJREFUSU9OX09VVENPTUVfVU5TUEVDSUZJRUQQABIcChhWQUxJREFUSU9OX09VVENPTUVfVkFMSUQQARIqCiZWQUxJREFUSU9OX09VVENPTUVfVkFMSURfV0lUSF9XQVJOSU5HUxACEh8KG1ZBTElEQVRJT05fT1VUQ09NRV9SRUpFQ1RFRBADMqUMCg1JbXBvcnRTZXJ2aWNlElwKEUNyZWF0ZUltcG9ydEJhdGNoEiIudmVrc3QudjEuQ3JlYXRlSW1wb3J0QmF0Y2hSZXF1ZXN0GiMudmVrc3QudjEuQ3JlYXRlSW1wb3J0QmF0Y2hSZXNwb25zZRJiChNDb25maXJtSW1wb3J0VXBsb2FkEiQudmVrc3QudjEuQ29uZmlybUltcG9ydFVwbG9hZFJlcXVlc3QaJS52ZWtzdC52MS5Db25maXJtSW1wb3J0VXBsb2FkUmVzcG9uc2USUwoOR2V0SW1wb3J0QmF0Y2gSHy52ZWtzdC52MS5HZXRJbXBvcnRCYXRjaFJlcXVlc3QaIC52ZWtzdC52MS5HZXRJbXBvcnRCYXRjaFJlc3BvbnNlElwKEUxpc3RJbXBvcnRCYXRjaGVzEiIudmVrc3QudjEuTGlzdEltcG9ydEJhdGNoZXNSZXF1ZXN0GiMudmVrc3QudjEuTGlzdEltcG9ydEJhdGNoZXNSZXNwb25zZRJoChVMaXN0QmF0Y2hUcmFuc2FjdGlvbnMSJi52ZWtzdC52MS5MaXN0QmF0Y2hUcmFuc2FjdGlvbnNSZXF1ZXN0GicudmVrc3QudjEuTGlzdEJhdGNoVHJhbnNhY3Rpb25zUmVzcG9uc2USYgoTR2V0VmFsaWRhdGlvblJlcG9ydBIkLnZla3N0LnYxLkdldFZhbGlkYXRpb25SZXBvcnRSZXF1ZXN0GiUudmVrc3QudjEuR2V0VmFsaWRhdGlvblJlcG9ydFJlc3BvbnNlEl8KEk92ZXJyaWRlVmFsaWRhdGlvbhIjLnZla3N0LnYxLk92ZXJyaWRlVmFsaWRhdGlvblJlcXVlc3QaJC52ZWtzdC52MS5PdmVycmlkZVZhbGlkYXRpb25SZXNwb25zZRJiChNDcmVhdGVJbXBvcnRQcm9maWxlEiQudmVrc3QudjEuQ3JlYXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QaJS52ZWtzdC52MS5DcmVhdGVJbXBvcnRQcm9maWxlUmVzcG9uc2USWQoQR2V0SW1wb3J0UHJvZmlsZRIhLnZla3N0LnYxLkdldEltcG9ydFByb2ZpbGVSZXF1ZXN0GiIudmVrc3QudjEuR2V0SW1wb3J0UHJvZmlsZVJlc3BvbnNlEl8KEkxpc3RJbXBvcnRQcm9maWxlcxIjLnZla3N0LnYxLkxpc3RJbXBvcnRQcm9maWxlc1JlcXVlc3QaJC52ZWtzdC52MS5MaXN0SW1wb3J0UHJvZmlsZXNSZXNwb25zZRJiChNVcGRhdGVJbXBvcnRQcm9maWxlEiQudmVrc3QudjEuVXBkYXRlSW1wb3J0UHJvZmlsZVJlcXVlc3QaJS52ZWtzdC52MS5VcGRhdGVJbXBvcnRQcm9maWxlUmVzcG9uc2USYgoTRGVsZXRlSW1wb3J0UHJvZmlsZRIkLnZla3N0LnYxLkRlbGV0ZUltcG9ydFByb2ZpbGVSZXF1ZXN0GiUudmVrc3QudjEuRGVsZXRlSW1wb3J0UHJvZmlsZVJlc3BvbnNlElYKD0dldERlZHVwU3VtbWFyeRIgLnZla3N0LnYxLkdldERlZHVwU3VtbWFyeVJlcXVlc3QaIS52ZWtzdC52MS5HZXREZWR1cFN1bW1hcnlSZXNwb25zZRJWCg9MaXN0U2tpcHBlZFJvd3MSIC52ZWtzdC52MS5MaXN0U2tpcHBlZFJvd3NSZXF1ZXN0GiEudmVrc3QudjEuTGlzdFNraXBwZWRSb3dzUmVzcG9uc2USaAoVTGlzdEludGVybmFsVHJhbnNmZXJzEiYudmVrc3QudjEuTGlzdEludGVybmFsVHJhbnNmZXJzUmVxdWVzdBonLnZla3N0LnYxLkxpc3RJbnRlcm5hbFRyYW5zZmVyc1Jlc3BvbnNlEm4KF0Rpc21pc3NJbnRlcm5hbFRyYW5zZmVyEigudmVrc3QudjEuRGlzbWlzc0ludGVybmFsVHJhbnNmZXJSZXF1ZXN0GikudmVrc3QudjEuRGlzbWlzc0ludGVybmFsVHJhbnNmZXJSZXNwb25zZUIzWjFnaXRodWIuY29tL015YXVEZXYvdmVrc3QvY29yZS9nZW4vdmVrc3QvdjE7dmVrdHYxYgZwcm90bzM", [file_google_protobuf_timestamp, file_google_protobuf_wrappers, file_vekst_type_v1_money]);
 
 /**
  * @generated from message vekst.v1.CreateImportBatchRequest
@@ -179,6 +181,157 @@ export const GetImportBatchResponseSchema: GenMessage<GetImportBatchResponse> = 
   messageDesc(file_vekst_v1_import, 5);
 
 /**
+ * ImportedRow is `report.proto`'s DrillTransaction in miniature, not the same
+ * message reused across a service boundary: `ImportService` and
+ * `ReportService` are two different browser-facing contracts, and a proto
+ * field this screen does not need (matched_rule_priority stays absent from
+ * both, for the same reason it is absent there) is scope this file should
+ * decide for itself rather than inherit.
+ *
+ * @generated from message vekst.v1.ImportedRow
+ */
+export type ImportedRow = Message<"vekst.v1.ImportedRow"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string booked_on = 2;
+   */
+  bookedOn: string;
+
+  /**
+   * @generated from field: int32 line_no = 3;
+   */
+  lineNo: number;
+
+  /**
+   * The grain: 0 with no document_ref for a bank payment, 1..n for the
+   * postings of one ledger document.
+   *
+   * @generated from field: int32 posting_no = 4;
+   */
+  postingNo: number;
+
+  /**
+   * @generated from field: string document_ref = 5;
+   */
+  documentRef: string;
+
+  /**
+   * @generated from field: vekst.type.v1.Money amount = 6;
+   */
+  amount?: Money;
+
+  /**
+   * Absent when the row needed no conversion.
+   *
+   * @generated from field: vekst.type.v1.Money base_amount = 7;
+   */
+  baseAmount?: Money;
+
+  /**
+   * @generated from field: string counterparty_raw = 8;
+   */
+  counterpartyRaw: string;
+
+  /**
+   * @generated from field: string description = 9;
+   */
+  description: string;
+
+  /**
+   * КНП, Typ operacji, a 1C account code. Empty when the source carried none.
+   *
+   * @generated from field: string regulated_code = 10;
+   */
+  regulatedCode: string;
+
+  /**
+   * The live classification. Empty on a row that has not been classified at
+   * all -- which is the fact that put it in the review queue, not a missing
+   * value.
+   *
+   * @generated from field: string category_code = 11;
+   */
+  categoryCode: string;
+
+  /**
+   * @generated from field: string category_name = 12;
+   */
+  categoryName: string;
+
+  /**
+   * L0 memory, L0.5 a regulated code, L1 a rule, human a person. Empty
+   * alongside category_code.
+   *
+   * @generated from field: string engine_layer = 13;
+   */
+  engineLayer: string;
+
+  /**
+   * @generated from field: string evidence = 14;
+   */
+  evidence: string;
+
+  /**
+   * A probability and not money. Absent on an unclassified row.
+   *
+   * @generated from field: optional double confidence = 15;
+   */
+  confidence?: number;
+};
+
+/**
+ * Describes the message vekst.v1.ImportedRow.
+ * Use `create(ImportedRowSchema)` to create a new message.
+ */
+export const ImportedRowSchema: GenMessage<ImportedRow> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_import, 6);
+
+/**
+ * @generated from message vekst.v1.ListBatchTransactionsRequest
+ */
+export type ListBatchTransactionsRequest = Message<"vekst.v1.ListBatchTransactionsRequest"> & {
+  /**
+   * @generated from field: string org_id = 1;
+   */
+  orgId: string;
+
+  /**
+   * @generated from field: string batch_id = 2;
+   */
+  batchId: string;
+};
+
+/**
+ * Describes the message vekst.v1.ListBatchTransactionsRequest.
+ * Use `create(ListBatchTransactionsRequestSchema)` to create a new message.
+ */
+export const ListBatchTransactionsRequestSchema: GenMessage<ListBatchTransactionsRequest> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_import, 7);
+
+/**
+ * @generated from message vekst.v1.ListBatchTransactionsResponse
+ */
+export type ListBatchTransactionsResponse = Message<"vekst.v1.ListBatchTransactionsResponse"> & {
+  /**
+   * @generated from field: repeated vekst.v1.ImportedRow rows = 1;
+   */
+  rows: ImportedRow[];
+};
+
+/**
+ * Describes the message vekst.v1.ListBatchTransactionsResponse.
+ * Use `create(ListBatchTransactionsResponseSchema)` to create a new message.
+ */
+export const ListBatchTransactionsResponseSchema: GenMessage<ListBatchTransactionsResponse> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_import, 8);
+
+/**
  * @generated from message vekst.v1.ListImportBatchesRequest
  */
 export type ListImportBatchesRequest = Message<"vekst.v1.ListImportBatchesRequest"> & {
@@ -198,7 +351,7 @@ export type ListImportBatchesRequest = Message<"vekst.v1.ListImportBatchesReques
  * Use `create(ListImportBatchesRequestSchema)` to create a new message.
  */
 export const ListImportBatchesRequestSchema: GenMessage<ListImportBatchesRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 6);
+  messageDesc(file_vekst_v1_import, 9);
 
 /**
  * @generated from message vekst.v1.ListImportBatchesResponse
@@ -215,7 +368,7 @@ export type ListImportBatchesResponse = Message<"vekst.v1.ListImportBatchesRespo
  * Use `create(ListImportBatchesResponseSchema)` to create a new message.
  */
 export const ListImportBatchesResponseSchema: GenMessage<ListImportBatchesResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 7);
+  messageDesc(file_vekst_v1_import, 10);
 
 /**
  * @generated from message vekst.v1.ImportBatch
@@ -287,7 +440,7 @@ export type ImportBatch = Message<"vekst.v1.ImportBatch"> & {
  * Use `create(ImportBatchSchema)` to create a new message.
  */
 export const ImportBatchSchema: GenMessage<ImportBatch> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 8);
+  messageDesc(file_vekst_v1_import, 11);
 
 /**
  * @generated from message vekst.v1.ClassificationRun
@@ -344,7 +497,7 @@ export type ClassificationRun = Message<"vekst.v1.ClassificationRun"> & {
  * Use `create(ClassificationRunSchema)` to create a new message.
  */
 export const ClassificationRunSchema: GenMessage<ClassificationRun> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 9);
+  messageDesc(file_vekst_v1_import, 12);
 
 /**
  * One entry per correctness error, keyed to the line in the original file
@@ -385,7 +538,7 @@ export type ValidationError = Message<"vekst.v1.ValidationError"> & {
  * Use `create(ValidationErrorSchema)` to create a new message.
  */
 export const ValidationErrorSchema: GenMessage<ValidationError> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 10);
+  messageDesc(file_vekst_v1_import, 13);
 
 /**
  * Populated when code == "balance_mismatch". No other warning code carries
@@ -429,7 +582,7 @@ export type BalanceMismatchDetail = Message<"vekst.v1.BalanceMismatchDetail"> & 
  * Use `create(BalanceMismatchDetailSchema)` to create a new message.
  */
 export const BalanceMismatchDetailSchema: GenMessage<BalanceMismatchDetail> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 11);
+  messageDesc(file_vekst_v1_import, 14);
 
 /**
  * @generated from message vekst.v1.ValidationWarning
@@ -451,7 +604,7 @@ export type ValidationWarning = Message<"vekst.v1.ValidationWarning"> & {
  * Use `create(ValidationWarningSchema)` to create a new message.
  */
 export const ValidationWarningSchema: GenMessage<ValidationWarning> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 12);
+  messageDesc(file_vekst_v1_import, 15);
 
 /**
  * @generated from message vekst.v1.ValidationReport
@@ -525,7 +678,7 @@ export type ValidationReport = Message<"vekst.v1.ValidationReport"> & {
  * Use `create(ValidationReportSchema)` to create a new message.
  */
 export const ValidationReportSchema: GenMessage<ValidationReport> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 13);
+  messageDesc(file_vekst_v1_import, 16);
 
 /**
  * @generated from message vekst.v1.GetValidationReportRequest
@@ -547,7 +700,7 @@ export type GetValidationReportRequest = Message<"vekst.v1.GetValidationReportRe
  * Use `create(GetValidationReportRequestSchema)` to create a new message.
  */
 export const GetValidationReportRequestSchema: GenMessage<GetValidationReportRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 14);
+  messageDesc(file_vekst_v1_import, 17);
 
 /**
  * @generated from message vekst.v1.GetValidationReportResponse
@@ -564,7 +717,7 @@ export type GetValidationReportResponse = Message<"vekst.v1.GetValidationReportR
  * Use `create(GetValidationReportResponseSchema)` to create a new message.
  */
 export const GetValidationReportResponseSchema: GenMessage<GetValidationReportResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 15);
+  messageDesc(file_vekst_v1_import, 18);
 
 /**
  * @generated from message vekst.v1.OverrideValidationRequest
@@ -593,7 +746,7 @@ export type OverrideValidationRequest = Message<"vekst.v1.OverrideValidationRequ
  * Use `create(OverrideValidationRequestSchema)` to create a new message.
  */
 export const OverrideValidationRequestSchema: GenMessage<OverrideValidationRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 16);
+  messageDesc(file_vekst_v1_import, 19);
 
 /**
  * @generated from message vekst.v1.OverrideValidationResponse
@@ -610,7 +763,7 @@ export type OverrideValidationResponse = Message<"vekst.v1.OverrideValidationRes
  * Use `create(OverrideValidationResponseSchema)` to create a new message.
  */
 export const OverrideValidationResponseSchema: GenMessage<OverrideValidationResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 17);
+  messageDesc(file_vekst_v1_import, 20);
 
 /**
  * ImportProfile is the wire view of an import_profiles row. column_map keys
@@ -680,7 +833,7 @@ export type ImportProfile = Message<"vekst.v1.ImportProfile"> & {
  * Use `create(ImportProfileSchema)` to create a new message.
  */
 export const ImportProfileSchema: GenMessage<ImportProfile> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 18);
+  messageDesc(file_vekst_v1_import, 21);
 
 /**
  * @generated from message vekst.v1.CreateImportProfileRequest
@@ -732,7 +885,7 @@ export type CreateImportProfileRequest = Message<"vekst.v1.CreateImportProfileRe
  * Use `create(CreateImportProfileRequestSchema)` to create a new message.
  */
 export const CreateImportProfileRequestSchema: GenMessage<CreateImportProfileRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 19);
+  messageDesc(file_vekst_v1_import, 22);
 
 /**
  * @generated from message vekst.v1.CreateImportProfileResponse
@@ -749,7 +902,7 @@ export type CreateImportProfileResponse = Message<"vekst.v1.CreateImportProfileR
  * Use `create(CreateImportProfileResponseSchema)` to create a new message.
  */
 export const CreateImportProfileResponseSchema: GenMessage<CreateImportProfileResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 20);
+  messageDesc(file_vekst_v1_import, 23);
 
 /**
  * @generated from message vekst.v1.GetImportProfileRequest
@@ -771,7 +924,7 @@ export type GetImportProfileRequest = Message<"vekst.v1.GetImportProfileRequest"
  * Use `create(GetImportProfileRequestSchema)` to create a new message.
  */
 export const GetImportProfileRequestSchema: GenMessage<GetImportProfileRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 21);
+  messageDesc(file_vekst_v1_import, 24);
 
 /**
  * @generated from message vekst.v1.GetImportProfileResponse
@@ -788,7 +941,7 @@ export type GetImportProfileResponse = Message<"vekst.v1.GetImportProfileRespons
  * Use `create(GetImportProfileResponseSchema)` to create a new message.
  */
 export const GetImportProfileResponseSchema: GenMessage<GetImportProfileResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 22);
+  messageDesc(file_vekst_v1_import, 25);
 
 /**
  * @generated from message vekst.v1.ListImportProfilesRequest
@@ -805,7 +958,7 @@ export type ListImportProfilesRequest = Message<"vekst.v1.ListImportProfilesRequ
  * Use `create(ListImportProfilesRequestSchema)` to create a new message.
  */
 export const ListImportProfilesRequestSchema: GenMessage<ListImportProfilesRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 23);
+  messageDesc(file_vekst_v1_import, 26);
 
 /**
  * @generated from message vekst.v1.ListImportProfilesResponse
@@ -822,7 +975,7 @@ export type ListImportProfilesResponse = Message<"vekst.v1.ListImportProfilesRes
  * Use `create(ListImportProfilesResponseSchema)` to create a new message.
  */
 export const ListImportProfilesResponseSchema: GenMessage<ListImportProfilesResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 24);
+  messageDesc(file_vekst_v1_import, 27);
 
 /**
  * @generated from message vekst.v1.UpdateImportProfileRequest
@@ -878,7 +1031,7 @@ export type UpdateImportProfileRequest = Message<"vekst.v1.UpdateImportProfileRe
  * Use `create(UpdateImportProfileRequestSchema)` to create a new message.
  */
 export const UpdateImportProfileRequestSchema: GenMessage<UpdateImportProfileRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 25);
+  messageDesc(file_vekst_v1_import, 28);
 
 /**
  * @generated from message vekst.v1.UpdateImportProfileResponse
@@ -895,7 +1048,7 @@ export type UpdateImportProfileResponse = Message<"vekst.v1.UpdateImportProfileR
  * Use `create(UpdateImportProfileResponseSchema)` to create a new message.
  */
 export const UpdateImportProfileResponseSchema: GenMessage<UpdateImportProfileResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 26);
+  messageDesc(file_vekst_v1_import, 29);
 
 /**
  * @generated from message vekst.v1.DeleteImportProfileRequest
@@ -917,7 +1070,7 @@ export type DeleteImportProfileRequest = Message<"vekst.v1.DeleteImportProfileRe
  * Use `create(DeleteImportProfileRequestSchema)` to create a new message.
  */
 export const DeleteImportProfileRequestSchema: GenMessage<DeleteImportProfileRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 27);
+  messageDesc(file_vekst_v1_import, 30);
 
 /**
  * @generated from message vekst.v1.DeleteImportProfileResponse
@@ -930,7 +1083,7 @@ export type DeleteImportProfileResponse = Message<"vekst.v1.DeleteImportProfileR
  * Use `create(DeleteImportProfileResponseSchema)` to create a new message.
  */
 export const DeleteImportProfileResponseSchema: GenMessage<DeleteImportProfileResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 28);
+  messageDesc(file_vekst_v1_import, 31);
 
 /**
  * DedupSummary is the one number an import screen shows -- "412 rows
@@ -975,7 +1128,7 @@ export type DedupSummary = Message<"vekst.v1.DedupSummary"> & {
  * Use `create(DedupSummarySchema)` to create a new message.
  */
 export const DedupSummarySchema: GenMessage<DedupSummary> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 29);
+  messageDesc(file_vekst_v1_import, 32);
 
 /**
  * @generated from message vekst.v1.GetDedupSummaryRequest
@@ -997,7 +1150,7 @@ export type GetDedupSummaryRequest = Message<"vekst.v1.GetDedupSummaryRequest"> 
  * Use `create(GetDedupSummaryRequestSchema)` to create a new message.
  */
 export const GetDedupSummaryRequestSchema: GenMessage<GetDedupSummaryRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 30);
+  messageDesc(file_vekst_v1_import, 33);
 
 /**
  * @generated from message vekst.v1.GetDedupSummaryResponse
@@ -1014,7 +1167,7 @@ export type GetDedupSummaryResponse = Message<"vekst.v1.GetDedupSummaryResponse"
  * Use `create(GetDedupSummaryResponseSchema)` to create a new message.
  */
 export const GetDedupSummaryResponseSchema: GenMessage<GetDedupSummaryResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 31);
+  messageDesc(file_vekst_v1_import, 34);
 
 /**
  * SkippedRow is one line dedup_skips holds: no money field -- a skipped
@@ -1069,7 +1222,7 @@ export type SkippedRow = Message<"vekst.v1.SkippedRow"> & {
  * Use `create(SkippedRowSchema)` to create a new message.
  */
 export const SkippedRowSchema: GenMessage<SkippedRow> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 32);
+  messageDesc(file_vekst_v1_import, 35);
 
 /**
  * @generated from message vekst.v1.ListSkippedRowsRequest
@@ -1091,7 +1244,7 @@ export type ListSkippedRowsRequest = Message<"vekst.v1.ListSkippedRowsRequest"> 
  * Use `create(ListSkippedRowsRequestSchema)` to create a new message.
  */
 export const ListSkippedRowsRequestSchema: GenMessage<ListSkippedRowsRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 33);
+  messageDesc(file_vekst_v1_import, 36);
 
 /**
  * @generated from message vekst.v1.ListSkippedRowsResponse
@@ -1108,7 +1261,7 @@ export type ListSkippedRowsResponse = Message<"vekst.v1.ListSkippedRowsResponse"
  * Use `create(ListSkippedRowsResponseSchema)` to create a new message.
  */
 export const ListSkippedRowsResponseSchema: GenMessage<ListSkippedRowsResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 34);
+  messageDesc(file_vekst_v1_import, 37);
 
 /**
  * @generated from message vekst.v1.InternalTransfer
@@ -1152,7 +1305,7 @@ export type InternalTransfer = Message<"vekst.v1.InternalTransfer"> & {
  * Use `create(InternalTransferSchema)` to create a new message.
  */
 export const InternalTransferSchema: GenMessage<InternalTransfer> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 35);
+  messageDesc(file_vekst_v1_import, 38);
 
 /**
  * @generated from message vekst.v1.ListInternalTransfersRequest
@@ -1174,7 +1327,7 @@ export type ListInternalTransfersRequest = Message<"vekst.v1.ListInternalTransfe
  * Use `create(ListInternalTransfersRequestSchema)` to create a new message.
  */
 export const ListInternalTransfersRequestSchema: GenMessage<ListInternalTransfersRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 36);
+  messageDesc(file_vekst_v1_import, 39);
 
 /**
  * @generated from message vekst.v1.ListInternalTransfersResponse
@@ -1191,7 +1344,7 @@ export type ListInternalTransfersResponse = Message<"vekst.v1.ListInternalTransf
  * Use `create(ListInternalTransfersResponseSchema)` to create a new message.
  */
 export const ListInternalTransfersResponseSchema: GenMessage<ListInternalTransfersResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 37);
+  messageDesc(file_vekst_v1_import, 40);
 
 /**
  * @generated from message vekst.v1.DismissInternalTransferRequest
@@ -1213,7 +1366,7 @@ export type DismissInternalTransferRequest = Message<"vekst.v1.DismissInternalTr
  * Use `create(DismissInternalTransferRequestSchema)` to create a new message.
  */
 export const DismissInternalTransferRequestSchema: GenMessage<DismissInternalTransferRequest> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 38);
+  messageDesc(file_vekst_v1_import, 41);
 
 /**
  * @generated from message vekst.v1.DismissInternalTransferResponse
@@ -1230,7 +1383,7 @@ export type DismissInternalTransferResponse = Message<"vekst.v1.DismissInternalT
  * Use `create(DismissInternalTransferResponseSchema)` to create a new message.
  */
 export const DismissInternalTransferResponseSchema: GenMessage<DismissInternalTransferResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_import, 39);
+  messageDesc(file_vekst_v1_import, 42);
 
 /**
  * @generated from enum vekst.v1.SourceKind
@@ -1444,6 +1597,22 @@ export const ImportService: GenService<{
     methodKind: "unary";
     input: typeof ListImportBatchesRequestSchema;
     output: typeof ListImportBatchesResponseSchema;
+  },
+  /**
+   * The rows this batch actually persisted, in file order, each with its live
+   * classification -- empty on a row the review queue has not reached yet,
+   * which is the fact that put it there, not a missing value. A person
+   * opening a batch to check what happened to it needs both at once: reading
+   * its rows off the report's own drill-down would mean guessing a category
+   * and a period first, which is exactly backwards from "I have a file open,
+   * what did this product do with it".
+   *
+   * @generated from rpc vekst.v1.ImportService.ListBatchTransactions
+   */
+  listBatchTransactions: {
+    methodKind: "unary";
+    input: typeof ListBatchTransactionsRequestSchema;
+    output: typeof ListBatchTransactionsResponseSchema;
   },
   /**
    * add-ingest-validation (change 2.3).

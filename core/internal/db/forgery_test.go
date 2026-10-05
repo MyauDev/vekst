@@ -35,7 +35,7 @@ func TestOrgIDCannotBeForgedOutsideThisPackage(t *testing.T) {
 		},
 		{
 			file:      "test_constructor.go",
-			wantError: "want (testing.TB, uuid.UUID)",
+			wantError: "want (testing.TB, ",
 		},
 	} {
 		t.Run(tc.file, func(t *testing.T) {

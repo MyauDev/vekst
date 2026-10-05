@@ -1,5 +1,7 @@
 package money
 
+import "sort"
+
 // exponent maps an ISO-4217 currency code to the number of digits after its
 // decimal point -- how minor_units divides into a display amount. Most
 // currencies use 2; a handful use 0, 3 or 4. This is data, not a generated
@@ -44,4 +46,18 @@ var exponent = map[string]int{
 func Exponent(code string) (int, bool) {
 	e, ok := exponent[code]
 	return e, ok
+}
+
+// Codes returns every ISO-4217 code this package knows, sorted. It exists for
+// core/internal/money/cmd/gen-currency-seed, which writes the `currencies`
+// table's seed rows from this map (migration 00018), and for tests -- not for
+// application code, which should call Exponent for one code at a time rather
+// than enumerate the table.
+func Codes() []string {
+	codes := make([]string, 0, len(exponent))
+	for c := range exponent {
+		codes = append(codes, c)
+	}
+	sort.Strings(codes)
+	return codes
 }

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package vekst.v1;
+
+option go_package = "github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1";
+
+// OrgService is browser-facing, served over Connect, like every service in
+// this package.
+//
+// It exists because sign-in alone leaves a person with no organisation:
+// change 1.2's identity flow writes a users row and a user_identities row and
+// stops there deliberately (add-identity design), so the browser needs a
+// call that turns a signed-in caller with no membership into one with an
+// organisation, an entity and an owner role -- in one transaction, or none
+// of it.
+service OrgService {
+  // The one call a signed-in caller with no membership may make.
+  //
+  // Authenticated, and deliberately not authorised against a membership: a
+  // caller who has one is refused with already_a_member rather than
+  // admitted, because the Demo gives a person exactly one organisation and a
+  // second would be a second tenant nobody asked for.
+  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse);
+}
+
+message CreateOrganizationRequest {
+  string name = 1;
+
+  // ISO-3166-1 alpha-2.
+  string country = 2;
+
+  // ISO-4217. Validated in Go against core/internal/money's exponent map,
+  // and against the currencies table it is generated from -- not against
+  // organizations.base_currency's own CHECK, which admits any three
+  // uppercase letters.
+  string base_currency = 3;
+
+  // The single entity every organisation has in the Demo. entity_id exists
+  // from the first migration even though v1 creates one per organisation.
+  string entity_name = 4;
+}
+
+message CreateOrganizationResponse {
+  string organization_id = 1;
+  string entity_id = 2;
+}

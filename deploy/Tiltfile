@@ -45,7 +45,7 @@ docker_build_with_restart(
     target='dev',          # alpine: the restart wrapper needs a shell
     entrypoint=['/vekst-core'],
     build_args={'VERSION': 'dev', 'BUILT_AT': 'dev'},
-    only=['go.mod', 'go.sum', 'core'],
+    only=['go.mod', 'go.sum', 'core', 'third_party'],
     live_update=[
         sync('../core', '/src/core'),
         run('go build -o /vekst-core ./core/cmd/vekst-core', trigger=['../core']),

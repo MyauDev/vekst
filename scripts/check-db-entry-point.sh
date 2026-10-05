@@ -68,7 +68,7 @@ expect_count() {
   fi
 }
 
-expect_count InSystemTx       8 'InSystemTx('
+expect_count InSystemTx       9 'InSystemTx('
 # 6: TenantProbeWorker (design's worked example), add-file-upload's
 # measurementWorker and expiryWorker, add-ingest-validation's validateWorker,
 # add-dedup's persistWorker, and add-classification-run's classifyWorker --

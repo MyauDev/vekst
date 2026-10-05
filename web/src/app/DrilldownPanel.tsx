@@ -1,5 +1,6 @@
 /**
- * The transactions behind one figure, as a panel over the report.
+ * The transactions -- or, for a computed line, the operands -- behind one
+ * figure, as a panel over the report.
  *
  * A route rather than a state flag (design D8), so the panel has a URL that
  * survives a copy-paste and the back button closes it rather than leaving the
@@ -15,17 +16,26 @@
  * the router unmounts it the moment the back button fires. Holding it mounted
  * to play an exit would put a render concern inside navigation, which is a
  * worse trade than an asymmetry nobody has complained about.
+ *
+ * Two answer kinds, not one: GM has no transactions of its own, it is NET
+ * SALES minus CS, and both of those have transactions -- so a computed
+ * line's cell opens onto its operands instead, each itself a link into
+ * another drill-down (report.proto's own words for
+ * `REPORT_ANSWER_KIND_OPERANDS`). `rowsUnavailable` is gone: the fixture's
+ * "this figure's rows are not in the sample" has no backend equivalent --
+ * every request now returns whatever is really there, including zero.
  */
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { getDrilldown } from "../data/report";
-import type { DrilldownRow } from "../data/report";
+import type { DrilldownOperand, DrilldownRow } from "../data/report";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../money";
 import { t } from "../i18n";
 import type { Locale } from "../i18n";
 import { formatPeriodLong } from "../ui/period";
 import { useLocale } from "../ui/preferences";
+import { cellName, lineName } from "./lineName";
 import { ErrorState, Loading } from "../ui/feedback";
 
 function fmt(m: { minorUnits: string; currencyCode: string }, locale: Locale): string {
@@ -59,7 +69,9 @@ function Rows({ rows, locale }: Readonly<{ rows: readonly DrilldownRow[]; locale
             {row.layer}
           </span>
           <span className="tabular w-10 shrink-0 text-right text-2xs text-text-subtle">
-            {Math.round(row.confidence * 100)}%
+            {/* Absent on an unclassified row -- one of the bucket drill-downs
+                this same panel now opens, not only a line's. */}
+            {row.confidence !== undefined ? `${Math.round(row.confidence * 100)}%` : NO_DATA}
           </span>
           <span className="tabular w-24 shrink-0 text-right text-figure">
             {fmt(row.amount, locale)}
@@ -67,6 +79,43 @@ function Rows({ rows, locale }: Readonly<{ rows: readonly DrilldownRow[]; locale
         </div>
       ))}
     </div>
+  );
+}
+
+/** What a computed line is made of. Each operand opens its own drill-down in
+ *  turn -- GM has no transactions of its own; NET SALES and CS do. */
+function Operands({
+  operands,
+  period,
+  search,
+  locale,
+}: Readonly<{
+  operands: readonly DrilldownOperand[];
+  period: string;
+  search: { from: string; to: string; view: "table" | "charts" };
+  locale: Locale;
+}>) {
+  return (
+    <ul className="flex flex-col gap-1 py-4">
+      {operands.map((o) => (
+        <li key={o.categoryId}>
+          <Link
+            to="/app/reports/pnl/cell/$categoryId/$period"
+            params={{ categoryId: o.categoryId, period }}
+            search={search}
+            className="flex items-center justify-between gap-3 rounded px-2 py-2 text-sm text-text hover:bg-surface-sunken active:bg-border"
+          >
+            {/* The readable name, the same one the table row above carries
+                -- an operand list reading "NET SALES" and "CS" tells the
+                reader what GM is keyed by, not what it is made of. */}
+            <span>{lineName(o.categoryId, o.label, locale)}</span>
+            <span className="text-2xs uppercase tracking-widest text-text-subtle">
+              {o.subtracted ? "−" : "+"}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -78,9 +127,11 @@ export function DrilldownPanel() {
   const [locale] = useLocale();
 
   const { data, error, isPending } = useQuery({
-    queryKey: ["drilldown", categoryId, period],
-    queryFn: () => getDrilldown({ categoryId, period }),
+    queryKey: ["drilldown", categoryId, period, search.from, search.to],
+    queryFn: () => getDrilldown({ categoryId, period, from: search.from, to: search.to }),
   });
+
+  const empty = data && data.kind === "transactions" && data.rows.length === 0;
 
   return (
     <div className="panel-enter fixed inset-y-0 right-0 z-30 flex w-full max-w-2xl flex-col border-l border-border bg-overlay shadow-panel">
@@ -89,7 +140,12 @@ export function DrilldownPanel() {
           {/* A shared link arrives with no memory of the click, so the panel has
               to say which figure this is rather than assume the reader knows. */}
           <h2 className="truncate text-lg font-semibold tracking-tight">
-            {data?.categoryLabel ?? categoryId}
+            {/* A bucket has no human name on the wire, only a kind, so a
+                panel opened on one used to be headed "unclassified"
+                verbatim; a line arrives as the taxonomy's abbreviation.
+                `cellName` answers both vocabularies -- see
+                `app/lineName.ts`. */}
+            {cellName(categoryId, data?.categoryLabel ?? categoryId, locale)}
           </h2>
           <p className="mt-0.5 text-2xs uppercase tracking-widest text-text-subtle">
             {formatPeriodLong(period, locale)}
@@ -116,12 +172,20 @@ export function DrilldownPanel() {
         {/* No rule of its own: the header above already carries one, and a
             `border-t` under `max-w-prose` stops short of the panel edge, which
             reads as a broken divider rather than a deliberate one. */}
-        {data?.rowsUnavailable ? (
+        {empty ? (
           <p className="max-w-prose py-6 text-sm text-text-muted">
-            {t("drilldown.unavailable", locale)}
+            {t("drilldown.empty", locale)}
           </p>
         ) : null}
-        {data && !data.rowsUnavailable ? <Rows rows={data.rows} locale={locale} /> : null}
+        {data?.kind === "operands" ? (
+          <>
+            <h3 className="text-2xs font-semibold uppercase tracking-widest text-text-subtle">
+              {t("drilldown.operands", locale)}
+            </h3>
+            <Operands operands={data.operands} period={period} search={search} locale={locale} />
+          </>
+        ) : null}
+        {data?.kind === "transactions" && !empty ? <Rows rows={data.rows} locale={locale} /> : null}
       </div>
 
       {data ? (

@@ -13,80 +13,101 @@
  *
  * Six periods rather than the report's twelve, because the point here is to be
  * recognisable at a glance rather than complete.
+ *
+ * Twelve lines, not a category breakdown per section: the real
+ * `GetManagementPNL` returns exactly the top-level sections and the five
+ * computed results (`core/internal/report/pnl.go`'s own `Order`), never a
+ * per-leaf-category row -- detail lives behind the drill-down, not in the
+ * table. A sample with more rows than the real table ever has would be the
+ * one thing this file must not be: a picture of a product that does not
+ * exist.
  */
 import { sumMinorUnits } from "../money";
 import type { Money } from "../data/types";
-import type { Report, ReportSection, SectionId } from "../data/report";
+import type { Report, ReportLine } from "../data/report";
 
 const CURRENCY = "EUR";
 const PERIODS = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"];
 const money = (minorUnits: string): Money => ({ minorUnits, currencyCode: CURRENCY });
 
-const RAW: Record<SectionId, { label: string; rows: [string, string, string[]][] }> = {
-  revenue: {
-    label: "Revenue",
-    rows: [
-      ["product-sales", "Product sales", ["5590000","5460000","5150000","5780000","5540000","5840000"]],
-      ["services", "Services", ["1470000","1640000","1560000","1510000","1680000","1740000"]],
-    ],
-  },
-  cost_of_sales: {
-    label: "Cost of sales",
-    rows: [
-      ["materials", "Materials", ["-2440000","-2340000","-2240000","-2550000","-2390000","-2560000"]],
-      ["inbound-freight", "Inbound freight", ["-336000","-325000","-299000","-347000","-329000","-355000"]],
-    ],
-  },
-  operating_expenses: {
-    label: "Operating expenses",
-    rows: [
-      ["payroll", "Payroll", ["-1920000","-2010000","-2010000","-2010000","-2010000","-2070000"]],
-      ["logistics", "Logistics", ["-681240","-631860","-624025","-710580","-665535","-726090"]],
-      ["rent-and-utilities", "Rent and utilities", ["-350000","-350000","-350000","-350000","-350000","-350000"]],
-    ],
-  },
+/** One section's raw values by period -- everything below is derived from
+ *  these, the same chain `core/internal/report/pnl.go`'s `Chain` computes. */
+const RAW: Record<string, readonly string[]> = {
+  "01": ["7060000", "7100000", "6710000", "7290000", "7220000", "7580000"], // NET SALES
+  "02": ["-2440000", "-2340000", "-2240000", "-2550000", "-2390000", "-2560000"], // CS
+  "03": ["-336000", "-325000", "-299000", "-347000", "-329000", "-355000"], // OCS
+  "04": ["-2601240", "-2691860", "-2684025", "-2770580", "-2725535", "-2846090"], // OPEX
+  "05": ["-42000", "-38000", "-40000", "-41000", "-39000", "-43000"], // OIE
 };
 
-function section(id: SectionId): ReportSection {
-  const { label, rows } = RAW[id];
-  const lines = rows.map(([categoryId, lineLabel, units]) => ({
-    categoryId,
-    label: lineLabel,
-    section: id,
-    values: units.map(money),
-    total: money(sumMinorUnits(units)),
-  }));
-  const subtotals = PERIODS.map((_, i) =>
-    money(sumMinorUnits(rows.map(([, , units]) => units[i]!))),
-  );
+function line(code: string, label: string, computed: boolean, values: readonly string[]): ReportLine {
   return {
-    id,
+    categoryId: code,
     label,
-    lines,
-    subtotals,
-    total: money(sumMinorUnits(subtotals.map((m) => m.minorUnits))),
+    computed,
+    values: values.map(money),
+    total: money(sumMinorUnits(values)),
   };
 }
 
-/** Derived exactly as the report is, so the sample cannot fail to add up. */
+function perPeriod(fn: (i: number) => string): readonly string[] {
+  return PERIODS.map((_, i) => fn(i));
+}
+
+/**
+ * Derived exactly as the report is, so the sample cannot fail to add up.
+ *
+ * The labels are the abbreviations `core/internal/report/pnl.go` really sends
+ * — "CS", "OCS", "OPEX", "OIE" — not prose. The landing's claim about this
+ * table is "not a screenshot, the same component the application renders", and
+ * feeding it nicer strings than the backend produces quietly makes that false:
+ * the readable names come from `app/lineName.ts`, and a sample that arrived
+ * pre-translated would be the one place that path was never exercised.
+ */
 export const SAMPLE_REPORT: Report = (() => {
-  const sections = (["revenue", "cost_of_sales", "operating_expenses"] as const).map(section);
-  const netByPeriod = PERIODS.map((_, i) =>
-    money(sumMinorUnits(sections.map((s) => s.subtotals[i]!.minorUnits))),
-  );
-  const revenue = sections[0]!;
+  const netSales = line("01", "NET SALES", false, RAW["01"]!);
+  const cs = line("02", "CS", false, RAW["02"]!);
+  const gmValues = perPeriod((i) => sumMinorUnits([RAW["01"]![i]!, RAW["02"]![i]!]));
+  const gm = line("91", "GM", true, gmValues);
+
+  const ocs = line("03", "OCS", false, RAW["03"]!);
+  const nmValues = perPeriod((i) => sumMinorUnits([gmValues[i]!, RAW["03"]![i]!]));
+  const nm = line("92", "NM", true, nmValues);
+
+  const opex = line("04", "OPEX", false, RAW["04"]!);
+  const oie = line("05", "OIE", false, RAW["05"]!);
+  const cmValues = perPeriod((i) => sumMinorUnits([nmValues[i]!, RAW["04"]![i]!, RAW["05"]![i]!]));
+  const cm = line("93", "CM", true, cmValues);
+
+  // No financial result or tax line in the sample -- IBT and NI both equal CM.
+  const ibt = line("94", "IBT", true, cmValues);
+  const ni = line("95", "NI", true, cmValues);
+
+  const lines = [netSales, cs, gm, ocs, nm, opex, oie, cm, ibt, ni];
+
   return {
     currencyCode: CURRENCY,
     periods: PERIODS,
     basis: "cash",
-    sourceKinds: ["bank"],
-    sections,
-    netByPeriod,
-    netTotal: money(sumMinorUnits(netByPeriod.map((m) => m.minorUnits))),
-    revenueTotal: revenue.total,
-    expensesTotal: money(
-      sumMinorUnits(sections.slice(1).map((s) => s.total.minorUnits)),
-    ),
+    lines,
+    buckets: [],
+    netByPeriod: ni.values,
+    netTotal: ni.total,
+    revenueTotal: netSales.total,
+    // Derived the same way report.ts derives it: revenueTotal - CM, in BigInt,
+    // never a string trimmed of its own sign.
+    expensesTotal: money((BigInt(netSales.total.minorUnits) - BigInt(cm.total.minorUnits)).toString()),
+    expensesByPeriod: perPeriod((i) =>
+      (BigInt(netSales.values[i]!.minorUnits) - BigInt(cm.values[i]!.minorUnits)).toString(),
+    ).map(money),
+    // No bank movement in the sample, and the strip says so: this is a P&L
+    // with no statement behind it, so `cash` is zero for every month rather
+    // than a plausible-looking series invented to fill a chart the landing
+    // does not render. A marketing page that makes up a reconciliation is
+    // making up the one figure this product sells.
+    cash: PERIODS.map((period) => ({
+      period, moneyIn: money("0"), moneyOut: money("0"), net: money("0"),
+    })),
     reconciliation: {
       opening: money("15230000"), moneyIn: money("0"),
       moneyOut: money("0"), transfers: money("0"), closing: money("15230000"),

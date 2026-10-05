@@ -143,6 +143,17 @@ func (priorbankParser) Detect(raw []byte) bool {
 //     credit are mutually exclusive -- fails when both columns populated",
 //     which would reject every row of every file. The check has to be "both
 //     non-zero".
+//
+//   - **The file carries `"` characters that are not CSV quoting.** The bank
+//     wraps its own name in them on every export -- `"Приорбанк" Открытое
+//     ...` -- and a counterparty's legal name often does too, since a quoted
+//     name is ordinary Russian and Belarusian business writing, not a foreign
+//     one. None of them ever protects a delimiter or a newline: every `;` in
+//     this format is a real column boundary, quoted or not. `encoding/csv`
+//     does not know that -- a field opening on `"` commits it to hunting for
+//     a matching close, and one that never arrives (the bank's own name
+//     closes on a space, not a delimiter) swallows the rest of the file into
+//     a single field. Stripped before the reader ever sees them.
 func ParsePriorbank(raw []byte) (*Statement, error) {
 	return ParsePriorbankWithParams(raw, nil)
 }
@@ -161,6 +172,9 @@ func ParsePriorbankWithParams(raw []byte, params *Parameters) (*Statement, error
 	if err != nil {
 		return nil, err
 	}
+	// See the fourth bullet above: a literal `"` here is always prose, never
+	// CSV quoting, and encoding/csv cannot tell the two apart.
+	text = strings.ReplaceAll(text, `"`, "")
 
 	reader := csv.NewReader(strings.NewReader(text))
 	reader.Comma = ';'

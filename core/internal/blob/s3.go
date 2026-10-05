@@ -23,6 +23,16 @@ type Config struct {
 	AccessKeyID string
 	SecretKey   string
 	PathStyle   bool // true for MinIO: bucket.subdomain addressing needs DNS a real S3 has and MinIO does not.
+
+	// PresignEndpoint is the host a presigned PUT is signed against, when it
+	// differs from Endpoint. core reaches the store over its cluster-internal
+	// name; a presigned URL is handed to the browser, which cannot resolve
+	// that name at all. Empty means they are the same host, true of a real S3
+	// endpoint that is already publicly reachable -- only the local overlay's
+	// MinIO, reachable from core as "minio:9000" and from a laptop browser
+	// only via Tilt's port-forward to "localhost:9001", needs the two to
+	// differ.
+	PresignEndpoint string
 }
 
 // Configured reports whether upload can work at all, the same shape as
@@ -51,9 +61,18 @@ func New(cfg Config) *S3Store {
 		UsePathStyle: cfg.PathStyle,
 		BaseEndpoint: aws.String(cfg.Endpoint),
 	})
+	presignClient := client
+	if cfg.PresignEndpoint != "" {
+		presignClient = s3.New(s3.Options{
+			Region:       cfg.Region,
+			Credentials:  credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretKey, ""),
+			UsePathStyle: cfg.PathStyle,
+			BaseEndpoint: aws.String(cfg.PresignEndpoint),
+		})
+	}
 	return &S3Store{
 		client:  client,
-		presign: s3.NewPresignClient(client),
+		presign: s3.NewPresignClient(presignClient),
 		bucket:  cfg.Bucket,
 	}
 }

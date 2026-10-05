@@ -15,10 +15,12 @@ service IdentityService {
   rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
 }
 
-// User carries no organisation and no role, deliberately. There is no
-// organisation model until change 1.1, and a field that exists before it means
-// anything is a field the front end starts trusting. 1.1 extends this message;
-// buf breaking protects the addition.
+// User carries no organisation and no role, deliberately, and still does not:
+// change 5.3 (connect-app-end-to-end) adds the caller's organisations as a
+// second field on GetCurrentUserResponse below, rather than on User itself --
+// a person's identity and which organisations they belong to are different
+// facts, and the second can change (or be empty, at first sign-in) without
+// the first meaning anything different.
 message User {
   // Opaque to the client.
   string id = 1;
@@ -38,6 +40,40 @@ message User {
 
 message GetCurrentUserRequest {}
 
+// One entity within an organisation. v1 gives every organisation exactly one
+// (add-web-experience design), so this is a singleton list today, but it is
+// a list because entity_id has existed since the first migration.
+message Entity {
+  string id = 1;
+  string name = 2;
+}
+
+// One organisation the caller belongs to, with their own role in it and its
+// entities. v1 gives a person exactly one organisation
+// (add-web-experience/design.md:147), so `organisations` below is a
+// singleton list today for the same reason `entities` here is -- the field
+// is repeated because the schema already allows more, not because the
+// product does yet.
+message Organisation {
+  string id = 1;
+  string name = 2;
+  string base_currency = 3;
+
+  // The caller's own membership role. Returned rather than looked up again
+  // at enforcement time, because a second lookup later is how a
+  // stale-permissions bug is built (design D3 makes the same call for
+  // OrgIDForSession).
+  string role = 4;
+
+  repeated Entity entities = 5;
+}
+
 message GetCurrentUserResponse {
   User user = 1;
+
+  // Every organisation the caller holds a membership in. Empty means the
+  // caller has no organisation -- that is the first-run signal, and it is a
+  // fact rather than an error: a person who has just signed in for the first
+  // time has not failed at anything.
+  repeated Organisation organisations = 2;
 }

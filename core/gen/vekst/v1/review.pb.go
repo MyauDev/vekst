@@ -789,6 +789,171 @@ func (x *UndoDecisionResponse) GetRetractedCount() int32 {
 	return 0
 }
 
+type ListCategoriesRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	OrganizationId string                 `protobuf:"bytes,1,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListCategoriesRequest) Reset() {
+	*x = ListCategoriesRequest{}
+	mi := &file_vekst_v1_review_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCategoriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCategoriesRequest) ProtoMessage() {}
+
+func (x *ListCategoriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_review_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCategoriesRequest.ProtoReflect.Descriptor instead.
+func (*ListCategoriesRequest) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_review_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListCategoriesRequest) GetOrganizationId() string {
+	if x != nil {
+		return x.OrganizationId
+	}
+	return ""
+}
+
+type Category struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Code  string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	Name  string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// "OPEX > Administration > Finance", for a searchable picker.
+	Path          string `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	IsPnl         bool   `protobuf:"varint,5,opt,name=is_pnl,json=isPnl,proto3" json:"is_pnl,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Category) Reset() {
+	*x = Category{}
+	mi := &file_vekst_v1_review_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Category) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Category) ProtoMessage() {}
+
+func (x *Category) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_review_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Category.ProtoReflect.Descriptor instead.
+func (*Category) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_review_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *Category) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Category) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Category) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Category) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *Category) GetIsPnl() bool {
+	if x != nil {
+		return x.IsPnl
+	}
+	return false
+}
+
+type ListCategoriesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Categories    []*Category            `protobuf:"bytes,1,rep,name=categories,proto3" json:"categories,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCategoriesResponse) Reset() {
+	*x = ListCategoriesResponse{}
+	mi := &file_vekst_v1_review_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCategoriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCategoriesResponse) ProtoMessage() {}
+
+func (x *ListCategoriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_vekst_v1_review_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCategoriesResponse.ProtoReflect.Descriptor instead.
+func (*ListCategoriesResponse) Descriptor() ([]byte, []int) {
+	return file_vekst_v1_review_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListCategoriesResponse) GetCategories() []*Category {
+	if x != nil {
+		return x.Categories
+	}
+	return nil
+}
+
 var File_vekst_v1_review_proto protoreflect.FileDescriptor
 
 const file_vekst_v1_review_proto_rawDesc = "" +
@@ -846,18 +1011,31 @@ const file_vekst_v1_review_proto_rawDesc = "" +
 	"\vdecision_id\x18\x02 \x01(\tR\n" +
 	"decisionId\"?\n" +
 	"\x14UndoDecisionResponse\x12'\n" +
-	"\x0fretracted_count\x18\x01 \x01(\x05R\x0eretractedCount*\xad\x01\n" +
+	"\x0fretracted_count\x18\x01 \x01(\x05R\x0eretractedCount\"@\n" +
+	"\x15ListCategoriesRequest\x12'\n" +
+	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\"m\n" +
+	"\bCategory\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04path\x18\x04 \x01(\tR\x04path\x12\x15\n" +
+	"\x06is_pnl\x18\x05 \x01(\bR\x05isPnl\"L\n" +
+	"\x16ListCategoriesResponse\x122\n" +
+	"\n" +
+	"categories\x18\x01 \x03(\v2\x12.vekst.v1.CategoryR\n" +
+	"categories*\xad\x01\n" +
 	"\rReviewOutcome\x12\x1e\n" +
 	"\x1aREVIEW_OUTCOME_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREVIEW_OUTCOME_CATEGORISED\x10\x01\x12$\n" +
 	" REVIEW_OUTCOME_INTERNAL_TRANSFER\x10\x02\x12\x1a\n" +
 	"\x16REVIEW_OUTCOME_NON_PNL\x10\x03\x12\x1a\n" +
-	"\x16REVIEW_OUTCOME_SKIPPED\x10\x042\xf2\x02\n" +
+	"\x16REVIEW_OUTCOME_SKIPPED\x10\x042\xc7\x03\n" +
 	"\rReviewService\x12Y\n" +
 	"\x10ListReviewGroups\x12!.vekst.v1.ListReviewGroupsRequest\x1a\".vekst.v1.ListReviewGroupsResponse\x12h\n" +
 	"\x15ListGroupTransactions\x12&.vekst.v1.ListGroupTransactionsRequest\x1a'.vekst.v1.ListGroupTransactionsResponse\x12M\n" +
 	"\fResolveGroup\x12\x1d.vekst.v1.ResolveGroupRequest\x1a\x1e.vekst.v1.ResolveGroupResponse\x12M\n" +
-	"\fUndoDecision\x12\x1d.vekst.v1.UndoDecisionRequest\x1a\x1e.vekst.v1.UndoDecisionResponseB3Z1github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1b\x06proto3"
+	"\fUndoDecision\x12\x1d.vekst.v1.UndoDecisionRequest\x1a\x1e.vekst.v1.UndoDecisionResponse\x12S\n" +
+	"\x0eListCategories\x12\x1f.vekst.v1.ListCategoriesRequest\x1a .vekst.v1.ListCategoriesResponseB3Z1github.com/MyauDev/vekst/core/gen/vekst/v1;vektv1b\x06proto3"
 
 var (
 	file_vekst_v1_review_proto_rawDescOnce sync.Once
@@ -872,7 +1050,7 @@ func file_vekst_v1_review_proto_rawDescGZIP() []byte {
 }
 
 var file_vekst_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_vekst_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_vekst_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_vekst_v1_review_proto_goTypes = []any{
 	(ReviewOutcome)(0),                    // 0: vekst.v1.ReviewOutcome
 	(*ReviewGroup)(nil),                   // 1: vekst.v1.ReviewGroup
@@ -885,30 +1063,36 @@ var file_vekst_v1_review_proto_goTypes = []any{
 	(*ResolveGroupResponse)(nil),          // 8: vekst.v1.ResolveGroupResponse
 	(*UndoDecisionRequest)(nil),           // 9: vekst.v1.UndoDecisionRequest
 	(*UndoDecisionResponse)(nil),          // 10: vekst.v1.UndoDecisionResponse
-	(*v1.Money)(nil),                      // 11: vekst.type.v1.Money
+	(*ListCategoriesRequest)(nil),         // 11: vekst.v1.ListCategoriesRequest
+	(*Category)(nil),                      // 12: vekst.v1.Category
+	(*ListCategoriesResponse)(nil),        // 13: vekst.v1.ListCategoriesResponse
+	(*v1.Money)(nil),                      // 14: vekst.type.v1.Money
 }
 var file_vekst_v1_review_proto_depIdxs = []int32{
-	11, // 0: vekst.v1.ReviewGroup.total:type_name -> vekst.type.v1.Money
+	14, // 0: vekst.v1.ReviewGroup.total:type_name -> vekst.type.v1.Money
 	1,  // 1: vekst.v1.ListReviewGroupsResponse.groups:type_name -> vekst.v1.ReviewGroup
-	11, // 2: vekst.v1.ListReviewGroupsResponse.total_absolute:type_name -> vekst.type.v1.Money
-	11, // 3: vekst.v1.QueuedTransaction.amount:type_name -> vekst.type.v1.Money
-	11, // 4: vekst.v1.QueuedTransaction.base_amount:type_name -> vekst.type.v1.Money
+	14, // 2: vekst.v1.ListReviewGroupsResponse.total_absolute:type_name -> vekst.type.v1.Money
+	14, // 3: vekst.v1.QueuedTransaction.amount:type_name -> vekst.type.v1.Money
+	14, // 4: vekst.v1.QueuedTransaction.base_amount:type_name -> vekst.type.v1.Money
 	5,  // 5: vekst.v1.ListGroupTransactionsResponse.transactions:type_name -> vekst.v1.QueuedTransaction
 	0,  // 6: vekst.v1.ResolveGroupRequest.outcome:type_name -> vekst.v1.ReviewOutcome
-	11, // 7: vekst.v1.ResolveGroupResponse.covered_total:type_name -> vekst.type.v1.Money
-	2,  // 8: vekst.v1.ReviewService.ListReviewGroups:input_type -> vekst.v1.ListReviewGroupsRequest
-	4,  // 9: vekst.v1.ReviewService.ListGroupTransactions:input_type -> vekst.v1.ListGroupTransactionsRequest
-	7,  // 10: vekst.v1.ReviewService.ResolveGroup:input_type -> vekst.v1.ResolveGroupRequest
-	9,  // 11: vekst.v1.ReviewService.UndoDecision:input_type -> vekst.v1.UndoDecisionRequest
-	3,  // 12: vekst.v1.ReviewService.ListReviewGroups:output_type -> vekst.v1.ListReviewGroupsResponse
-	6,  // 13: vekst.v1.ReviewService.ListGroupTransactions:output_type -> vekst.v1.ListGroupTransactionsResponse
-	8,  // 14: vekst.v1.ReviewService.ResolveGroup:output_type -> vekst.v1.ResolveGroupResponse
-	10, // 15: vekst.v1.ReviewService.UndoDecision:output_type -> vekst.v1.UndoDecisionResponse
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	14, // 7: vekst.v1.ResolveGroupResponse.covered_total:type_name -> vekst.type.v1.Money
+	12, // 8: vekst.v1.ListCategoriesResponse.categories:type_name -> vekst.v1.Category
+	2,  // 9: vekst.v1.ReviewService.ListReviewGroups:input_type -> vekst.v1.ListReviewGroupsRequest
+	4,  // 10: vekst.v1.ReviewService.ListGroupTransactions:input_type -> vekst.v1.ListGroupTransactionsRequest
+	7,  // 11: vekst.v1.ReviewService.ResolveGroup:input_type -> vekst.v1.ResolveGroupRequest
+	9,  // 12: vekst.v1.ReviewService.UndoDecision:input_type -> vekst.v1.UndoDecisionRequest
+	11, // 13: vekst.v1.ReviewService.ListCategories:input_type -> vekst.v1.ListCategoriesRequest
+	3,  // 14: vekst.v1.ReviewService.ListReviewGroups:output_type -> vekst.v1.ListReviewGroupsResponse
+	6,  // 15: vekst.v1.ReviewService.ListGroupTransactions:output_type -> vekst.v1.ListGroupTransactionsResponse
+	8,  // 16: vekst.v1.ReviewService.ResolveGroup:output_type -> vekst.v1.ResolveGroupResponse
+	10, // 17: vekst.v1.ReviewService.UndoDecision:output_type -> vekst.v1.UndoDecisionResponse
+	13, // 18: vekst.v1.ReviewService.ListCategories:output_type -> vekst.v1.ListCategoriesResponse
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_vekst_v1_review_proto_init() }
@@ -922,7 +1106,7 @@ func file_vekst_v1_review_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vekst_v1_review_proto_rawDesc), len(file_vekst_v1_review_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

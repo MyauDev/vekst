@@ -23,6 +23,12 @@ import (
 const (
 	rulesetV     = "v1"
 	seededRules  = 71 // 41 BY + 21 KZ + 9 PL
+
+	// Every count below is scoped to `rulesetV`, and has to be: migration
+	// 00019 added a second template ruleset (v2 = these 71 carried forward
+	// plus three Belarusian revenue rules), so "the template rules" is no
+	// longer a number the table has. Unscoped, these read 145 and the
+	// failure would look like a policy leak rather than a missing WHERE.
 	sharedLeafBY = "0404"
 )
 
@@ -92,7 +98,8 @@ func TestAnOrganisationCannotWriteATemplateRule(t *testing.T) {
 	var live int
 	if err := inTenantTx(t, f.app, orgB, func(tx *sql.Tx) error {
 		return tx.QueryRow(
-			`SELECT count(*) FROM classification_rules WHERE org_id IS NULL AND active`).Scan(&live)
+			`SELECT count(*) FROM classification_rules
+			  WHERE org_id IS NULL AND active AND ruleset_version = $1`, rulesetV).Scan(&live)
 	}); err != nil {
 		t.Fatalf("org B reading back: %v", err)
 	}
@@ -120,7 +127,8 @@ func TestOneOrganisationCannotSeeAnothersRules(t *testing.T) {
 	// Isolation must not cost A the rules that belong to everyone.
 	if err := inTenantTx(t, f.app, orgA, func(tx *sql.Tx) error {
 		return tx.QueryRow(
-			`SELECT count(*) FROM classification_rules WHERE org_id IS NULL`).Scan(&n)
+			`SELECT count(*) FROM classification_rules
+			  WHERE org_id IS NULL AND ruleset_version = $1`, rulesetV).Scan(&n)
 	}); err != nil {
 		t.Fatalf("org A reading the templates: %v", err)
 	}
@@ -159,7 +167,8 @@ func TestTwoOrganisationsMayReuseAPriority(t *testing.T) {
 	var templates int
 	if err := inTenantTx(t, f.app, orgA, func(tx *sql.Tx) error {
 		return tx.QueryRow(
-			`SELECT count(*) FROM classification_rules WHERE org_id IS NULL AND priority = 7`).Scan(&templates)
+			`SELECT count(*) FROM classification_rules
+			  WHERE org_id IS NULL AND priority = 7 AND ruleset_version = $1`, rulesetV).Scan(&templates)
 	}); err != nil {
 		t.Fatalf("reading template priority 7: %v", err)
 	}

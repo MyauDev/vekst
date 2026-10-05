@@ -10,13 +10,15 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file vekst/v1/identity.proto.
  */
 export const file_vekst_v1_identity: GenFile = /*@__PURE__*/
-  fileDesc("Chd2ZWtzdC92MS9pZGVudGl0eS5wcm90bxIIdmVrc3QudjEiPwoEVXNlchIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIMCgRuYW1lGAMgASgJEg4KBmxvY2FsZRgEIAEoCSIXChVHZXRDdXJyZW50VXNlclJlcXVlc3QiNgoWR2V0Q3VycmVudFVzZXJSZXNwb25zZRIcCgR1c2VyGAEgASgLMg4udmVrc3QudjEuVXNlcjJmCg9JZGVudGl0eVNlcnZpY2USUwoOR2V0Q3VycmVudFVzZXISHy52ZWtzdC52MS5HZXRDdXJyZW50VXNlclJlcXVlc3QaIC52ZWtzdC52MS5HZXRDdXJyZW50VXNlclJlc3BvbnNlQjNaMWdpdGh1Yi5jb20vTXlhdURldi92ZWtzdC9jb3JlL2dlbi92ZWtzdC92MTt2ZWt0djFiBnByb3RvMw");
+  fileDesc("Chd2ZWtzdC92MS9pZGVudGl0eS5wcm90bxIIdmVrc3QudjEiPwoEVXNlchIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIMCgRuYW1lGAMgASgJEg4KBmxvY2FsZRgEIAEoCSIXChVHZXRDdXJyZW50VXNlclJlcXVlc3QiIgoGRW50aXR5EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkicQoMT3JnYW5pc2F0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSFQoNYmFzZV9jdXJyZW5jeRgDIAEoCRIMCgRyb2xlGAQgASgJEiIKCGVudGl0aWVzGAUgAygLMhAudmVrc3QudjEuRW50aXR5ImUKFkdldEN1cnJlbnRVc2VyUmVzcG9uc2USHAoEdXNlchgBIAEoCzIOLnZla3N0LnYxLlVzZXISLQoNb3JnYW5pc2F0aW9ucxgCIAMoCzIWLnZla3N0LnYxLk9yZ2FuaXNhdGlvbjJmCg9JZGVudGl0eVNlcnZpY2USUwoOR2V0Q3VycmVudFVzZXISHy52ZWtzdC52MS5HZXRDdXJyZW50VXNlclJlcXVlc3QaIC52ZWtzdC52MS5HZXRDdXJyZW50VXNlclJlc3BvbnNlQjNaMWdpdGh1Yi5jb20vTXlhdURldi92ZWtzdC9jb3JlL2dlbi92ZWtzdC92MTt2ZWt0djFiBnByb3RvMw");
 
 /**
- * User carries no organisation and no role, deliberately. There is no
- * organisation model until change 1.1, and a field that exists before it means
- * anything is a field the front end starts trusting. 1.1 extends this message;
- * buf breaking protects the addition.
+ * User carries no organisation and no role, deliberately, and still does not:
+ * change 5.3 (connect-app-end-to-end) adds the caller's organisations as a
+ * second field on GetCurrentUserResponse below, rather than on User itself --
+ * a person's identity and which organisations they belong to are different
+ * facts, and the second can change (or be empty, at first sign-in) without
+ * the first meaning anything different.
  *
  * @generated from message vekst.v1.User
  */
@@ -74,6 +76,81 @@ export const GetCurrentUserRequestSchema: GenMessage<GetCurrentUserRequest> = /*
   messageDesc(file_vekst_v1_identity, 1);
 
 /**
+ * One entity within an organisation. v1 gives every organisation exactly one
+ * (add-web-experience design), so this is a singleton list today, but it is
+ * a list because entity_id has existed since the first migration.
+ *
+ * @generated from message vekst.v1.Entity
+ */
+export type Entity = Message<"vekst.v1.Entity"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message vekst.v1.Entity.
+ * Use `create(EntitySchema)` to create a new message.
+ */
+export const EntitySchema: GenMessage<Entity> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_identity, 2);
+
+/**
+ * One organisation the caller belongs to, with their own role in it and its
+ * entities. v1 gives a person exactly one organisation
+ * (add-web-experience/design.md:147), so `organisations` below is a
+ * singleton list today for the same reason `entities` here is -- the field
+ * is repeated because the schema already allows more, not because the
+ * product does yet.
+ *
+ * @generated from message vekst.v1.Organisation
+ */
+export type Organisation = Message<"vekst.v1.Organisation"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string base_currency = 3;
+   */
+  baseCurrency: string;
+
+  /**
+   * The caller's own membership role. Returned rather than looked up again
+   * at enforcement time, because a second lookup later is how a
+   * stale-permissions bug is built (design D3 makes the same call for
+   * OrgIDForSession).
+   *
+   * @generated from field: string role = 4;
+   */
+  role: string;
+
+  /**
+   * @generated from field: repeated vekst.v1.Entity entities = 5;
+   */
+  entities: Entity[];
+};
+
+/**
+ * Describes the message vekst.v1.Organisation.
+ * Use `create(OrganisationSchema)` to create a new message.
+ */
+export const OrganisationSchema: GenMessage<Organisation> = /*@__PURE__*/
+  messageDesc(file_vekst_v1_identity, 3);
+
+/**
  * @generated from message vekst.v1.GetCurrentUserResponse
  */
 export type GetCurrentUserResponse = Message<"vekst.v1.GetCurrentUserResponse"> & {
@@ -81,6 +158,16 @@ export type GetCurrentUserResponse = Message<"vekst.v1.GetCurrentUserResponse"> 
    * @generated from field: vekst.v1.User user = 1;
    */
   user?: User;
+
+  /**
+   * Every organisation the caller holds a membership in. Empty means the
+   * caller has no organisation -- that is the first-run signal, and it is a
+   * fact rather than an error: a person who has just signed in for the first
+   * time has not failed at anything.
+   *
+   * @generated from field: repeated vekst.v1.Organisation organisations = 2;
+   */
+  organisations: Organisation[];
 };
 
 /**
@@ -88,7 +175,7 @@ export type GetCurrentUserResponse = Message<"vekst.v1.GetCurrentUserResponse"> 
  * Use `create(GetCurrentUserResponseSchema)` to create a new message.
  */
 export const GetCurrentUserResponseSchema: GenMessage<GetCurrentUserResponse> = /*@__PURE__*/
-  messageDesc(file_vekst_v1_identity, 2);
+  messageDesc(file_vekst_v1_identity, 4);
 
 /**
  * IdentityService is browser-facing, served over Connect. It answers "who is

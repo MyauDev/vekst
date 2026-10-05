@@ -6,21 +6,11 @@ import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { listBatches } from "../data/imports";
-import type { Batch } from "../data/imports";
 import { t } from "../i18n";
-import type { Locale } from "../i18n";
-import { formatPeriodShort } from "../ui/period";
 import { useLocale } from "../ui/preferences";
 import { BatchStateChip } from "../ui/StateChip";
 import { EmptyState, ErrorState, Loading } from "../ui/feedback";
 import { Upload } from "./Upload";
-
-function Period({ batch, locale }: Readonly<{ batch: Batch; locale: Locale }>) {
-  if (!batch.periodFrom || !batch.periodTo) return <span className="text-text-subtle">—</span>;
-  const from = formatPeriodShort(batch.periodFrom, locale);
-  const to = formatPeriodShort(batch.periodTo, locale);
-  return <span className="tabular">{from === to ? from : `${from} – ${to}`}</span>;
-}
 
 export function ImportsScreen() {
   const [locale] = useLocale();
@@ -52,7 +42,7 @@ export function ImportsScreen() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="h-10">
-                {(["file", "source", "state", "period", "uploaded"] as const).map((c) => (
+                {(["file", "source", "state", "uploaded"] as const).map((c) => (
                   <th
                     key={c}
                     scope="col"
@@ -61,9 +51,6 @@ export function ImportsScreen() {
                     {t(`imports.col.${c}`, locale)}
                   </th>
                 ))}
-                <th className="border-b border-border-strong px-3 text-right text-2xs font-medium uppercase tracking-widest text-text-subtle">
-                  {t("imports.counts.imported", locale)}
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -84,14 +71,8 @@ export function ImportsScreen() {
                   <td className="px-3">
                     <BatchStateChip state={b.state} locale={locale} />
                   </td>
-                  <td className="px-3">
-                    <Period batch={b} locale={locale} />
-                  </td>
                   <td className="tabular px-3 text-xs text-text-muted">
                     {b.uploadedAt.slice(0, 10)}
-                  </td>
-                  <td className="tabular px-3 text-right">
-                    {b.counts ? b.counts.rowsImported : <span className="text-text-subtle">—</span>}
                   </td>
                 </tr>
               ))}

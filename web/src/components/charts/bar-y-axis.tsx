@@ -47,11 +47,14 @@ function BarYAxisLabel({
           color: "var(--chart-label, var(--color-zinc-500))",
         }}
         // 70 in the published registry, sized for short analytics labels
-        // ("Chrome", "Direct"). Financial categories run longer ("Software
-        // and subscriptions"); there is no prop for this, so it is patched by
-        // hand -- pair with the wider `margin.left` the chart itself sets.
-        // Re-apply if `shadcn add --overwrite` ever touches this file again.
-        style={{ maxWidth: 190 }}
+        // ("Chrome", "Direct"). Financial section names run longer -- "Other
+        // income and expenses", "Финансовые доходы и расходы" -- since
+        // `app/lineName.ts` began resolving a readable name from the
+        // taxonomy code instead of printing the wire's abbreviation ("OIE",
+        // "FR"). There is no prop for this, so it is patched by hand -- pair
+        // with the wider `margin.left` the chart itself sets. Re-apply if
+        // `shadcn add --overwrite` ever touches this file again.
+        style={{ maxWidth: 220 }}
         transition={{ duration: 0.15 }}
       >
         {label}

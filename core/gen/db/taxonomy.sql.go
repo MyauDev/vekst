@@ -15,12 +15,11 @@ const categoryByCode = `-- name: CategoryByCode :one
 SELECT id, taxonomy_version, org_id, scope, code, parent_id, level, name,
        pnl_section, is_pnl, is_leaf, is_computed, formula, requires_allocation
 FROM categories
-WHERE taxonomy_version = $1 AND org_id IS NOT DISTINCT FROM $2 AND code = $3
+WHERE taxonomy_version = $1 AND code = $2
 `
 
 type CategoryByCodeParams struct {
 	TaxonomyVersion string
-	OrgID           pgtype.UUID
 	Code            string
 }
 
@@ -41,12 +40,12 @@ type CategoryByCodeRow struct {
 	RequiresAllocation bool
 }
 
-// One category by its natural key. `org_id IS NOT DISTINCT FROM $2` rather
-// than `=`: the shared rows carry NULL, and NULL = NULL is unknown, so the
-// ordinary comparison would never match exactly the rows every organisation
-// needs to reach.
+// One category by its natural key. No org_id predicate, same as
+// EffectiveTaxonomy above and for the same reason: RLS already admits a
+// shared row or this organisation's own, and a code is unique within
+// whichever of those it belongs to.
 func (q *Queries) CategoryByCode(ctx context.Context, arg CategoryByCodeParams) (CategoryByCodeRow, error) {
-	row := q.db.QueryRow(ctx, categoryByCode, arg.TaxonomyVersion, arg.OrgID, arg.Code)
+	row := q.db.QueryRow(ctx, categoryByCode, arg.TaxonomyVersion, arg.Code)
 	var i CategoryByCodeRow
 	err := row.Scan(
 		&i.ID,
@@ -212,4 +211,86 @@ func (q *Queries) EffectiveTaxonomy(ctx context.Context, taxonomyVersion string)
 		return nil, err
 	}
 	return items, nil
+}
+
+const industryTemplate = `-- name: IndustryTemplate :many
+SELECT taxonomy_version, code, parent_code, level, name, is_leaf, is_pnl
+FROM category_templates
+WHERE taxonomy_version = $1
+ORDER BY level, code
+`
+
+// Every category_templates row for one taxonomy version, in adoption order:
+// level ascending, then code. AdoptIndustryTemplate relies on the order -- a
+// level-5 leaf's parent is a level-4 row this same loop already inserted, so
+// the parent must exist before the child is reached. category_templates
+// carries no org_id and no policy (deploy/db/rls-exempt-tables.txt); it
+// belongs to nobody, so unlike every other query in this file there is no
+// tenant context to rely on and none to set.
+func (q *Queries) IndustryTemplate(ctx context.Context, taxonomyVersion string) ([]CategoryTemplate, error) {
+	rows, err := q.db.Query(ctx, industryTemplate, taxonomyVersion)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CategoryTemplate
+	for rows.Next() {
+		var i CategoryTemplate
+		if err := rows.Scan(
+			&i.TaxonomyVersion,
+			&i.Code,
+			&i.ParentCode,
+			&i.Level,
+			&i.Name,
+			&i.IsLeaf,
+			&i.IsPnl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const insertCategory = `-- name: InsertCategory :one
+INSERT INTO categories (taxonomy_version, org_id, scope, code, parent_id, level,
+                        name, is_leaf, is_pnl)
+VALUES ($1, $2, 'org', $3, $4, $5, $6, $7, $8)
+RETURNING id
+`
+
+type InsertCategoryParams struct {
+	TaxonomyVersion string
+	OrgID           pgtype.UUID
+	Code            string
+	ParentID        pgtype.UUID
+	Level           int16
+	Name            string
+	IsLeaf          bool
+	IsPnl           bool
+}
+
+// An organisation's own category row -- adopted from the industry template,
+// or any other org-scoped category a later change writes. parent_id is
+// resolved by the caller (tenancy.AdoptIndustryTemplate): it may point at a
+// shared row or at this same organisation's own, and this query does not
+// know which -- categories_parent_is_visible is the trigger that refuses a
+// wrong answer, at the database's own insistence rather than this query's.
+func (q *Queries) InsertCategory(ctx context.Context, arg InsertCategoryParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertCategory,
+		arg.TaxonomyVersion,
+		arg.OrgID,
+		arg.Code,
+		arg.ParentID,
+		arg.Level,
+		arg.Name,
+		arg.IsLeaf,
+		arg.IsPnl,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }

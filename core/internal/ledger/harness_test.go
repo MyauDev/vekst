@@ -179,7 +179,6 @@ func testCategoryID(t *testing.T, d *db.DB, org db.OrgID, code string) uuid.UUID
 	err := d.InTx(context.Background(), org, func(ctx context.Context, tx pgx.Tx) error {
 		row, err := gendb.New(tx).CategoryByCode(ctx, gendb.CategoryByCodeParams{
 			TaxonomyVersion: "v1",
-			OrgID:           pgtype.UUID{Valid: false},
 			Code:            code,
 		})
 		if err != nil {

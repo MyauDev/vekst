@@ -16,6 +16,7 @@ import { ChartTooltip } from "@/components/charts/tooltip";
 import { NO_DATA, exponentOf, formatMinorUnits } from "../../money";
 import type { Locale } from "../../i18n";
 import type { Report } from "../../data/report";
+import { lineName } from "../lineName";
 import { ChartShell } from "./ChartShell";
 import { CategoryTable } from "./ChartTable";
 import { chartsAnimate, foldTopN } from "./support";
@@ -27,18 +28,36 @@ interface Row {
   categoryId: string;
 }
 
-function rows(report: Report, locale: Locale) {
+/**
+ * One bar per non-revenue, non-computed line -- the real `GetManagementPNL`
+ * has no category-level breakdown at all (`core/internal/report/pnl.go`'s
+ * `Order` is twelve rows: seven sections and five computed results, never
+ * one row per leaf category), so this chart's bars are section totals
+ * (CS, OCS, OPEX, OIE, FR, CIT) rather than the individual expense
+ * categories the fixture invented. Coarser than before, and real.
+ *
+ * `pnl.go`'s own `present()` prints a cost section positive -- "a cost is
+ * negative in the store and positive on the page" -- but that inversion runs
+ * both ways: a section that nets to a *credit* for the range (a currency
+ * gain booked under Financial result, a refund under Cost of Sales) comes
+ * back negative, on purpose, because it was not a cost that period. This is
+ * "top expense categories", not "top category magnitudes" -- a line that
+ * prints negative here is not an expense at all, however large, and
+ * `Math.abs()`-ing it back to positive would draw a real gain as though it
+ * were this range's second-biggest cost. Excluded, not flipped.
+ */
+export function rows(report: Report, locale: Locale) {
   const exp = exponentOf(report.currencyCode);
-  const sliced: Sliced<Row>[] = report.sections
-    .filter((s) => s.id !== "revenue")
-    .flatMap((s) => s.lines)
-    .filter((line) => line.total !== null)
+  const sliced: Sliced<Row>[] = report.lines
+    .filter((line) => !line.computed && line.categoryId !== "01")
+    .filter((line) => BigInt(line.total.minorUnits) > 0n)
     .map((line) => {
-      const minor = BigInt(line.total!.minorUnits);
-      const magnitude = minor < 0n ? -minor : minor;
+      const minor = BigInt(line.total.minorUnits);
       return {
-        label: line.label,
-        value: exp === undefined ? 0 : Number(magnitude) / 10 ** exp,
+        // The readable name, never the wire's abbreviation: a bar labelled
+        // "OIE" is a bar nobody can act on. See `app/lineName.ts`.
+        label: lineName(line.categoryId, line.label, locale),
+        value: exp === undefined ? 0 : Number(minor) / 10 ** exp,
         item: { categoryId: line.categoryId },
       };
     });
@@ -68,6 +87,7 @@ export function ExpenseCategoriesChart({
   return (
     <ChartShell
       titleKey="chart.expenses.title"
+      noteKey="chart.expenses.note"
       locale={locale}
       hasData={data.length > 0}
       table={<CategoryTable rows={data.map(({ name, text }) => ({ label: name, text }))} locale={locale} />}
@@ -77,10 +97,11 @@ export function ExpenseCategoriesChart({
           xDataKey="name"
           orientation="horizontal"
           aspectRatio="2.4 / 1"
-          // Wide enough for the longest category label ("Software and
-          // subscriptions") at BarYAxis's patched 190px cap -- see the
-          // comment there.
-          margin={{ left: 200, right: 16, top: 8, bottom: 8 }}
+          // Wide enough for the longest section name in either language
+          // ("Other income and expenses", "Финансовые доходы и расходы") at
+          // BarYAxis's patched 220px cap -- see the comment there. The two
+          // numbers move together or a label truncates.
+          margin={{ left: 236, right: 16, top: 8, bottom: 8 }}
           animationDuration={chartsAnimate() ? 600 : 0}
         >
           <Grid horizontal={false} vertical />

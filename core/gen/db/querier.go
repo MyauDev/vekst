@@ -24,10 +24,24 @@ type Querier interface {
 	// migrations (design D6/Q5), and fails naming both when the schema is
 	// behind.
 	AppliedMigrationVersion(ctx context.Context) (int64, error)
-	// One category by its natural key. `org_id IS NOT DISTINCT FROM $2` rather
-	// than `=`: the shared rows carry NULL, and NULL = NULL is unknown, so the
-	// ordinary comparison would never match exactly the rows every organisation
-	// needs to reach.
+	// Every row a batch persisted, in file order, each with its live
+	// classification -- the column list is drilldown.sql's LineTransactions,
+	// copied rather than shared (sqlc emits static SQL, so a shared fragment is
+	// not available), because a person opening a batch wants the same
+	// provenance a report's drill-down shows, from the opposite direction: here
+	// the file is given and the category is what is being checked, not the
+	// other way round.
+	//
+	// Ordered by line_no, not booked_on: this is "what did this product do with
+	// my file", read the way the file itself reads, not the way a report
+	// would. The classification join is LEFT, same reasoning as
+	// LineTransactions -- a row the review queue has not reached yet still
+	// belongs in this list, with an empty category rather than a missing row.
+	BatchTransactions(ctx context.Context, batchID pgtype.UUID) ([]BatchTransactionsRow, error)
+	// One category by its natural key. No org_id predicate, same as
+	// EffectiveTaxonomy above and for the same reason: RLS already admits a
+	// shared row or this organisation's own, and a code is unique within
+	// whichever of those it belongs to.
 	CategoryByCode(ctx context.Context, arg CategoryByCodeParams) (CategoryByCodeRow, error)
 	// What a classification may target, and the only list change 3.2 sends to the
 	// classifier.
@@ -206,8 +220,23 @@ type Querier interface {
 	// and the policy supplies the org_id half, the same shape as ingest.sql's
 	// GetImportBatch.
 	GetValidationForBatch(ctx context.Context, batchID pgtype.UUID) (ImportValidation, error)
+	// Every category_templates row for one taxonomy version, in adoption order:
+	// level ascending, then code. AdoptIndustryTemplate relies on the order -- a
+	// level-5 leaf's parent is a level-4 row this same loop already inserted, so
+	// the parent must exist before the child is reached. category_templates
+	// carries no org_id and no policy (deploy/db/rls-exempt-tables.txt); it
+	// belongs to nobody, so unlike every other query in this file there is no
+	// tenant context to rely on and none to set.
+	IndustryTemplate(ctx context.Context, taxonomyVersion string) ([]CategoryTemplate, error)
 	InsertAccount(ctx context.Context, arg InsertAccountParams) (Account, error)
 	InsertAuthFlow(ctx context.Context, arg InsertAuthFlowParams) (pgtype.UUID, error)
+	// An organisation's own category row -- adopted from the industry template,
+	// or any other org-scoped category a later change writes. parent_id is
+	// resolved by the caller (tenancy.AdoptIndustryTemplate): it may point at a
+	// shared row or at this same organisation's own, and this query does not
+	// know which -- categories_parent_is_visible is the trigger that refuses a
+	// wrong answer, at the database's own insistence rather than this query's.
+	InsertCategory(ctx context.Context, arg InsertCategoryParams) (pgtype.UUID, error)
 	// A correction is an insert plus a pointer, never an update: this is the
 	// insert half.
 	InsertClassification(ctx context.Context, arg InsertClassificationParams) (Classification, error)

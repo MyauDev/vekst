@@ -45,5 +45,7 @@ export interface Provenance {
   engineVersion: string;
 }
 
-/** Which engine layer decided a classification. L0 is deterministic; L2 is not. */
-export type EngineLayer = "L0" | "L0.5" | "L1" | "L2" | "L3";
+/** Which engine layer decided a classification. L0 is deterministic; L2 is
+ *  not; "human" is a person, not a layer of the engine at all -- the wire's
+ *  `engine_layer` carries it as the same string field regardless. */
+export type EngineLayer = "L0" | "L0.5" | "L1" | "L2" | "L3" | "human";

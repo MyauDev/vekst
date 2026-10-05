@@ -11,6 +11,99 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const batchTransactions = `-- name: BatchTransactions :many
+SELECT t.id, t.booked_on, t.line_no, t.posting_no, t.document_ref,
+       t.amount_minor, t.currency, t.base_amount_minor, t.base_currency,
+       t.counterparty_raw, t.description_raw, t.regulated_code, t.source_kind,
+       coalesce(cat.code, '')::text          AS category_code,
+       coalesce(cat.name, '')::text          AS category_name,
+       coalesce(c.engine_layer, '')::text    AS engine_layer,
+       c.confidence,
+       coalesce(c.evidence, '')::text        AS evidence
+  FROM transactions t
+  LEFT JOIN classifications c
+    ON c.org_id = t.org_id
+   AND c.transaction_id = t.id
+   AND c.superseded_by IS NULL
+   AND c.retracted_at IS NULL
+  LEFT JOIN categories cat ON cat.id = c.category_id
+ WHERE t.batch_id = $1
+ ORDER BY t.line_no, t.posting_no
+`
+
+type BatchTransactionsRow struct {
+	ID              pgtype.UUID
+	BookedOn        pgtype.Date
+	LineNo          int32
+	PostingNo       int32
+	DocumentRef     pgtype.Text
+	AmountMinor     int64
+	Currency        string
+	BaseAmountMinor pgtype.Int8
+	BaseCurrency    pgtype.Text
+	CounterpartyRaw string
+	DescriptionRaw  string
+	RegulatedCode   string
+	SourceKind      string
+	CategoryCode    string
+	CategoryName    string
+	EngineLayer     string
+	Confidence      pgtype.Numeric
+	Evidence        string
+}
+
+// Every row a batch persisted, in file order, each with its live
+// classification -- the column list is drilldown.sql's LineTransactions,
+// copied rather than shared (sqlc emits static SQL, so a shared fragment is
+// not available), because a person opening a batch wants the same
+// provenance a report's drill-down shows, from the opposite direction: here
+// the file is given and the category is what is being checked, not the
+// other way round.
+//
+// Ordered by line_no, not booked_on: this is "what did this product do with
+// my file", read the way the file itself reads, not the way a report
+// would. The classification join is LEFT, same reasoning as
+// LineTransactions -- a row the review queue has not reached yet still
+// belongs in this list, with an empty category rather than a missing row.
+func (q *Queries) BatchTransactions(ctx context.Context, batchID pgtype.UUID) ([]BatchTransactionsRow, error) {
+	rows, err := q.db.Query(ctx, batchTransactions, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BatchTransactionsRow
+	for rows.Next() {
+		var i BatchTransactionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookedOn,
+			&i.LineNo,
+			&i.PostingNo,
+			&i.DocumentRef,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.BaseAmountMinor,
+			&i.BaseCurrency,
+			&i.CounterpartyRaw,
+			&i.DescriptionRaw,
+			&i.RegulatedCode,
+			&i.SourceKind,
+			&i.CategoryCode,
+			&i.CategoryName,
+			&i.EngineLayer,
+			&i.Confidence,
+			&i.Evidence,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countTransactionsForBatch = `-- name: CountTransactionsForBatch :one
 SELECT count(*) FROM transactions WHERE batch_id = $1
 `

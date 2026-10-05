@@ -16,11 +16,13 @@ set -euo pipefail
 
 seed_categories="eval/out/seed_categories.sql"
 seed_rules="eval/out/seed_rules.sql"
+industry_template="eval/out/industry_template.sql"
 migration="core/migrations/00005_classification_taxonomy.sql"
 migration_rules="core/migrations/00006_classification_rules.sql"
+migration_templates="core/migrations/00018_category_templates_and_currencies.sql"
 status=0
 
-for f in "$seed_categories" "$seed_rules" "$migration" "$migration_rules"; do
+for f in "$seed_categories" "$seed_rules" "$industry_template" "$migration" "$migration_rules" "$migration_templates"; do
   if [[ ! -f $f ]]; then
     echo "check-taxonomy-seed: $f is missing" >&2
     exit 1
@@ -28,6 +30,9 @@ for f in "$seed_categories" "$seed_rules" "$migration" "$migration_rules"; do
 done
 
 # The seeded rows, as they appear in both files: "  ('v1', '0401', ..." .
+# Also matches an industry-template row -- both start the same way, and the
+# two migrations they are compared against never overlap, so the shared
+# pattern is not a problem in practice.
 rows_in() { grep -E "^  \('v1', " "$1" || true; }
 
 # The same, for a rule: "  (NULL::uuid, 'country:BY', 1, ..." .
@@ -43,6 +48,21 @@ if ! diff <(rows_in "$seed_categories") <(rows_in "$migration") >/dev/null; then
   echo "check-taxonomy-seed: $migration no longer matches $seed_categories." >&2
   echo "  Re-run 'python eval/emit.py' and copy the INSERT block into the migration." >&2
   diff <(rows_in "$seed_categories") <(rows_in "$migration") | head -20 >&2
+  status=1
+fi
+
+# --- 1b. Migration 00018's copy of the industry template matches the --------
+#     generator's
+#
+# Same reason as check 1, a second seed over. write_industry_template_sql()
+# reads eval/out/industry_template.csv directly, so it needs no source
+# outside the repository and could in principle be re-run and diffed against
+# eval/out/industry_template.sql -- this check only carries that comparison
+# one step further, into the migration that embeds it.
+if ! diff <(rows_in "$industry_template") <(rows_in "$migration_templates") >/dev/null; then
+  echo "check-taxonomy-seed: $migration_templates no longer matches $industry_template." >&2
+  echo "  Re-run 'python eval/emit.py' and copy the INSERT block into the migration." >&2
+  diff <(rows_in "$industry_template") <(rows_in "$migration_templates") | head -20 >&2
   status=1
 fi
 
