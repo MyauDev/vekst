@@ -21,7 +21,11 @@ spec:
     spec:
       containers:
         - name: minio
-          image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+          # A community-maintained build of the same server: upstream MinIO
+          # stopped publishing images, and quay.io/minio/* and minio/* on
+          # Docker Hub now refuse anonymous pulls for every tag. CI's
+          # "start MinIO" steps pin the same tag.
+          image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
           args: ["server", "/data"]
           env:
             # Throwaway local credentials, committed exactly like Postgres's
@@ -76,7 +80,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: create-bucket
-          image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+          image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
           command:
             - sh
             - -c
