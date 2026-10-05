@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { authErrorMessage, resolveLocale, t } from "./i18n";
+import { authErrorMessage, messages, resolveLocale, t } from "./i18n";
 
 describe("i18n", () => {
   it("carries every key in both languages", () => {
@@ -11,6 +14,36 @@ describe("i18n", () => {
     expect(en).toBeTruthy();
     expect(ru).toBeTruthy();
     expect(ru).not.toBe(en);
+  });
+
+  it("holds exactly the same keys in en and ru", () => {
+    // The catalogue is typed against `en`, so a key missing from `ru` is not a
+    // compile error -- it is `undefined` on screen for every Russian reader.
+    const en = Object.keys(messages.en).sort();
+    const ru = Object.keys(messages.ru).sort();
+    expect(ru.filter((k) => !en.includes(k)), "in ru, not in en").toEqual([]);
+    expect(en.filter((k) => !ru.includes(k)), "in en, not in ru").toEqual([]);
+    for (const [key, value] of Object.entries(messages.ru)) {
+      expect(value, `empty ru value for ${key}`).toBeTruthy();
+    }
+  });
+
+  it("never spells the brand Vekst on screen", () => {
+    // `Veekst` on screen, `vekst` in every identifier. Only a check that
+    // knows which is which keeps the two from drifting back together.
+    const html = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "..", "index.html"),
+      "utf8",
+    );
+    const surfaces: [string, string][] = [
+      ...Object.entries(messages.en).map(([k, v]): [string, string] => [`en ${k}`, v]),
+      ...Object.entries(messages.ru).map(([k, v]): [string, string] => [`ru ${k}`, v]),
+      ["index.html", html],
+    ];
+    for (const [where, text] of surfaces) {
+      expect(text, where).not.toMatch(/Vekst/);
+    }
+    expect(t("app.title", "en")).toBe("Veekst");
   });
 
   it("falls back to English for a locale the product does not carry", () => {

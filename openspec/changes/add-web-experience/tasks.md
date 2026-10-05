@@ -246,7 +246,7 @@ Do not pick a colour here. Every rule below exists because the validator or `WOR
 
 ## 9. Contract, i18n and close — B for 9.1, else A
 
-- [ ] 9.1 Extend `User` in `proto/vekst/v1/identity.proto` with the organisation identifier and
+- [x] 9.1 Extend `User` in `proto/vekst/v1/identity.proto` with the organisation identifier and
       name and the entity identifier; `make gen`; populate it **from the session** in the
       handler, never from a request field. **Both reviewers.** Apply after
       `add-tenancy-and-rls` (design D10).
@@ -254,14 +254,23 @@ Do not pick a colour here. Every rule below exists because the validator or `WOR
       "Signing in grants no access to data" says the response carries *no* organisation, and
       that was correct until tenancy existed. No role field — roles are Product, and a field
       the front end can read is a field it starts trusting
-- [ ] 9.2 Read organisation and entity from `GetCurrentUser` in `TopBar`, replacing the labels
+      **Superseded by change 5.3 (`connect-app-end-to-end`, PR #14).** `User` stayed as it
+      was; `GetCurrentUser` carries the caller's organisations beside it, each with its
+      entities and base currency, resolved from the session. That change's MODIFIED
+      requirement replaced "Signing in grants no access to data" in
+      `openspec/specs/identity-access`, so this change's `identity-access` delta is stale and
+      is dropped when the change is archived rather than applied
+- [x] 9.2 Read organisation and entity from `GetCurrentUser` in `TopBar`, replacing the labels
       from §2.6
+      **Done by change 5.3.** `AppLayout` passes `organisations[0]` and its first entity to
+      `TopBar` as labels
 - [ ] 9.3 Decide whether `src/i18n.ts` stays or a library replaces it, then move every string
       this change added into whichever it is. The ingest error catalog stays out — blocked by
       2.3
-- [ ] 9.4 Test: every message key present in one language is present in the other. The
+- [x] 9.4 Test: every message key present in one language is present in the other. The
       catalogue is typed against `en`, so a missing `ru` key is a runtime hole rather than a
       compile error
+      `src/i18n.test.ts`: "holds exactly the same keys in en and ru", plus no empty `ru` value
 - [ ] 9.5 Have the `ru` state words in `DESIGN.md` §7 checked by a native speaker. They are a
       draft by a non-native writer and this change is the first to render them
 - [ ] 9.6 Add the Inter woff2 subsets under `web/public/fonts/` and declare them. The block was
@@ -282,11 +291,17 @@ Do not pick a colour here. Every rule below exists because the validator or `WOR
         unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
       }
       ```
-- [ ] 9.7 Delete `web/src/mock/` and `web/mock.html`. Nothing else references either
-- [ ] 9.8 Add `/web` ownership lines to `.github/CODEOWNERS`
-- [ ] 9.9 Test: no user-facing string spells the brand `Vekst`. The two spellings are
+- [x] 9.7 Delete `web/src/mock/` and `web/mock.html`. Nothing else references either
+      Done, with the two exclusions that pointed at it: `vite.config.ts` coverage and
+      `scripts/check-web-tokens.sh`
+- [x] 9.8 Add `/web` ownership lines to `.github/CODEOWNERS`
+      `/web/` under its own heading; the duplicated Track B lines for `report` and
+      `classifyrun` removed while there
+- [x] 9.9 Test: no user-facing string spells the brand `Vekst`. The two spellings are
       deliberate — `Veekst` on screen, `vekst` in every identifier — and the only thing that
       keeps them from drifting back together is a check that knows which is which
+      `src/i18n.test.ts`: "never spells the brand Vekst on screen" — both catalogues and
+      `index.html`
 - [ ] 9.10 Update `docs/FRONTEND_PLAN.md`: gaps 1–11 closed or reassigned, and §3's change list
       replaced by what was actually built
 - [ ] 9.11 `make ci` green

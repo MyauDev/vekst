@@ -41,9 +41,12 @@
 /core/internal/classifyrun/  @MyauDev/admin
 /core/internal/normalize/    @MyauDev/admin
 /core/internal/review/       @MyauDev/admin
-/core/internal/report/       @MyauDev/admin
-/core/internal/classifyrun/  @MyauDev/admin
 /classifier/                 @MyauDev/admin
+
+# --- Web ---------------------------------------------------------------------
+# The browser client. web/src/gen is generated and drift-checked in CI, so it
+# needs no owner of its own.
+/web/                        @MyauDev/admin
 
 # --- Both reviewers required (branch protection enforces the count) -------
 # Contracts and deployment shape. A change here reaches every service.

@@ -28,8 +28,7 @@ if [ ! -f "$TOKENS" ]; then
   exit 1
 fi
 
-# Generated clients are not ours. The mock is scheduled for deletion with 5.2
-# and holds its own isolated token layer on purpose (web/src/mock/README.md).
+# Generated clients are not ours.
 # src/components/** is vendored third-party source: bklit charts, copied in by
 # the shadcn registry CLI rather than written here. The token rule is about
 # what *we* write -- a vendored file cannot be edited to satisfy it without
@@ -39,7 +38,7 @@ fi
 sources() {
   find "$SRC" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \) \
     -not -path "$SRC/gen/*" \
-    -not -path "$SRC/mock/*" \
+\
     -not -path "$SRC/components/*" \
     -not -path "$SRC/lib/*" \
     -not -path "$TOKENS" \

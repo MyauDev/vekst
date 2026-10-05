@@ -9,7 +9,9 @@
  */
 export type Locale = "en" | "ru";
 
-const messages = {
+// Exported for the parity and brand-spelling tests in i18n.test.ts; screens go
+// through t().
+export const messages = {
   en: {
     "app.title": "Veekst",
     "app.tagline": "Management reporting for owner-run companies.",

@@ -374,9 +374,12 @@ review halves are Track B's). §8–§9 are Track A. **Do not both edit
   `report.blocked.mixed_sources_no_match`, `drilldown.unavailable`). Verified by exact
   count, not just spot-checked: both blocks hold precisely 206 keys, zero in one and not
   the other.
-- [ ] 9.2 Update `docs/ARCHITECTURE.md` with the onboarding path and the template
-  adoption, and `docs/IMPLEMENTATION_PLAN.md` §3 with this change as 5.3.
-- [ ] 9.3 Update the capability spec and run the full suite.
+- [x] 9.2 Update `docs/ARCHITECTURE.md` with the onboarding path and the template
+  adoption, and `docs/IMPLEMENTATION_PLAN.md` §3 with this change as 5.3. `ARCHITECTURE.md`
+  §7.1 already carried both, written during implementation; the plan's 5.3 row now says
+  merged and archived instead of "no PR opened"
+- [x] 9.3 Update the capability spec and run the full suite. The three delta specs were
+  already synced into `openspec/specs/` by PR #14; only the archival was missing
 - [x] 9.4 Both doc fixes made: `docs/IMPLEMENTATION_PLAN.md`'s D-11 row marked Closed,
   citing where "Veekst" was actually decided and shipped; CLAUDE.md's Money invariant
   corrected to say `transactions` already stores amounts (change 2.5, merged), and that
